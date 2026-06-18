@@ -4,12 +4,13 @@
 
 ## 2026-06-19
 
-Задача: подключить Filament, seeders, API справочников и первичный legacy metadata importer.
+Задача: подключить Filament, seeders, API справочников и первичные legacy importers.
 
 Изменённые файлы:
 
 ```text
 app/Console/Commands/ImportLegacyMetadata.php
+app/Console/Commands/ImportLegacyVerses.php
 app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
 app/Models/*
@@ -34,13 +35,16 @@ CHANGELOG.md
 * Vue reader shell подключён к API справочников;
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
+* добавлена команда `bible:legacy:import-verses --library=1`;
+* verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
 * добавлены тесты seeders, API и SQL dump reader;
 * `.gitignore` дополнен локальными SQLite/test артефактами.
 
 Результат:
 
 * `route:list` видит `/admin/*` и `/api/*`;
-* на реальном `OLD/bible-desktop.sql` importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
+* на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
+* RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
 * проверки проходят: PHPUnit 6 tests / 24 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---

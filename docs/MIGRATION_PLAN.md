@@ -384,6 +384,7 @@ php artisan bible:migrate-quotes
 
 * короткие имена из ТЗ можно сохранить позже как aliases;
 * основные команды называются `bible:legacy:*`, чтобы было ясно, что это импорт из старой системы.
+* текущий verse importer параметризован по одной библиотеке: `php artisan bible:legacy:import-verses --library=1`.
 
 ---
 
