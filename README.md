@@ -74,6 +74,7 @@ Telegram Mini App
 .\tools\artisan.ps1 migrate --seed
 .\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:import-verses --library=1
+.\tools\artisan.ps1 bible:legacy:import-strong
 ```
 
 Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`.
@@ -97,8 +98,8 @@ npm run build
 
 ## Ближайший фокус
 
-1. Подготовить импорт `quote` и Strong tokens.
-2. Расширить Filament для переводов и legacy mapping.
-3. Подготовить полноценный reader flow: выбор перевода, книги и главы.
-4. Подготовить импорт остальных поддерживаемых переводов.
-5. Подготовить Telegram Bot MVP skeleton.
+1. Подготовить импорт Strong tokens из RST-разметки.
+2. Подготовить импорт `quote` / cross references.
+3. Расширить Filament для переводов и legacy mapping.
+4. Подготовить полноценный reader flow: выбор перевода, книги и главы.
+5. Подготовить импорт остальных поддерживаемых переводов.

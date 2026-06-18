@@ -11,6 +11,7 @@
 ```text
 app/Console/Commands/ImportLegacyMetadata.php
 app/Console/Commands/ImportLegacyVerses.php
+app/Console/Commands/ImportLegacyStrong.php
 app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
 app/Http/Controllers/Api/ChapterController.php
@@ -40,6 +41,7 @@ CHANGELOG.md
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
 * добавлена команда `bible:legacy:import-verses --library=1`;
 * verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
+* добавлена команда `bible:legacy:import-strong` для `strong_lexicons` и `strong_numbers`;
 * добавлены тесты seeders, API и SQL dump reader;
 * `.gitignore` дополнен локальными SQLite/test артефактами.
 
@@ -48,6 +50,7 @@ CHANGELOG.md
 * `route:list` видит `/admin/*` и `/api/*`;
 * на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
+* Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
 * проверки проходят: PHPUnit 7 tests / 32 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---

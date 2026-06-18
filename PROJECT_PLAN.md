@@ -334,7 +334,7 @@ verse_texts
 * импортировать книги - выполнено для supported Bible modules через `bible:legacy:import-metadata`;
 * импортировать главы - выполнено для supported Bible modules через `bible:legacy:import-metadata`;
 * импортировать стихи - начато, `bible:legacy:import-verses --library=1` переносит RST;
-* импортировать Strong;
+* импортировать Strong - начато, словари импортируются через `bible:legacy:import-strong`;
 * импортировать перекрёстные ссылки.
 
 Команды:
@@ -342,7 +342,7 @@ verse_texts
 ```text
 php artisan bible:legacy:import-metadata
 php artisan bible:legacy:import-verses --library=1
-php artisan bible:migrate-strong
+php artisan bible:legacy:import-strong
 php artisan bible:migrate-quotes
 ```
 
