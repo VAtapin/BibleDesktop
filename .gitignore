@@ -1,0 +1,29 @@
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Build artifacts
+/public/build/
+/dist/
+
+# Runtime and cache
+/storage/*.key
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/logs/
+/bootstrap/cache/*.php
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Legacy source reference. Keep locally only, do not commit.
+/OLD/
