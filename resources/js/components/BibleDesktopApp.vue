@@ -26,6 +26,13 @@ type Verse = {
     text: string;
 };
 
+type ChapterDto = {
+    verses: Array<{
+        number: number;
+        text: string;
+    }>;
+};
+
 type Tab = {
     title: string;
     locked?: boolean;
@@ -43,7 +50,7 @@ const tabs: Tab[] = [
     { title: 'Второзаконие 28', locked: true },
 ];
 
-const verses: Verse[] = [
+const demoVerses: Verse[] = [
     {
         number: 1,
         text: 'Откровение Иисуса Христа, которое дал Ему Бог, чтобы показать рабам Своим, чему надлежит быть вскоре.',
@@ -77,6 +84,7 @@ const verses: Verse[] = [
         text: 'Я есмь Альфа и Омега, начало и конец, говорит Господь, Который есть и был и грядет.',
     },
 ];
+const currentVerses = ref<Verse[]>(demoVerses);
 
 const tools = ['M', 'B', 'R', 'P', 'S#'];
 
@@ -84,7 +92,7 @@ const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Ру
 const visibleBooks = computed(() => books.value.slice(0, 12));
 
 const currentBook = computed(() => {
-    return books.value.find((book) => book.slug === 'revelation') ?? books.value[0] ?? null;
+    return books.value.find((book) => book.slug === 'genesis') ?? books.value[0] ?? null;
 });
 
 async function loadJson<T>(url: string): Promise<T> {
@@ -110,6 +118,13 @@ onMounted(async () => {
 
         languages.value = languagesResponse.data;
         books.value = booksResponse.data.books;
+
+        try {
+            const chapterResponse = await loadJson<ApiResponse<ChapterDto>>('/api/translations/L1_RST/books/genesis/chapters/1');
+            currentVerses.value = chapterResponse.data.verses;
+        } catch {
+            currentVerses.value = demoVerses;
+        }
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
     } finally {
@@ -194,7 +209,7 @@ onMounted(async () => {
                 </div>
 
                 <article class="chapter">
-                    <p v-for="verse in verses" :key="verse.number">
+                    <p v-for="verse in currentVerses" :key="verse.number">
                         <button type="button" class="verse-number">{{ verse.number }}</button>
                         <span>{{ verse.text }}</span>
                     </p>

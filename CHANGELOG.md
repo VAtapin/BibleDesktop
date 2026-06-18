@@ -13,6 +13,7 @@ app/Console/Commands/ImportLegacyMetadata.php
 app/Console/Commands/ImportLegacyVerses.php
 app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
+app/Http/Controllers/Api/ChapterController.php
 app/Models/*
 app/Support/LegacySqlDump.php
 bootstrap/app.php
@@ -32,7 +33,9 @@ CHANGELOG.md
 * добавлены Filament resources для языков, канонов и канонических книг;
 * добавлены seeders для 5 языков и 77-книжного православного канона;
 * добавлены API endpoints `GET /api/languages` и `GET /api/canons/{canon}/books`;
+* добавлен API endpoint `GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}`;
 * Vue reader shell подключён к API справочников;
+* Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
 * добавлена команда `bible:legacy:import-verses --library=1`;
@@ -45,7 +48,7 @@ CHANGELOG.md
 * `route:list` видит `/admin/*` и `/api/*`;
 * на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
-* проверки проходят: PHPUnit 6 tests / 24 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
+* проверки проходят: PHPUnit 7 tests / 32 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---
 
