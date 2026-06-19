@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона и первичный legacy metadata importer.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, первичные legacy importers и первый перенос RST/Strong данных.
 
 Основные документы:
 
@@ -75,9 +75,10 @@ Telegram Mini App
 .\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:import-verses --library=1
 .\tools\artisan.ps1 bible:legacy:import-strong
+.\tools\artisan.ps1 bible:legacy:import-strong-tokens --translation=L1_RST
 ```
 
-Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`.
+Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`.
 
 Frontend:
 
@@ -98,8 +99,8 @@ npm run build
 
 ## Ближайший фокус
 
-1. Подготовить импорт Strong tokens из RST-разметки.
-2. Подготовить импорт `quote` / cross references.
-3. Расширить Filament для переводов и legacy mapping.
-4. Подготовить полноценный reader flow: выбор перевода, книги и главы.
-5. Подготовить импорт остальных поддерживаемых переводов.
+1. Подготовить импорт `quote` / cross references.
+2. Расширить Filament для переводов и legacy mapping.
+3. Подготовить полноценный reader flow: выбор перевода, книги и главы.
+4. Подготовить импорт остальных поддерживаемых переводов.
+5. Подготовить Telegram Bot MVP skeleton.

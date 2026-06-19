@@ -12,6 +12,7 @@
 app/Console/Commands/ImportLegacyMetadata.php
 app/Console/Commands/ImportLegacyVerses.php
 app/Console/Commands/ImportLegacyStrong.php
+app/Console/Commands/ImportLegacyStrongTokens.php
 app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
 app/Http/Controllers/Api/ChapterController.php
@@ -42,6 +43,7 @@ CHANGELOG.md
 * добавлена команда `bible:legacy:import-verses --library=1`;
 * verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
 * добавлена команда `bible:legacy:import-strong` для `strong_lexicons` и `strong_numbers`;
+* добавлена команда `bible:legacy:import-strong-tokens --translation=L1_RST` для переноса Strong-маркеров из `verse_texts.text_raw` в `verse_strong_tokens`;
 * добавлены тесты seeders, API и SQL dump reader;
 * `.gitignore` дополнен локальными SQLite/test артефактами.
 
@@ -51,6 +53,7 @@ CHANGELOG.md
 * на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
+* Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
 * проверки проходят: PHPUnit 7 tests / 32 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---

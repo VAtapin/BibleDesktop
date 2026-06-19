@@ -220,7 +220,7 @@ Processing:
 2. Найти или создать canonical `verse`.
 3. Создать `verse_text`.
 4. Очистить номер стиха в начале текста, если он дублируется.
-5. Извлечь Strong-маркеры.
+5. Извлечь Strong-маркеры отдельной командой.
 6. Создать `verse_strong_tokens`.
 
 ---
@@ -365,6 +365,7 @@ php artisan bible:legacy:import-metadata
 ```text
 php artisan bible:legacy:import-verses
 php artisan bible:legacy:import-strong
+php artisan bible:legacy:import-strong-tokens
 php artisan bible:legacy:import-cross-references
 php artisan bible:legacy:import-all
 ```
@@ -385,6 +386,8 @@ php artisan bible:migrate-quotes
 * короткие имена из ТЗ можно сохранить позже как aliases;
 * основные команды называются `bible:legacy:*`, чтобы было ясно, что это импорт из старой системы.
 * текущий verse importer параметризован по одной библиотеке: `php artisan bible:legacy:import-verses --library=1`.
+* Strong dictionaries importer готов: `php artisan bible:legacy:import-strong`.
+* Strong token importer готов для первого вертикального среза: `php artisan bible:legacy:import-strong-tokens --translation=L1_RST`.
 
 ---
 
@@ -399,3 +402,4 @@ php artisan bible:migrate-quotes
 * `quote` для Genesis 1:1 создаёт cross references;
 * Strong `H0430` находится в словаре и связан с RST verses;
 * `text_plain` не содержит Strong-маркеров.
+* `Gen.1.1` имеет Strong-токены в `verse_strong_tokens`.
