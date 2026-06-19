@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ReferenceDataController;
 use App\Http\Controllers\Api\ChapterController;
 use App\Http\Controllers\Api\StudyDataController;
 use App\Http\Controllers\Api\TelegramWebhookController;
+use App\Http\Controllers\Api\SearchController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/languages', [ReferenceDataController::class, 'languages']);
@@ -16,4 +17,5 @@ Route::get('/verses/{verse}/strong-tokens', [StudyDataController::class, 'verseS
     ->whereNumber('verse');
 Route::get('/verses/{verse}/cross-references', [StudyDataController::class, 'verseCrossReferences'])
     ->whereNumber('verse');
+Route::get('/search/verses', [SearchController::class, 'verses']);
 Route::post('/telegram/webhook', TelegramWebhookController::class);
