@@ -4,6 +4,39 @@
 
 ## 2026-06-19
 
+Задача: довести Docker стенд до рабочего локального состояния.
+
+Изменённые файлы:
+
+```text
+Dockerfile
+docker-compose.yml
+.env.docker.example
+database/migrations/2026_06_18_000500_create_calendar_tables.php
+database/migrations/2026_06_19_001200_expand_calendar_event_name.php
+docs/INFRASTRUCTURE.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* Docker runtime переведён на PHP 8.4;
+* app/queue image получил PHP Redis extension;
+* `OLD/` монтируется в контейнеры как read-only источник импорта;
+* `calendar_events.name` расширен до `TEXT` для длинных церковных памятей;
+* `.env.docker.example` дополнен Telegram Bot переменными;
+* документация получила Docker import и server staging инструкции.
+
+Результат:
+
+* локальный Docker стенд поднят с PostgreSQL/Redis/app/queue;
+* импортированы `L1_RST`, `L2_MDR`, Strong, cross references и Orthodox calendar;
+* API и Telegram webhook actions проверены на `http://localhost:8000`.
+
+---
+
 Задача: добавить Notes MVP для стихов.
 
 Изменённые файлы:

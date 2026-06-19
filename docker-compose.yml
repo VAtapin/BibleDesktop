@@ -23,6 +23,8 @@ services:
       REDIS_PORT: 6379
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./OLD:/var/www/html/OLD:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,6 +51,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=90"]
+    volumes:
+      - ./OLD:/var/www/html/OLD:ro
     depends_on:
       postgres:
         condition: service_healthy

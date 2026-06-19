@@ -20,7 +20,7 @@ return new class extends Migration
         Schema::create('calendar_events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('calendar_event_type_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('name', 500);
+            $table->text('name');
             $table->integer('legacy_type')->nullable()->index();
             $table->string('date_rule_type', 40);
             $table->smallInteger('start_month')->nullable();
