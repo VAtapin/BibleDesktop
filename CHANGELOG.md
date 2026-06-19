@@ -46,6 +46,7 @@ CHANGELOG.md
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
 * добавлена команда `bible:legacy:import-verses --library=1`;
+* команда `bible:legacy:import-verses` получила режимы `--all` и `--missing-only` для импорта/допрогона всех поддерживаемых legacy переводов;
 * verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
 * добавлена команда `bible:legacy:import-strong` для `strong_lexicons` и `strong_numbers`;
 * добавлена команда `bible:legacy:import-strong-tokens --translation=L1_RST` для переноса Strong-маркеров из `verse_texts.text_raw` в `verse_strong_tokens`;
@@ -58,6 +59,7 @@ CHANGELOG.md
 * `route:list` видит `/admin/*`, включая `/admin/bible-modules`, `/admin/translations`, `/admin/legacy-*`, и `/api/*`;
 * на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
+* all-verses importer перенёс 525729 verse texts по 21 mapped legacy libraries; повторный `--missing-only` добавляет 0 строк, 525729 уже импортированы, 15925 skipped;
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
 * Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
 * cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;

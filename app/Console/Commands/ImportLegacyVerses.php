@@ -11,6 +11,8 @@ class ImportLegacyVerses extends Command
     protected $signature = 'bible:legacy:import-verses
         {--path=OLD/bible-desktop.sql}
         {--library=1 : Legacy library id to import}
+        {--all : Import all legacy libraries that have metadata mappings}
+        {--missing-only : Skip legacy verses that already have mappings}
         {--chunk=500 : Database upsert chunk size}';
 
     protected $description = 'Import legacy verses for one translation into verses, verse_texts, and legacy_verses.';
@@ -25,6 +27,10 @@ class ImportLegacyVerses extends Command
             $this->error("Legacy SQL dump not found: {$path}");
 
             return self::FAILURE;
+        }
+
+        if ((bool) $this->option('all')) {
+            return $this->importAllLibraries($path, $chunkSize, (bool) $this->option('missing-only'));
         }
 
         $legacyLibrary = DB::table('legacy_libraries')->where('legacy_id', $libraryId)->first();
@@ -131,6 +137,134 @@ class ImportLegacyVerses extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    private function importAllLibraries(string $path, int $chunkSize, bool $missingOnly): int
+    {
+        $libraries = DB::table('legacy_libraries')
+            ->whereNotNull('translation_id')
+            ->pluck('translation_id', 'legacy_id')
+            ->all();
+
+        if ($libraries === []) {
+            $this->error('Legacy libraries are missing. Run bible:legacy:import-metadata first.');
+
+            return self::FAILURE;
+        }
+
+        $bookMap = DB::table('legacy_books')
+            ->get(['legacy_id', 'legacy_bible_id', 'module_book_id', 'canonical_book_id'])
+            ->keyBy('legacy_id');
+        $chapterMap = DB::table('legacy_chapters')
+            ->join('module_chapters', 'module_chapters.id', '=', 'legacy_chapters.module_chapter_id')
+            ->get([
+                'legacy_chapters.legacy_id',
+                'legacy_chapters.legacy_bible_id',
+                'legacy_chapters.module_chapter_id',
+                'legacy_chapters.canonical_chapter_id',
+                'module_chapters.chapter_number',
+            ])
+            ->keyBy('legacy_id');
+
+        if ($bookMap->isEmpty() || $chapterMap->isEmpty()) {
+            $this->error('Legacy metadata is missing. Run bible:legacy:import-metadata first.');
+
+            return self::FAILURE;
+        }
+
+        $osisCodes = DB::table('canonical_books')->pluck('osis_code', 'id')->all();
+        $reader = new LegacySqlDump($path);
+        $sourceRowsByLibrary = [];
+        $imported = 0;
+        $skipped = 0;
+        $alreadyImported = 0;
+
+        foreach ($reader->rows('verse') as $row) {
+            $libraryId = (int) $row['bibleID'];
+            $translationId = $libraries[$libraryId] ?? null;
+
+            if (! $translationId) {
+                continue;
+            }
+
+            $sourceRow = $this->legacyVerseSourceRow($row, $libraryId, $bookMap, $chapterMap, $osisCodes);
+
+            if (! $sourceRow) {
+                $skipped++;
+                continue;
+            }
+
+            $sourceRowsByLibrary[$libraryId] ??= [];
+            $sourceRowsByLibrary[$libraryId][] = $sourceRow;
+
+            if (count($sourceRowsByLibrary[$libraryId]) >= $chunkSize) {
+                $result = $this->importVerseChunkSkippingExisting($sourceRowsByLibrary[$libraryId], (int) $translationId, $chunkSize, $missingOnly);
+                $imported += $result['imported'];
+                $skipped += $result['skipped'];
+                $alreadyImported += $result['already_imported'];
+                $sourceRowsByLibrary[$libraryId] = [];
+            }
+        }
+
+        foreach ($sourceRowsByLibrary as $libraryId => $sourceRows) {
+            if ($sourceRows === []) {
+                continue;
+            }
+
+            $result = $this->importVerseChunkSkippingExisting($sourceRows, (int) $libraries[$libraryId], $chunkSize, $missingOnly);
+            $imported += $result['imported'];
+            $skipped += $result['skipped'];
+            $alreadyImported += $result['already_imported'];
+        }
+
+        $this->components->info(sprintf(
+            'Imported verses for %d legacy libraries: %d verse texts, %d skipped, %d already imported.',
+            count($libraries),
+            $imported,
+            $skipped,
+            $alreadyImported,
+        ));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $sourceRows
+     * @return array{imported: int, skipped: int, already_imported: int}
+     */
+    private function importVerseChunkSkippingExisting(array $sourceRows, int $translationId, int $chunkSize, bool $missingOnly): array
+    {
+        $alreadyImported = 0;
+
+        if ($missingOnly) {
+            $legacyIds = array_column($sourceRows, 'legacy_id');
+            $existing = DB::table('legacy_verses')
+                ->whereIn('legacy_id', $legacyIds)
+                ->pluck('legacy_id')
+                ->all();
+            $existing = array_fill_keys($existing, true);
+            $alreadyImported = count($existing);
+            $sourceRows = array_values(array_filter(
+                $sourceRows,
+                fn (array $row): bool => ! isset($existing[$row['legacy_id']]),
+            ));
+        }
+
+        if ($sourceRows === []) {
+            return [
+                'imported' => 0,
+                'skipped' => 0,
+                'already_imported' => $alreadyImported,
+            ];
+        }
+
+        $result = $this->importVerseChunk($sourceRows, $translationId, $chunkSize);
+
+        return [
+            'imported' => $result['imported'],
+            'skipped' => $result['skipped'],
+            'already_imported' => $alreadyImported,
+        ];
     }
 
     /**
@@ -250,6 +384,45 @@ class ImportLegacyVerses extends Command
         return [
             'imported' => count($verseTextRows),
             'skipped' => $skipped,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param \Illuminate\Support\Collection<int, object> $bookMap
+     * @param \Illuminate\Support\Collection<int, object> $chapterMap
+     * @param array<int, string|null> $osisCodes
+     * @return array<string, mixed>|null
+     */
+    private function legacyVerseSourceRow(array $row, int $libraryId, $bookMap, $chapterMap, array $osisCodes): ?array
+    {
+        $legacyBookId = (int) $row['bookID'];
+        $legacyChapterId = (int) $row['chapterID'];
+        $book = $bookMap[$legacyBookId] ?? null;
+        $chapter = $chapterMap[$legacyChapterId] ?? null;
+
+        if (! $book || ! $chapter || ! $book->canonical_book_id || ! $chapter->canonical_chapter_id) {
+            return null;
+        }
+
+        $chapterNumber = (int) $chapter->chapter_number;
+        $verseNumber = (int) $row['verseNr'];
+        $osisCode = $osisCodes[$book->canonical_book_id] ?? null;
+
+        return [
+            'legacy_id' => (int) $row['verseID'],
+            'legacy_book_id' => $legacyBookId,
+            'legacy_chapter_id' => $legacyChapterId,
+            'legacy_bible_id' => $libraryId,
+            'module_book_id' => (int) $book->module_book_id,
+            'module_chapter_id' => (int) $chapter->module_chapter_id,
+            'canonical_book_id' => (int) $book->canonical_book_id,
+            'canonical_chapter_id' => (int) $chapter->canonical_chapter_id,
+            'chapter_number' => $chapterNumber,
+            'verse_number' => $verseNumber,
+            'osis_code' => $osisCode,
+            'raw_text' => (string) $row['vers'],
+            'raw_json' => json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ];
     }
 

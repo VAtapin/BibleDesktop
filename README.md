@@ -74,12 +74,13 @@ Telegram Mini App
 .\tools\artisan.ps1 migrate --seed
 .\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:import-verses --library=1
+.\tools\artisan.ps1 bible:legacy:import-verses --all --missing-only
 .\tools\artisan.ps1 bible:legacy:import-strong
 .\tools\artisan.ps1 bible:legacy:import-strong-tokens --translation=L1_RST
 .\tools\artisan.ps1 bible:legacy:import-cross-references
 ```
 
-Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
+Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
 
 Frontend:
 
@@ -123,8 +124,8 @@ GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 
 ## Ближайший фокус
 
-1. Подготовить импорт остальных поддерживаемых переводов.
-2. Подготовить API для Strong и cross references.
-3. Улучшить reader flow: имена книг из module_books, состояние вкладок, обработка пустых глав.
+1. Подготовить API для Strong и cross references.
+2. Улучшить reader flow: имена книг из module_books, состояние вкладок, обработка пустых глав.
+3. Разобрать `L750_GLNT` и skipped verses/import mappings.
 4. Подготовить Telegram Bot MVP skeleton.
 5. Подготовить Docker/PostgreSQL окружение.
