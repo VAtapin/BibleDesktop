@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью и вкладками чтения.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью, вкладками чтения и контекстным меню стиха.
 
 Основные документы:
 
@@ -173,4 +173,4 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Подключить или подготовить реальный CSV-источник для `calendar_readings`: отдельные Евангелие и Апостол.
-2. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.
+2. Продолжить reader UI: режим нескольких переводов и заметки.

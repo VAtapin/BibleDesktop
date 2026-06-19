@@ -338,6 +338,7 @@ button {
 }
 
 .chapter {
+    position: relative;
     overflow: auto;
     padding: 14px 18px 24px;
     font-size: 15px;
@@ -367,6 +368,30 @@ button {
     text-align: right;
 }
 
+.verse-menu {
+    position: fixed;
+    z-index: 40;
+    display: grid;
+    gap: 4px;
+    width: 210px;
+    border: 1px solid #cfd7e1;
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgb(48 64 80 / 18%);
+    padding: 6px;
+}
+
+.verse-menu button {
+    border: 0;
+    background: transparent;
+    color: #46515f;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.verse-menu button:hover {
+    background: #f4f8fc;
+}
+
 .reader-status {
     color: #7b8797;
 }
@@ -389,6 +414,11 @@ button {
 
 .reader-footer button:disabled {
     opacity: 0.45;
+}
+
+.reader-toast {
+    color: #3d7655;
+    font-size: 12px;
 }
 
 .analysis-panel {

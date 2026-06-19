@@ -4,6 +4,31 @@
 
 ## 2026-06-19
 
+Задача: добавить контекстное меню стиха в reader UI.
+
+Изменённые файлы:
+
+```text
+resources/js/components/BibleDesktopApp.vue
+resources/css/app.css
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлено меню по правому клику на стих;
+* меню поддерживает копирование ссылки, копирование текста и открытие справочника;
+* Clipboard API имеет fallback через временный textarea;
+* добавлен короткий статус действия в footer reader.
+
+Результат:
+
+* первый сценарий контекстного меню стиха работает в reader shell.
+
+---
+
 Задача: добавить Laravel app container и queue worker.
 
 Изменённые файлы:

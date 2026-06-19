@@ -155,6 +155,9 @@ const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
+const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
+const verseActionMessage = ref('');
+let verseActionMessageTimer: number | undefined;
 
 const demoVerses: Verse[] = [
     {
@@ -543,7 +546,76 @@ async function loadStudyData(verse: Verse): Promise<void> {
 
 function selectVerse(verse: Verse): void {
     selectedVerse.value = verse;
+    verseMenu.value = null;
     void loadStudyData(verse);
+}
+
+function verseReference(verse: Verse): string {
+    return verse.osis_ref ?? `${currentBook.value?.canonical_book?.osis_code ?? selectedBookSlug.value}.${selectedChapterNumber.value}.${verse.number}`;
+}
+
+function openVerseMenu(event: MouseEvent, verse: Verse): void {
+    event.preventDefault();
+    selectedVerse.value = verse;
+    verseMenu.value = {
+        verse,
+        x: Math.min(event.clientX, window.innerWidth - 220),
+        y: Math.min(event.clientY, window.innerHeight - 150),
+    };
+
+    if (verse.id) {
+        void loadStudyData(verse);
+    }
+}
+
+function closeVerseMenu(): void {
+    verseMenu.value = null;
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+async function copyVerseReference(verse: Verse): Promise<void> {
+    await copyToClipboard(verseReference(verse));
+    showVerseActionMessage('Ссылка скопирована');
+    closeVerseMenu();
+}
+
+async function copyVerseText(verse: Verse): Promise<void> {
+    await copyToClipboard(`${verseReference(verse)} ${verse.text}`);
+    showVerseActionMessage('Стих скопирован');
+    closeVerseMenu();
+}
+
+function openVerseStudy(verse: Verse): void {
+    selectVerse(verse);
+    showVerseActionMessage('Справочник открыт');
+}
+
+function showVerseActionMessage(message: string): void {
+    verseActionMessage.value = message;
+
+    if (verseActionMessageTimer) {
+        window.clearTimeout(verseActionMessageTimer);
+    }
+
+    verseActionMessageTimer = window.setTimeout(() => {
+        verseActionMessage.value = '';
+    }, 1800);
 }
 
 async function runSearch(): Promise<void> {
@@ -813,6 +885,7 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                         v-for="verse in currentVerses"
                         :key="verse.id ?? verse.number"
                         :class="{ selected: verse.id === selectedVerse?.id }"
+                        @contextmenu="openVerseMenu($event, verse)"
                     >
                         <button
                             type="button"
@@ -823,6 +896,16 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                         </button>
                         <span @click="selectVerse(verse)">{{ verse.text }}</span>
                     </p>
+                    <div
+                        v-if="verseMenu"
+                        class="verse-menu"
+                        :style="{ left: `${verseMenu.x}px`, top: `${verseMenu.y}px` }"
+                        @click.stop
+                    >
+                        <button type="button" @click="copyVerseReference(verseMenu.verse)">Копировать ссылку</button>
+                        <button type="button" @click="copyVerseText(verseMenu.verse)">Копировать стих</button>
+                        <button type="button" @click="openVerseStudy(verseMenu.verse)">Открыть справочник</button>
+                    </div>
                 </article>
 
                 <div class="reader-footer">
@@ -834,6 +917,7 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                         Назад
                     </button>
                     <span>{{ currentTitle }}</span>
+                    <span v-if="verseActionMessage" class="reader-toast">{{ verseActionMessage }}</span>
                     <button
                         type="button"
                         :disabled="selectedChapterNumber >= (currentBook?.chapters_count ?? 1)"
