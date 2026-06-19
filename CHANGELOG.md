@@ -4,6 +4,34 @@
 
 ## 2026-06-19
 
+Задача: сохранить конфликтный duplicate book mapping как supplemental text.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/ImportLegacySupplementalTexts.php
+tests/Feature/ImportLegacySupplementalTextsCommandTest.php
+docs/DATA_MODEL.md
+docs/LEGACY_MODULE_DECISIONS.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* `bible:legacy:import-supplemental-texts` по умолчанию импортирует `requires_book_mapping`;
+* конфликтный `L3_UKR 2Thess 4 -> 1Tim 1` сохраняется в `legacy_supplemental_texts`;
+* canonical `verse_texts` не перезаписывается, поэтому нормальная `1Tim 1` остаётся основной;
+* добавлен feature test на импорт `requires_book_mapping`.
+
+Результат:
+
+* duplicate mapping cases больше не теряются, но не смешиваются с canonical verses.
+* на `database/testing.sqlite` supplemental counts: 65 appendix, 27 heading, 20 requires_book_mapping.
+
+---
+
 Задача: добавить verse-level canonical overrides для 4-главного Joel.
 
 Изменённые файлы:

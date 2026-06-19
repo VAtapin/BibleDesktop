@@ -10,10 +10,10 @@ class ImportLegacySupplementalTexts extends Command
 {
     protected $signature = 'bible:legacy:import-supplemental-texts
         {--path=OLD/bible-desktop.sql}
-        {--types=heading,appendix,non_canonical : Comma-separated override actions to import}
+        {--types=heading,appendix,non_canonical,requires_book_mapping : Comma-separated override actions to import}
         {--chunk=500 : Database upsert chunk size}';
 
-    protected $description = 'Import legacy appendix/heading/non-canonical texts into a supplemental table.';
+    protected $description = 'Import legacy appendix/heading/non-canonical/duplicate mapping texts into a supplemental table.';
 
     public function handle(): int
     {

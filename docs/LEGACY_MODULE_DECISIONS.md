@@ -171,11 +171,12 @@ L5_LB   legacy 153420 -> Joel.2.28
 L5_LB   legacy 153425 -> Joel.3.1
 ```
 
-Осторожность по `L3_UKR 2thessalonians 4`: это текст `1 Timothy 1`, но в той же библиотеке есть нормальная `1timothy 1`. Автоматический `map_verse` перезапишет реальную `1Tim 1`, поэтому этот кейс остаётся отдельной задачей: хранить как duplicate/supplemental или добавить conflict-aware import.
+Осторожность по `L3_UKR 2thessalonians 4`: это текст `1 Timothy 1`, но в той же библиотеке есть нормальная `1timothy 1`. Автоматический `map_verse` перезапишет реальную `1Tim 1`, поэтому этот кейс сохраняется как supplemental text с `type=requires_book_mapping`.
 
-`bible:legacy:import-supplemental-texts` переносит appendix/heading/non-canonical rows в отдельную таблицу `legacy_supplemental_texts`. На `database/testing.sqlite` импортировано:
+`bible:legacy:import-supplemental-texts` переносит appendix/heading/non-canonical/requires_book_mapping rows в отдельную таблицу `legacy_supplemental_texts`. На `database/testing.sqlite` импортировано:
 
 ```text
 appendix: 65
 heading: 27
+requires_book_mapping: 20
 ```

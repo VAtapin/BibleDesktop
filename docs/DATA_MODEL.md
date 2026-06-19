@@ -308,7 +308,7 @@ legacy_chapter_id
 legacy_book_slug
 legacy_chapter_number
 legacy_verse_number
-type                  heading, appendix, non_canonical
+type                  heading, appendix, non_canonical, requires_book_mapping
 title
 text
 text_plain
@@ -320,7 +320,7 @@ updated_at
 
 Назначение:
 
-* хранить legacy heading/appendix/non-canonical материалы отдельно от `verse_texts`;
+* хранить legacy heading/appendix/non-canonical/duplicate-mapping материалы отдельно от `verse_texts`;
 * не засорять canonical `verses` дополнительными главами;
 * оставить эти материалы доступными для будущего API, reader sidebar или admin review.
 
