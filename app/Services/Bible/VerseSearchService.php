@@ -72,8 +72,10 @@ class VerseSearchService
     {
         return DB::table('verse_texts')
             ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
+            ->join('modules', 'modules.id', '=', 'translations.module_id')
             ->join('verses', 'verses.id', '=', 'verse_texts.verse_id')
             ->join('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
+            ->where('modules.type', 'bible')
             ->when($translationCode !== '', fn ($builder) => $builder->where('translations.code', $translationCode));
     }
 

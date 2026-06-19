@@ -27,6 +27,7 @@ class ReferenceDataController extends Controller
             ->leftJoin('canons', 'canons.id', '=', 'translations.canon_id')
             ->join('modules', 'modules.id', '=', 'translations.module_id')
             ->where('modules.is_active', true)
+            ->where('modules.type', 'bible')
             ->orderByDesc('translations.is_default')
             ->orderBy('languages.sort_order')
             ->orderBy('translations.name')
@@ -70,6 +71,7 @@ class ReferenceDataController extends Controller
             ->join('modules', 'modules.id', '=', 'translations.module_id')
             ->where('translations.code', $translationCode)
             ->where('modules.is_active', true)
+            ->where('modules.type', 'bible')
             ->first([
                 'translations.id',
                 'translations.code',

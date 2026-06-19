@@ -66,6 +66,7 @@ class ImportLegacyMetadata extends Command
         $imported = 0;
         $skipped = 0;
         $byId = [];
+        $importedLegacyIds = [];
 
         foreach ($reader->rows('library') as $row) {
             if (($row['bible'] ?? '') !== 'Y') {
@@ -86,7 +87,9 @@ class ImportLegacyMetadata extends Command
             }
 
             $legacyId = (int) $row['id'];
+            $importedLegacyIds[] = $legacyId;
             $code = $this->legacyCode((string) $row['bibleShortName'], $legacyId);
+            $moduleType = $this->legacyModuleType((string) $row['bibleName'], (string) $row['bibleShortName']);
             $metadata = [
                 'legacy_id' => $legacyId,
                 'path' => $row['path'] ?? null,
@@ -100,7 +103,7 @@ class ImportLegacyMetadata extends Command
                 ['code' => $code],
                 [
                     'language_id' => $languageIds[$languageCode],
-                    'type' => 'bible',
+                    'type' => $moduleType,
                     'name' => (string) $row['bibleName'],
                     'short_name' => $this->limitString((string) $row['bibleShortName'], 80),
                     'description' => $row['description'] ?: null,
@@ -115,6 +118,24 @@ class ImportLegacyMetadata extends Command
             );
 
             $moduleId = (int) DB::table('modules')->where('code', $code)->value('id');
+
+            if ($moduleType !== 'bible') {
+                $this->deleteTranslationIfUnused($code);
+
+                DB::table('legacy_libraries')->updateOrInsert(
+                    ['legacy_id' => $legacyId],
+                    [
+                        'module_id' => $moduleId,
+                        'translation_id' => null,
+                        'raw_json' => json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ],
+                );
+
+                $imported++;
+                continue;
+            }
 
             DB::table('translations')->updateOrInsert(
                 ['code' => $code],
@@ -157,7 +178,7 @@ class ImportLegacyMetadata extends Command
             $imported++;
         }
 
-        $this->deleteStaleLegacyLibraries(array_keys($byId));
+        $this->deleteStaleLegacyLibraries($importedLegacyIds);
 
         return [
             'imported' => $imported,
@@ -402,6 +423,33 @@ class ImportLegacyMetadata extends Command
             'english' => 'en',
             default => null,
         };
+    }
+
+    private function legacyModuleType(string $name, string $shortName): string
+    {
+        $normalizedName = mb_strtolower($name);
+        $normalizedShortName = mb_strtolower($shortName);
+
+        if ($normalizedShortName === 'lop' || str_contains($normalizedName, 'лопухин') || str_contains($normalizedName, 'толков')) {
+            return 'commentary';
+        }
+
+        return 'bible';
+    }
+
+    private function deleteTranslationIfUnused(string $code): void
+    {
+        $translation = DB::table('translations')->where('code', $code)->first(['id']);
+
+        if (! $translation) {
+            return;
+        }
+
+        if (DB::table('verse_texts')->where('translation_id', $translation->id)->exists()) {
+            return;
+        }
+
+        DB::table('translations')->where('id', $translation->id)->delete();
     }
 
     private function legacyCode(string $shortName, int $legacyId): string

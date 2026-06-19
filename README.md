@@ -31,6 +31,7 @@
 * `docs/DATA_MODEL.md` - черновик новой ER-модели;
 * `docs/MIGRATION_PLAN.md` - черновик стратегии миграции;
 * `docs/CALENDAR_ANALYSIS.md` - первичный анализ православного календаря.
+* `docs/LEGACY_MODULE_DECISIONS.md` - решения по legacy-модулям, которые не являются обычными переводами.
 * `docs/INFRASTRUCTURE.md` - Docker/PostgreSQL/Redis окружение.
 
 ## Исходные материалы
@@ -162,7 +163,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
+1. Спроектировать canonical mapping overrides для Baruch/Sirach/Joel/Psalms/Esther/chapter 0.
 2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 4. Подготовить реальный PHP/app container и queue worker.

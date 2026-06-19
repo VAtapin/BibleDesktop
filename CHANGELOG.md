@@ -4,6 +4,37 @@
 
 ## 2026-06-19
 
+Задача: отделить legacy commentary modules от Bible translations.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/ImportLegacyMetadata.php
+app/Http/Controllers/Api/ChapterController.php
+app/Http/Controllers/Api/ReferenceDataController.php
+app/Services/Bible/VerseSearchService.php
+tests/Feature/ImportLegacyMetadataCommandTest.php
+docs/LEGACY_MODULE_DECISIONS.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* `LOP` / `Толковая Библии - А.Лопухина` классифицируется как `modules.type = commentary`;
+* commentary-модуль не создаёт `translations` в fresh import и не попадает в `module_books` как Bible translation;
+* Bible endpoints и `VerseSearchService` фильтруют `modules.type = bible`;
+* добавлен feature test для metadata importer;
+* добавлен decision-документ по LOP и оставшимся canonical mapping расхождениям.
+
+Результат:
+
+* на текущем `database/testing.sqlite` skipped legacy verses после повторного metadata import снизились с 1127 до 268;
+* оставшиеся skipped rows теперь относятся к Baruch/Sirach/Joel/Psalms/Esther/chapter 0, а не к Лопухинскому комментарию.
+
+---
+
 Задача: сделать настоящие вкладки чтения в reader shell.
 
 Изменённые файлы:

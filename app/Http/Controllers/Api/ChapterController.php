@@ -11,8 +11,10 @@ class ChapterController extends Controller
     public function show(string $translationCode, string $bookSlug, int $chapter): JsonResponse
     {
         $translation = DB::table('translations')
-            ->where('code', $translationCode)
-            ->first(['id', 'code', 'name', 'short_name']);
+            ->join('modules', 'modules.id', '=', 'translations.module_id')
+            ->where('translations.code', $translationCode)
+            ->where('modules.type', 'bible')
+            ->first(['translations.id', 'translations.code', 'translations.name', 'translations.short_name']);
 
         if (! $translation) {
             abort(404, 'Translation not found.');
