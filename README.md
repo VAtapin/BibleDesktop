@@ -134,7 +134,7 @@ GET /api/translations
 GET /api/canons/{canon}/books
 GET /api/translations/{translationCode}/books
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
-GET /api/search/verses?q={query}&translation={translationCode}
+GET /api/search/verses?q={query-or-reference}&translation={translationCode}
 GET /api/calendar/day?date=YYYY-MM-DD
 GET /api/strong/{number}
 GET /api/verses/{verse}/strong-tokens
@@ -165,5 +165,5 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 1. Улучшить reader flow: вкладки/состояние и переход к стиху.
 2. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
 3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
-4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
+4. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.

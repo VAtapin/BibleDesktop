@@ -99,7 +99,18 @@ class SearchApiTest extends TestCase
         $this->getJson('/api/search/verses?q=%D1%81%D0%BE%D1%82%D0%B2%D0%BE%D1%80%D0%B8%D0%BB&translation=L1_RST')
             ->assertOk()
             ->assertJsonPath('data.query', 'сотворил')
+            ->assertJsonPath('data.mode', 'text')
             ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.1')
             ->assertJsonPath('data.results.0.translation.code', 'L1_RST');
+
+        $this->getJson('/api/search/verses?q=Gen.1.1&translation=L1_RST')
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'reference')
+            ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.1');
+
+        $this->getJson('/api/search/verses?q=%D0%91%D1%8B%D1%82.%201%3A1&translation=L1_RST')
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'reference')
+            ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.1');
     }
 }

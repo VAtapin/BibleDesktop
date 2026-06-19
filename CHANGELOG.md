@@ -4,6 +4,32 @@
 
 ## 2026-06-19
 
+Задача: добавить поиск стихов по ссылке.
+
+Изменённые файлы:
+
+```text
+app/Http/Controllers/Api/SearchController.php
+tests/Feature/SearchApiTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* `GET /api/search/verses` распознаёт ссылки вида `Gen.1.1` и `Быт. 1:1`;
+* поиск книги использует `canonical_books`, `canonical_book_names` и `module_books` выбранного перевода;
+* response получил поле `mode`: `text` или `reference`;
+* обычный DB-agnostic LIKE-поиск по `verse_texts.text_plain` сохранён без изменения.
+
+Результат:
+
+* Search API покрыт тестами на текстовый поиск, OSIS reference и русское краткое имя книги;
+* проверки проходят: PHPUnit 22 tests / 99 assertions.
+
+---
+
 Задача: диагностировать skipped legacy verses.
 
 Изменённые файлы:
