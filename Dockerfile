@@ -1,4 +1,19 @@
-FROM composer:2 AS composer_deps
+FROM php:8.4-cli-alpine AS composer_deps
+
+RUN apk add --no-cache \
+        git \
+        icu-dev \
+        libzip-dev \
+        oniguruma-dev \
+        postgresql-dev \
+        unzip \
+    && docker-php-ext-install \
+        intl \
+        mbstring \
+        pdo_pgsql \
+        zip
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
@@ -19,7 +34,7 @@ COPY resources ./resources
 COPY vite.config.js tsconfig.json ./
 RUN npm run build
 
-FROM php:8.3-cli-alpine AS app
+FROM php:8.4-cli-alpine AS app
 
 RUN apk add --no-cache \
         bash \
@@ -34,7 +49,11 @@ RUN apk add --no-cache \
         mbstring \
         pcntl \
         pdo_pgsql \
-        zip
+        zip \
+    && apk add --no-cache --virtual .redis-build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .redis-build-deps
 
 WORKDIR /var/www/html
 
