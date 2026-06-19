@@ -4,6 +4,40 @@
 
 ## 2026-06-19
 
+Задача: импортировать православный календарь и подключить календарные Telegram-команды.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/ImportLegacyCalendarEvents.php
+app/Http/Controllers/Api/CalendarController.php
+app/Services/Calendar/OrthodoxCalendarService.php
+app/Services/Telegram/TelegramUpdateHandler.php
+routes/api.php
+tests/Feature/CalendarApiTest.php
+tests/Feature/TelegramWebhookTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена команда `calendar:legacy:import-events` для импорта `OLD/MemoryDays.xml`;
+* legacy calendar importer создаёт типы событий и переносит фиксированные даты, даты относительно Пасхи и диапазоны;
+* добавлен `OrthodoxCalendarService` с расчётом православной Пасхи и подбором событий дня;
+* добавлен API endpoint `GET /api/calendar/day?date=YYYY-MM-DD`;
+* Telegram команды `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting` подключены к импортированным событиям текущего дня;
+* добавлены feature tests для calendar API/importer и Telegram calendar command.
+
+Результат:
+
+* реальный импорт `OLD/MemoryDays.xml` перенёс 48 типов и 3811 календарных событий;
+* `GET /api/calendar/day` покрыт тестом на фиксированную дату и Пасху 2026 года;
+* проверки проходят: PHPUnit 18 tests / 77 assertions.
+
+---
+
 Задача: подключить Filament, seeders, API справочников и первичные legacy importers.
 
 Изменённые файлы:

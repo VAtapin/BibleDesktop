@@ -2,10 +2,13 @@
 
 namespace App\Services\Telegram;
 
+use App\Services\Calendar\OrthodoxCalendarService;
 use Illuminate\Support\Facades\DB;
 
 class TelegramUpdateHandler
 {
+    public function __construct(private readonly OrthodoxCalendarService $calendar) {}
+
     /**
      * @param array<string, mixed> $update
      * @return array<int, array{method: string, payload: array<string, mixed>}>
@@ -36,7 +39,7 @@ class TelegramUpdateHandler
                     '/start' => $this->startText(),
                     '/help' => $this->helpText(),
                     '/search' => $this->searchText($text),
-                    '/today', '/gospel', '/apostle', '/calendar', '/fasting' => $this->calendarPlaceholderText(),
+                    '/today', '/gospel', '/apostle', '/calendar', '/fasting' => $this->calendarText(),
                     '/settings' => $this->settingsText(),
                     '/random' => $this->randomVerseText(),
                     default => $this->helpText(),
@@ -102,9 +105,20 @@ class TelegramUpdateHandler
             ->implode("\n\n");
     }
 
-    private function calendarPlaceholderText(): string
+    private function calendarText(): string
     {
-        return 'Православный календарь ещё не подключён. Эта команда появится после импорта календарных данных.';
+        $day = $this->calendar->day(now()->toDateString());
+
+        if ($day['events']->isEmpty()) {
+            return 'Календарные события ещё не импортированы.';
+        }
+
+        $events = $day['events']
+            ->take(8)
+            ->map(fn (array $event) => '- '.$event['name'])
+            ->implode("\n");
+
+        return "Календарь на {$day['date']}\n{$events}";
     }
 
     private function settingsText(): string

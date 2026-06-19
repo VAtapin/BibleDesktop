@@ -79,9 +79,11 @@ Telegram Mini App
 .\tools\artisan.ps1 bible:legacy:import-strong
 .\tools\artisan.ps1 bible:legacy:import-strong-tokens --translation=L1_RST
 .\tools\artisan.ps1 bible:legacy:import-cross-references
+.\tools\artisan.ps1 calendar:legacy:import-events
 ```
 
 Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
+Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты и даты относительно Пасхи доступны через общий API.
 
 Frontend:
 
@@ -131,6 +133,7 @@ GET /api/translations
 GET /api/canons/{canon}/books
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 GET /api/search/verses?q={query}&translation={translationCode}
+GET /api/calendar/day?date=YYYY-MM-DD
 GET /api/strong/{number}
 GET /api/verses/{verse}/strong-tokens
 GET /api/verses/{verse}/cross-references
@@ -147,7 +150,7 @@ TELEGRAM_API_BASE_URL=https://api.telegram.org
 TELEGRAM_SEND_RESPONSES=false
 ```
 
-Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; calendar commands return placeholders until calendar import is implemented.
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting` read imported calendar events for the current day.
 
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 
@@ -159,6 +162,6 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
-3. Импортировать православный календарь и подключить `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting`.
+3. Разобрать чтения дня в православном календаре: отдельные Евангелие, Апостол и пост.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.

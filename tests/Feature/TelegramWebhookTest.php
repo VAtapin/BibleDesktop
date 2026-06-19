@@ -83,6 +83,28 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
     }
 
+    public function test_telegram_today_command_returns_calendar_events(): void
+    {
+        DB::table('calendar_events')->insert([
+            'name' => 'Святое Богоявление',
+            'legacy_type' => 1,
+            'date_rule_type' => 'fixed',
+            'start_month' => (int) now()->month,
+            'start_day' => (int) now()->day,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 123],
+                'text' => '/today',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Календарь на ".now()->toDateString()."\n- Святое Богоявление");
+    }
+
     private function createSearchFixture(): void
     {
         $this->seed(\Database\Seeders\DatabaseSeeder::class);

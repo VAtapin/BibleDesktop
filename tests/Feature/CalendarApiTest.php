@@ -1,0 +1,60 @@
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class CalendarApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_legacy_calendar_import_and_day_endpoint(): void
+    {
+        $path = storage_path('app/calendar-test.xml');
+
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+
+        file_put_contents($path, <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<MemoryDays>
+    <event>
+        <s_month>0</s_month>
+        <s_date>0</s_date>
+        <f_month>0</f_month>
+        <f_date>0</f_date>
+        <name>Светлое Христово Воскресение. Пасха</name>
+        <type>0</type>
+    </event>
+    <event>
+        <s_month>1</s_month>
+        <s_date>6</s_date>
+        <f_month>1</f_month>
+        <f_date>6</f_date>
+        <name>Святое Богоявление</name>
+        <type>1</type>
+    </event>
+</MemoryDays>
+XML);
+
+        $this->artisan('calendar:legacy:import-events', ['--path' => 'storage/app/calendar-test.xml'])
+            ->assertSuccessful();
+
+        @unlink($path);
+
+        $this->assertSame(2, DB::table('calendar_events')->count());
+
+        $this->getJson('/api/calendar/day?date=2026-01-06')
+            ->assertOk()
+            ->assertJsonPath('data.date', '2026-01-06')
+            ->assertJsonPath('data.events.0.name', 'Святое Богоявление');
+
+        $this->getJson('/api/calendar/day?date=2026-04-12')
+            ->assertOk()
+            ->assertJsonPath('data.pascha_date', '2026-04-12')
+            ->assertJsonPath('data.events.0.name', 'Светлое Христово Воскресение. Пасха');
+    }
+}

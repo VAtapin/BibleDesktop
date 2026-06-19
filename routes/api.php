@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ChapterController;
 use App\Http\Controllers\Api\StudyDataController;
 use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\CalendarController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/languages', [ReferenceDataController::class, 'languages']);
@@ -18,4 +19,5 @@ Route::get('/verses/{verse}/strong-tokens', [StudyDataController::class, 'verseS
 Route::get('/verses/{verse}/cross-references', [StudyDataController::class, 'verseCrossReferences'])
     ->whereNumber('verse');
 Route::get('/search/verses', [SearchController::class, 'verses']);
+Route::get('/calendar/day', [CalendarController::class, 'day']);
 Route::post('/telegram/webhook', TelegramWebhookController::class);
