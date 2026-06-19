@@ -93,6 +93,14 @@ type CrossReferenceDto = {
     };
 };
 
+type NoteDto = {
+    id: number;
+    body: string;
+    visibility: string;
+    created_at: string;
+    updated_at: string;
+};
+
 type SearchResultDto = {
     verse_text_id: number;
     verse_id: number;
@@ -148,8 +156,12 @@ const selectedChapterNumber = ref(1);
 const selectedVerse = ref<Verse | null>(null);
 const strongTokens = ref<StrongTokenDto[]>([]);
 const crossReferences = ref<CrossReferenceDto[]>([]);
+const verseNotes = ref<NoteDto[]>([]);
+const noteBody = ref('');
 const isStudyLoading = ref(false);
+const isNotesLoading = ref(false);
 const studyError = ref<string | null>(null);
+const noteError = ref<string | null>(null);
 const searchQuery = ref('');
 const searchResults = ref<SearchResultDto[]>([]);
 const isSearchLoading = ref(false);
@@ -369,6 +381,23 @@ async function loadJson<T>(url: string): Promise<T> {
     return response.json() as Promise<T>;
 }
 
+async function postJson<T>(url: string, payload: Record<string, unknown>): Promise<T> {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+}
+
 async function loadChapter(targetVerseNumber: number | null = null): Promise<void> {
     if (!selectedTranslationCode.value || !selectedBookSlug.value || selectedChapterNumber.value < 1) {
         return;
@@ -566,6 +595,9 @@ async function closeReaderTab(tabId: string): Promise<void> {
 
 async function loadStudyData(verse: Verse): Promise<void> {
     if (!verse.id) {
+        strongTokens.value = [];
+        crossReferences.value = [];
+        verseNotes.value = [];
         return;
     }
 
@@ -582,12 +614,50 @@ async function loadStudyData(verse: Verse): Promise<void> {
 
         strongTokens.value = strongResponse.data.tokens;
         crossReferences.value = referencesResponse.data.references;
+        await loadVerseNotes(verse.id);
     } catch (error) {
         strongTokens.value = [];
         crossReferences.value = [];
+        verseNotes.value = [];
         studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник стиха';
     } finally {
         isStudyLoading.value = false;
+    }
+}
+
+async function loadVerseNotes(verseId: number): Promise<void> {
+    isNotesLoading.value = true;
+    noteError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<{ notes: NoteDto[] }>>(`/api/verses/${verseId}/notes`);
+        verseNotes.value = response.data.notes;
+    } catch (error) {
+        verseNotes.value = [];
+        noteError.value = error instanceof Error ? error.message : 'Не удалось загрузить заметки';
+    } finally {
+        isNotesLoading.value = false;
+    }
+}
+
+async function submitVerseNote(): Promise<void> {
+    const body = noteBody.value.trim();
+
+    if (!selectedVerse.value?.id || body.length === 0) {
+        return;
+    }
+
+    isNotesLoading.value = true;
+    noteError.value = null;
+
+    try {
+        await postJson<ApiResponse<{ note: NoteDto }>>(`/api/verses/${selectedVerse.value.id}/notes`, { body });
+        noteBody.value = '';
+        await loadVerseNotes(selectedVerse.value.id);
+    } catch (error) {
+        noteError.value = error instanceof Error ? error.message : 'Не удалось сохранить заметку';
+    } finally {
+        isNotesLoading.value = false;
     }
 }
 
@@ -1062,9 +1132,24 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     </div>
                 </section>
 
-                <form class="comment-form">
-                    <textarea placeholder="Напишите свой комментарий"></textarea>
-                    <button type="button">Написать</button>
+                <form class="comment-form" @submit.prevent="submitVerseNote">
+                    <div class="note-list">
+                        <p v-if="isNotesLoading">Загружаю заметки...</p>
+                        <p v-else-if="noteError">API: {{ noteError }}</p>
+                        <article
+                            v-for="note in verseNotes"
+                            :key="note.id"
+                        >
+                            {{ note.body }}
+                        </article>
+                        <p v-if="!isNotesLoading && !noteError && verseNotes.length === 0">Заметок к стиху пока нет.</p>
+                    </div>
+                    <textarea
+                        v-model="noteBody"
+                        placeholder="Напишите свой комментарий"
+                        :disabled="!selectedVerse?.id || isNotesLoading"
+                    ></textarea>
+                    <button type="submit" :disabled="!selectedVerse?.id || noteBody.trim().length === 0 || isNotesLoading">Написать</button>
                 </form>
             </aside>
         </main>

@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью, вкладками чтения, контекстным меню стиха и параллельным переводом.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью, вкладками чтения, контекстным меню стиха, параллельным переводом и первыми заметками к стихам.
 
 Основные документы:
 
@@ -147,6 +147,8 @@ GET /api/calendar/day?date=YYYY-MM-DD
 GET /api/strong/{number}
 GET /api/verses/{verse}/strong-tokens
 GET /api/verses/{verse}/cross-references
+GET /api/verses/{verse}/notes
+POST /api/verses/{verse}/notes
 POST /api/telegram/webhook
 ```
 
@@ -173,4 +175,4 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Подключить или подготовить реальный CSV-источник для `calendar_readings`: отдельные Евангелие и Апостол.
-2. Продолжить reader UI: заметки.
+2. Расширить заметки: auth user binding, редактирование, удаление, теги.

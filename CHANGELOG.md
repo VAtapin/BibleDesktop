@@ -4,6 +4,35 @@
 
 ## 2026-06-19
 
+Задача: добавить Notes MVP для стихов.
+
+Изменённые файлы:
+
+```text
+app/Http/Controllers/Api/VerseNoteController.php
+routes/api.php
+tests/Feature/VerseNotesApiTest.php
+resources/js/components/BibleDesktopApp.vue
+resources/css/app.css
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлены endpoints `GET/POST /api/verses/{verse}/notes`;
+* до авторизации используется demo-user fallback;
+* reader analysis panel показывает заметки выбранного стиха;
+* форма комментария сохраняет новую private note в backend;
+* добавлен feature test на создание и чтение заметки.
+
+Результат:
+
+* заметки к стихам получили первый рабочий backend + UI вертикальный срез.
+
+---
+
 Задача: добавить начальный режим нескольких переводов в reader UI.
 
 Изменённые файлы:

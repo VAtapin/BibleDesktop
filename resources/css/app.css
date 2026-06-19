@@ -575,6 +575,26 @@ button {
     padding: 12px;
 }
 
+.note-list {
+    display: grid;
+    gap: 6px;
+}
+
+.note-list article {
+    border: 1px solid #e0e5eb;
+    background: #f8fafc;
+    color: #596579;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.note-list p {
+    margin: 0;
+    color: #7b8797;
+    font-size: 13px;
+}
+
 .comment-form textarea {
     min-height: 74px;
     resize: vertical;
