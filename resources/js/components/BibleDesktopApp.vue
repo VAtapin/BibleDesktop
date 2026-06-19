@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 type LanguageDto = {
     code: string;
@@ -117,6 +117,13 @@ type Tab = {
     active?: boolean;
 };
 
+type ReaderState = {
+    translationCode: string;
+    bookSlug: string;
+    chapterNumber: number;
+};
+
+const readerStateKey = 'bible-desktop-reader-state';
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
 const books = ref<ReaderBookDto[]>([]);
@@ -137,12 +144,6 @@ const searchResults = ref<SearchResultDto[]>([]);
 const isSearchLoading = ref(false);
 const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
-
-const tabs: Tab[] = [
-    { title: 'Бытие 4', active: true },
-    { title: 'Откровение 1' },
-    { title: 'Второзаконие 28', locked: true },
-];
 
 const demoVerses: Verse[] = [
     {
@@ -200,7 +201,52 @@ const currentTitle = computed(() => {
 
     return `${bookName} ${selectedChapterNumber.value}`;
 });
+const tabs = computed<Tab[]>(() => [
+    { title: currentTitle.value, active: true },
+    { title: 'Откровение 1' },
+    { title: 'Второзаконие 28', locked: true },
+]);
 const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
+
+function readReaderState(): ReaderState | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        const value = window.localStorage.getItem(readerStateKey);
+
+        if (!value) {
+            return null;
+        }
+
+        const parsed = JSON.parse(value) as Partial<ReaderState>;
+
+        if (!parsed.translationCode || !parsed.bookSlug || !parsed.chapterNumber) {
+            return null;
+        }
+
+        return {
+            translationCode: parsed.translationCode,
+            bookSlug: parsed.bookSlug,
+            chapterNumber: Math.max(1, Number(parsed.chapterNumber)),
+        };
+    } catch {
+        return null;
+    }
+}
+
+function persistReaderState(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(readerStateKey, JSON.stringify({
+        translationCode: selectedTranslationCode.value,
+        bookSlug: selectedBookSlug.value,
+        chapterNumber: selectedChapterNumber.value,
+    }));
+}
 
 async function loadJson<T>(url: string): Promise<T> {
     const response = await fetch(url, {
@@ -378,6 +424,7 @@ async function openSearchResult(result: SearchResultDto): Promise<void> {
 
 onMounted(async () => {
     try {
+        const savedState = readReaderState();
         const [languagesResponse, translationsResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
             loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
@@ -385,13 +432,20 @@ onMounted(async () => {
 
         languages.value = languagesResponse.data;
         translations.value = translationsResponse.data;
-        selectedTranslationCode.value = translations.value.find((translation) => translation.is_default)?.code
+        const defaultTranslationCode = translations.value.find((translation) => translation.is_default)?.code
             ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
             ?? translations.value[0]?.code
             ?? 'L1_RST';
+        selectedTranslationCode.value = savedState && translations.value.some((translation) => translation.code === savedState.translationCode)
+            ? savedState.translationCode
+            : defaultTranslationCode;
+        selectedBookSlug.value = savedState?.bookSlug ?? selectedBookSlug.value;
+        selectedChapterNumber.value = savedState?.chapterNumber ?? selectedChapterNumber.value;
 
         await loadBooksForSelectedTranslation();
-        selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
+        if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
+            selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
+        }
         await loadChapter();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
@@ -399,6 +453,8 @@ onMounted(async () => {
         isLoading.value = false;
     }
 });
+
+watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], persistReaderState);
 </script>
 
 <template>
