@@ -438,6 +438,7 @@ PostgreSQL implementation:
 * generated `tsvector` or explicit `tsvector` column;
 * language-specific configuration where possible;
 * fallback simple config for mixed Slavic text.
+* current MVP migration creates a PostgreSQL GIN expression index on `to_tsvector('simple', coalesce(text_plain, ''))`; SQLite keeps a LIKE fallback.
 
 ## `verse_embeddings`
 

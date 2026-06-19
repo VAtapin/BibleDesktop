@@ -158,6 +158,13 @@ button {
     white-space: nowrap;
 }
 
+.search-results mark {
+    border-radius: 3px;
+    background: #ffe08a;
+    color: #31261d;
+    padding: 0 2px;
+}
+
 .profile {
     display: flex;
     align-items: center;

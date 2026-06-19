@@ -4,6 +4,36 @@
 
 ## 2026-06-19
 
+Задача: добавить PostgreSQL Full Text Search path и подсветку поиска.
+
+Изменённые файлы:
+
+```text
+database/migrations/2026_06_19_001100_add_postgres_full_text_index_to_verse_texts.php
+app/Services/Bible/VerseSearchService.php
+tests/Feature/SearchApiTest.php
+resources/js/components/BibleDesktopApp.vue
+resources/css/app.css
+docs/DATA_MODEL.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена PostgreSQL-only migration для GIN index по `to_tsvector('simple', text_plain)`;
+* `VerseSearchService` использует `to_tsvector/plainto_tsquery/ts_rank` на PostgreSQL;
+* SQLite/local tests продолжают использовать LIKE fallback;
+* Search API возвращает `snippet_segments`;
+* reader UI подсвечивает совпадения через безопасный segment rendering без `v-html`.
+
+Результат:
+
+* поиск готов к PostgreSQL Full Text Search и уже отдаёт данные для подсветки совпадений.
+
+---
+
 Задача: добавить CSV importer для чтений дня.
 
 Изменённые файлы:

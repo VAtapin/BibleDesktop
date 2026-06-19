@@ -159,6 +159,8 @@ TELEGRAM_SEND_RESPONSES=false
 
 Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/search` uses the shared verse search service and accepts text or references such as `Gen.1.1`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` read `calendar_readings` and report a clear fallback when readings for the day are not set yet.
 
+Search API uses PostgreSQL Full Text Search when the DB driver is `pgsql` and keeps the existing SQLite/LIKE fallback for local tests. Text results include `snippet_segments` for safe UI highlighting without rendering raw HTML.
+
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 
 ```powershell
@@ -168,7 +170,5 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Подключить или подготовить реальный CSV-источник для `calendar_readings`: отдельные Евангелие и Апостол.
-2. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
-3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
-4. Подготовить реальный PHP/app container и queue worker.
-5. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.
+2. Подготовить реальный PHP/app container и queue worker.
+3. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.

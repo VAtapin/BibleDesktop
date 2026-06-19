@@ -101,7 +101,9 @@ class SearchApiTest extends TestCase
             ->assertJsonPath('data.query', 'сотворил')
             ->assertJsonPath('data.mode', 'text')
             ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.1')
-            ->assertJsonPath('data.results.0.translation.code', 'L1_RST');
+            ->assertJsonPath('data.results.0.translation.code', 'L1_RST')
+            ->assertJsonPath('data.results.0.snippet_segments.1.text', 'сотворил')
+            ->assertJsonPath('data.results.0.snippet_segments.1.match', true);
 
         $this->getJson('/api/search/verses?q=Gen.1.1&translation=L1_RST')
             ->assertOk()

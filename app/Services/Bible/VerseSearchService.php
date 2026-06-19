@@ -40,6 +40,10 @@ class VerseSearchService
 
     private function textResults(string $query, string $translationCode, int $limit): Collection
     {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            return $this->postgresTextResults($query, $translationCode, $limit);
+        }
+
         $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%';
 
         return $this->baseQuery($translationCode)
@@ -50,7 +54,27 @@ class VerseSearchService
             ->orderBy('verses.verse_number')
             ->limit($limit)
             ->get($this->resultColumns())
-            ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query)));
+            ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
+    }
+
+    private function postgresTextResults(string $query, string $translationCode, int $limit): Collection
+    {
+        $headlineSql = "ts_headline('simple', verse_texts.text_plain, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
+        $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text_plain, '')), plainto_tsquery('simple', ?))";
+
+        return $this->baseQuery($translationCode)
+            ->select($this->resultColumns())
+            ->selectRaw("{$headlineSql} as snippet", [$query])
+            ->selectRaw("{$rankSql} as rank", [$query])
+            ->whereRaw("to_tsvector('simple', coalesce(verse_texts.text_plain, '')) @@ plainto_tsquery('simple', ?)", [$query])
+            ->orderByDesc('rank')
+            ->orderBy('translations.code')
+            ->orderBy('canonical_books.canonical_order')
+            ->orderBy('verses.chapter_number')
+            ->orderBy('verses.verse_number')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => $this->mapResult($row, (string) $row->snippet, $query, true));
     }
 
     /**
@@ -65,7 +89,7 @@ class VerseSearchService
             ->orderBy('translations.code')
             ->limit($limit)
             ->get($this->resultColumns())
-            ->map(fn ($row) => $this->mapResult($row, mb_substr((string) $row->text_plain, 0, 160)));
+            ->map(fn ($row) => $this->mapResult($row, mb_substr((string) $row->text_plain, 0, 160), ''));
     }
 
     private function baseQuery(string $translationCode): \Illuminate\Database\Query\Builder
@@ -102,8 +126,12 @@ class VerseSearchService
     /**
      * @return array<string, mixed>
      */
-    private function mapResult(object $row, string $snippet): array
+    private function mapResult(object $row, string $snippet, string $query, bool $snippetHasMarkers = false): array
     {
+        $snippetData = $snippetHasMarkers
+            ? $this->segmentsFromMarkedSnippet($snippet)
+            : $this->highlightSnippet($snippet, $query);
+
         return [
             'verse_text_id' => $row->verse_text_id,
             'verse_id' => $row->verse_id,
@@ -119,7 +147,8 @@ class VerseSearchService
             'chapter_number' => $row->chapter_number,
             'verse_number' => $row->verse_number,
             'text' => $row->text,
-            'snippet' => $snippet,
+            'snippet' => $snippetData['text'],
+            'snippet_segments' => $snippetData['segments'],
         ];
     }
 
@@ -237,5 +266,98 @@ class VerseSearchService
         $snippet = mb_substr($text, $start, 160);
 
         return ($start > 0 ? '...' : '').$snippet.(mb_strlen($text) > $start + 160 ? '...' : '');
+    }
+
+    /**
+     * @return array{text: string, segments: list<array{text: string, match: bool}>}
+     */
+    private function highlightSnippet(string $snippet, string $query): array
+    {
+        $tokens = $this->queryTokens($query);
+
+        if ($tokens === []) {
+            return [
+                'text' => $snippet,
+                'segments' => [['text' => $snippet, 'match' => false]],
+            ];
+        }
+
+        $pattern = '/('.implode('|', array_map(fn (string $token): string => preg_quote($token, '/'), $tokens)).')/iu';
+        $parts = preg_split($pattern, $snippet, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+
+        if (! is_array($parts)) {
+            return [
+                'text' => $snippet,
+                'segments' => [['text' => $snippet, 'match' => false]],
+            ];
+        }
+
+        return [
+            'text' => $snippet,
+            'segments' => array_map(fn (string $part): array => [
+                'text' => $part,
+                'match' => $this->isTokenMatch($part, $tokens),
+            ], $parts),
+        ];
+    }
+
+    /**
+     * @return array{text: string, segments: list<array{text: string, match: bool}>}
+     */
+    private function segmentsFromMarkedSnippet(string $snippet): array
+    {
+        $segments = [];
+        $plain = '';
+        $parts = preg_split('/(<<bd>>|<<\/bd>>)/u', $snippet, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $isMatch = false;
+
+        foreach (is_array($parts) ? $parts : [$snippet] as $part) {
+            if ($part === '<<bd>>') {
+                $isMatch = true;
+                continue;
+            }
+
+            if ($part === '<</bd>>') {
+                $isMatch = false;
+                continue;
+            }
+
+            $plain .= $part;
+            $segments[] = [
+                'text' => $part,
+                'match' => $isMatch,
+            ];
+        }
+
+        return [
+            'text' => $plain,
+            'segments' => $segments === [] ? [['text' => $plain, 'match' => false]] : $segments,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function queryTokens(string $query): array
+    {
+        $tokens = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique(array_filter($tokens, fn (string $token): bool => mb_strlen($token) >= 2)));
+    }
+
+    /**
+     * @param list<string> $tokens
+     */
+    private function isTokenMatch(string $part, array $tokens): bool
+    {
+        $part = mb_strtolower($part);
+
+        foreach ($tokens as $token) {
+            if ($part === $token) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

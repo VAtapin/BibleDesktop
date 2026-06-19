@@ -109,6 +109,10 @@ type SearchResultDto = {
     verse_number: number;
     text: string;
     snippet: string;
+    snippet_segments?: Array<{
+        text: string;
+        match: boolean;
+    }>;
 };
 
 type ReaderTab = {
@@ -672,7 +676,15 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                             @click="openSearchResult(result)"
                         >
                             <strong>{{ result.osis_ref ?? `${result.book.osis_code ?? result.book.slug}.${result.chapter_number}.${result.verse_number}` }}</strong>
-                            <span>{{ result.snippet }}</span>
+                            <span>
+                                <template
+                                    v-for="(segment, index) in result.snippet_segments ?? [{ text: result.snippet, match: false }]"
+                                    :key="`${result.verse_text_id}-${index}`"
+                                >
+                                    <mark v-if="segment.match">{{ segment.text }}</mark>
+                                    <template v-else>{{ segment.text }}</template>
+                                </template>
+                            </span>
                         </button>
                     </template>
                 </div>
