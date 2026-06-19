@@ -258,6 +258,41 @@ updated_at
 
 ---
 
+## `legacy_canonical_verse_overrides`
+
+```text
+id
+legacy_bible_id          nullable, null means global override
+legacy_book_slug
+legacy_chapter_number
+legacy_verse_number
+action                   map_verse
+target_book_slug
+target_chapter_number
+target_verse_number
+reason
+note
+metadata_json
+created_at
+updated_at
+```
+
+Назначение:
+
+* хранить точные verse-level правила для альтернативной нумерации;
+* не мапить целую главу, если внутри книги смещены границы глав;
+* дать importer возможность переносить legacy verses даже когда `legacy_chapters.canonical_chapter_id = null`.
+
+Первый реальный кейс:
+
+```text
+4-главный Joel:
+legacy Joel 3:1-5  -> canonical Joel 2:28-32
+legacy Joel 4:1-21 -> canonical Joel 3:1-21
+```
+
+---
+
 ## `legacy_supplemental_texts`
 
 ```text

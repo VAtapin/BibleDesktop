@@ -53,6 +53,36 @@ class ReportSkippedLegacyVersesCommandTest extends TestCase
         @unlink($path);
     }
 
+    public function test_it_does_not_report_legacy_verses_with_verse_overrides_as_skipped(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->createSkippedVerseFixture();
+
+        DB::table('legacy_canonical_verse_overrides')->insert([
+            'legacy_bible_id' => 1,
+            'legacy_book_slug' => 'genesis',
+            'legacy_chapter_number' => 51,
+            'legacy_verse_number' => 1,
+            'action' => 'map_verse',
+            'target_book_slug' => 'genesis',
+            'target_chapter_number' => 50,
+            'target_verse_number' => 26,
+            'reason' => 'test verse mapping',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $path = $this->writeSkippedVerseDump();
+
+        $this->artisan('bible:legacy:report-skipped-verses', ['--path' => 'storage/app/skipped-report.sql'])
+            ->expectsOutputToContain('Skipped legacy verses: 1')
+            ->expectsOutputToContain('missing_canonical_chapter: 1')
+            ->assertSuccessful();
+
+        @unlink($path);
+    }
+
     private function createSkippedVerseFixture(): void
     {
         $now = now();

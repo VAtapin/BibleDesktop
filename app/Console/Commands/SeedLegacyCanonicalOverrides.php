@@ -13,8 +13,11 @@ class SeedLegacyCanonicalOverrides extends Command
 
     public function handle(): int
     {
-        if (! DB::getSchemaBuilder()->hasTable('legacy_canonical_chapter_overrides')) {
-            $this->error('Table legacy_canonical_chapter_overrides is missing. Run migrations first.');
+        if (
+            ! DB::getSchemaBuilder()->hasTable('legacy_canonical_chapter_overrides')
+            || ! DB::getSchemaBuilder()->hasTable('legacy_canonical_verse_overrides')
+        ) {
+            $this->error('Legacy canonical override tables are missing. Run migrations first.');
 
             return self::FAILURE;
         }
@@ -36,6 +39,23 @@ class SeedLegacyCanonicalOverrides extends Command
         );
 
         $this->components->info(sprintf('Seeded legacy canonical chapter overrides: %d rules.', count($rows)));
+
+        $verseRows = array_map(fn (array $row): array => [
+            ...$row,
+            'metadata_json' => isset($row['metadata_json'])
+                ? json_encode($row['metadata_json'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                : null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $this->verseRules());
+
+        DB::table('legacy_canonical_verse_overrides')->upsert(
+            $verseRows,
+            ['legacy_bible_id', 'legacy_book_slug', 'legacy_chapter_number', 'legacy_verse_number'],
+            ['action', 'target_book_slug', 'target_chapter_number', 'target_verse_number', 'reason', 'note', 'metadata_json', 'updated_at'],
+        );
+
+        $this->components->info(sprintf('Seeded legacy canonical verse overrides: %d rules.', count($verseRows)));
 
         return self::SUCCESS;
     }
@@ -88,6 +108,58 @@ class SeedLegacyCanonicalOverrides extends Command
             'reason' => 'alternate_joel_versification',
             'note' => 'Four-chapter Joel versification needs verse-level mapping before import.',
         ], [3, 5, 325, 359]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function verseRules(): array
+    {
+        return [
+            ...$this->joelFourChapterVerseRules(),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function joelFourChapterVerseRules(): array
+    {
+        $rules = [];
+
+        foreach ([3, 5, 325, 359] as $legacyBibleId) {
+            for ($verse = 1; $verse <= 5; $verse++) {
+                $rules[] = [
+                    'legacy_bible_id' => $legacyBibleId,
+                    'legacy_book_slug' => 'joel',
+                    'legacy_chapter_number' => 3,
+                    'legacy_verse_number' => $verse,
+                    'action' => 'map_verse',
+                    'target_book_slug' => 'joel',
+                    'target_chapter_number' => 2,
+                    'target_verse_number' => 27 + $verse,
+                    'reason' => 'alternate_joel_versification',
+                    'note' => 'Four-chapter Joel chapter 3 maps to three-chapter Joel 2:28-32.',
+                ];
+            }
+
+            for ($verse = 1; $verse <= 21; $verse++) {
+                $rules[] = [
+                    'legacy_bible_id' => $legacyBibleId,
+                    'legacy_book_slug' => 'joel',
+                    'legacy_chapter_number' => 4,
+                    'legacy_verse_number' => $verse,
+                    'action' => 'map_verse',
+                    'target_book_slug' => 'joel',
+                    'target_chapter_number' => 3,
+                    'target_verse_number' => $verse,
+                    'reason' => 'alternate_joel_versification',
+                    'note' => 'Four-chapter Joel chapter 4 maps to three-chapter Joel 3.',
+                ];
+            }
+        }
+
+        return $rules;
     }
 
     /**

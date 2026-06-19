@@ -4,6 +4,43 @@
 
 ## 2026-06-19
 
+Задача: добавить verse-level canonical overrides для 4-главного Joel.
+
+Изменённые файлы:
+
+```text
+database/migrations/2026_06_19_001000_create_legacy_canonical_verse_overrides_table.php
+app/Console/Commands/SeedLegacyCanonicalOverrides.php
+app/Console/Commands/ImportLegacyVerses.php
+app/Console/Commands/ReportSkippedLegacyVerses.php
+tests/Feature/SeedLegacyCanonicalOverridesCommandTest.php
+tests/Feature/ImportLegacyVersesCommandTest.php
+tests/Feature/ReportSkippedLegacyVersesCommandTest.php
+docs/DATA_MODEL.md
+docs/LEGACY_MODULE_DECISIONS.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена таблица `legacy_canonical_verse_overrides`;
+* seeder создаёт 104 правила для 4-главного Joel;
+* `bible:legacy:import-verses` применяет `map_verse` до chapter mapping;
+* `bible:legacy:report-skipped-verses` больше не считает стихи с verse override как skipped;
+* добавлены feature tests для seeding, verse import и skipped report.
+
+Результат:
+
+* legacy `Joel 3:1-5` переносится как canonical `Joel 2:28-32`;
+* legacy `Joel 4:1-21` переносится как canonical `Joel 3:1-21`;
+* на `database/testing.sqlite` skipped report снизился до 112 строк: 65 appendix, 27 heading, 20 конфликтных `requires_book_mapping`;
+* переимпорт `L3_UKR`, `L5_LB`, `L325_UKH`, `L359_SCH2000NEU` подтвердил mapping для `Joel.2.28` и `Joel.3.1`;
+* конфликтный `L3_UKR 2Thess 4 -> 1Tim 1` оставлен отдельной задачей, чтобы не перезаписать нормальную `1Tim 1`.
+
+---
+
 Задача: добавить ручную модель чтений дня для календаря и Telegram.
 
 Изменённые файлы:

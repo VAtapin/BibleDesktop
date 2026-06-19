@@ -68,6 +68,7 @@ class ReportSkippedLegacyVerses extends Command
             ->keyBy('legacy_id');
 
         $chapterOverrides = $this->chapterOverrides();
+        $verseOverrides = $this->verseOverrides();
         $groups = [];
         $libraryTotals = [];
         $totals = [];
@@ -92,6 +93,10 @@ class ReportSkippedLegacyVerses extends Command
             } elseif (! $chapter) {
                 $reason = 'missing_chapter';
             } elseif (! $chapter->canonical_chapter_id) {
+                if ($this->verseOverride($verseOverrides, $libraryId, (string) $book->slug, (int) $chapter->chapter_number, (int) $row['verseNr'])) {
+                    continue;
+                }
+
                 $override = $this->chapterOverride($chapterOverrides, $libraryId, (string) $book->slug, (int) $chapter->chapter_number);
                 $reason = $override ? "override_{$override->action}" : 'missing_canonical_chapter';
             }
@@ -203,5 +208,41 @@ class ReportSkippedLegacyVerses extends Command
         return $chapterOverrides["{$legacyBibleId}:{$legacyBookSlug}:{$legacyChapterNumber}"]
             ?? $chapterOverrides["*:{$legacyBookSlug}:{$legacyChapterNumber}"]
             ?? null;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function verseOverrides(): array
+    {
+        if (! DB::getSchemaBuilder()->hasTable('legacy_canonical_verse_overrides')) {
+            return [];
+        }
+
+        return DB::table('legacy_canonical_verse_overrides')
+            ->where('action', 'map_verse')
+            ->get([
+                'legacy_bible_id',
+                'legacy_book_slug',
+                'legacy_chapter_number',
+                'legacy_verse_number',
+            ])
+            ->mapWithKeys(function ($override): array {
+                $legacyBibleId = $override->legacy_bible_id === null ? '*' : (string) $override->legacy_bible_id;
+
+                return [
+                    "{$legacyBibleId}:{$override->legacy_book_slug}:{$override->legacy_chapter_number}:{$override->legacy_verse_number}" => true,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param array<string, true> $verseOverrides
+     */
+    private function verseOverride(array $verseOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber, int $legacyVerseNumber): bool
+    {
+        return isset($verseOverrides["{$legacyBibleId}:{$legacyBookSlug}:{$legacyChapterNumber}:{$legacyVerseNumber}"])
+            || isset($verseOverrides["*:{$legacyBookSlug}:{$legacyChapterNumber}:{$legacyVerseNumber}"]);
     }
 }

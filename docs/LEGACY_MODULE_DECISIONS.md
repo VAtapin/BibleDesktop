@@ -101,13 +101,28 @@ map_chapter
 
 `bible:legacy:report-skipped-verses` читает overrides и показывает такие строки как `override_{action}` вместо общего `missing_canonical_chapter`.
 
-Следующие действия ещё нужно наполнить реальными правилами и обработать в importer там, где это нужно:
+Для альтернативной нумерации стихов добавлен второй слой:
+
+```text
+legacy_canonical_verse_overrides
+```
+
+Первый поддержанный кейс:
+
+```text
+L3_UKR, L5_LB, L325_UKH, L359_SCH2000NEU
+legacy Joel 3:1-5  -> canonical Joel 2:28-32
+legacy Joel 4:1-21 -> canonical Joel 3:1-21
+```
+
+`bible:legacy:import-verses` применяет `map_verse` до проверки chapter mapping, поэтому может импортировать стихи из legacy-главы без `canonical_chapter_id`.
+
+Следующие действия ещё нужно обработать там, где это нужно:
 
 ```text
 heading
 appendix
 non_canonical
-requires_verse_mapping
 requires_book_mapping
 ```
 
@@ -136,7 +151,27 @@ missing_canonical_chapter: 0
 L10_DRB EpJer.1.1
 ```
 
-После этого остаются 196 classified skipped rows: appendix, heading, `requires_verse_mapping` и `requires_book_mapping`.
+После повторного импорта affected Joel-библиотек без `--missing-only` `requires_verse_mapping` закрывается для Joel. Важно: если эти библиотеки уже импортировались до появления verse-level rules, повторный `--missing-only` не исправит старые `Joel 3` mappings.
+
+Фактический report на `database/testing.sqlite` после seeding verse overrides:
+
+```text
+Skipped legacy verses: 112
+override_appendix: 65
+override_requires_book_mapping: 20
+override_heading: 27
+```
+
+Проверенные импортированные примеры:
+
+```text
+L3_UKR  legacy 91146 -> Joel.2.28
+L3_UKR  legacy 91151 -> Joel.3.1
+L5_LB   legacy 153420 -> Joel.2.28
+L5_LB   legacy 153425 -> Joel.3.1
+```
+
+Осторожность по `L3_UKR 2thessalonians 4`: это текст `1 Timothy 1`, но в той же библиотеке есть нормальная `1timothy 1`. Автоматический `map_verse` перезапишет реальную `1Tim 1`, поэтому этот кейс остаётся отдельной задачей: хранить как duplicate/supplemental или добавить conflict-aware import.
 
 `bible:legacy:import-supplemental-texts` переносит appendix/heading/non-canonical rows в отдельную таблицу `legacy_supplemental_texts`. На `database/testing.sqlite` импортировано:
 
