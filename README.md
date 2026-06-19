@@ -131,6 +131,7 @@ Admin panel:
 GET /api/languages
 GET /api/translations
 GET /api/canons/{canon}/books
+GET /api/translations/{translationCode}/books
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 GET /api/search/verses?q={query}&translation={translationCode}
 GET /api/calendar/day?date=YYYY-MM-DD
@@ -160,7 +161,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
+1. Улучшить reader flow: вкладки/состояние и переход к стиху.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
 3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.

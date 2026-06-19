@@ -7,14 +7,17 @@ type LanguageDto = {
     native_name: string;
 };
 
-type CanonBookDto = {
+type ReaderBookDto = {
     slug: string;
-    osis_code: string;
-    testament: 'old' | 'new' | 'apocrypha';
+    name: string;
+    short_name: string | null;
     order: number;
     chapters_count: number;
-    is_deuterocanonical: boolean;
-    names: Record<string, { name: string; short_name: string; aliases: string[] }>;
+    canonical_book: {
+        osis_code: string;
+        testament: 'old' | 'new' | 'apocrypha';
+        is_deuterocanonical: boolean;
+    } | null;
 };
 
 type TranslationDto = {
@@ -98,8 +101,9 @@ type Tab = {
 
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
-const books = ref<CanonBookDto[]>([]);
+const books = ref<ReaderBookDto[]>([]);
 const isLoading = ref(true);
+const isBooksLoading = ref(false);
 const isChapterLoading = ref(false);
 const apiError = ref<string | null>(null);
 const selectedTranslationCode = ref('L1_RST');
@@ -169,7 +173,7 @@ const chapterOptions = computed(() => {
     return Array.from({ length: count }, (_, index) => index + 1);
 });
 const currentTitle = computed(() => {
-    const bookName = currentBook.value?.names.en?.name ?? currentBook.value?.slug ?? 'Библия';
+    const bookName = currentBook.value?.name ?? currentBook.value?.slug ?? 'Библия';
 
     return `${bookName} ${selectedChapterNumber.value}`;
 });
@@ -216,6 +220,45 @@ async function loadChapter(): Promise<void> {
     } finally {
         isChapterLoading.value = false;
     }
+}
+
+async function loadBooksForSelectedTranslation(): Promise<void> {
+    if (!selectedTranslationCode.value) {
+        books.value = [];
+
+        return;
+    }
+
+    isBooksLoading.value = true;
+
+    try {
+        const booksResponse = await loadJson<ApiResponse<{ books: ReaderBookDto[] }>>(
+            `/api/translations/${selectedTranslationCode.value}/books`,
+        );
+
+        books.value = booksResponse.data.books;
+
+        if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
+            selectedBookSlug.value = books.value[0]?.slug ?? 'genesis';
+            selectedChapterNumber.value = 1;
+        }
+
+        const maxChapter = currentBook.value?.chapters_count ?? 1;
+        if (selectedChapterNumber.value > maxChapter) {
+            selectedChapterNumber.value = maxChapter;
+        }
+    } catch (error) {
+        books.value = [];
+        apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить книги перевода';
+    } finally {
+        isBooksLoading.value = false;
+    }
+}
+
+async function changeTranslation(): Promise<void> {
+    selectedChapterNumber.value = 1;
+    await loadBooksForSelectedTranslation();
+    await loadChapter();
 }
 
 function changeBook(): void {
@@ -269,21 +312,20 @@ function selectVerse(verse: Verse): void {
 
 onMounted(async () => {
     try {
-        const [languagesResponse, translationsResponse, booksResponse] = await Promise.all([
+        const [languagesResponse, translationsResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
             loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
-            loadJson<ApiResponse<{ books: CanonBookDto[] }>>('/api/canons/orthodox/books'),
         ]);
 
         languages.value = languagesResponse.data;
         translations.value = translationsResponse.data;
-        books.value = booksResponse.data.books;
         selectedTranslationCode.value = translations.value.find((translation) => translation.is_default)?.code
             ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
             ?? translations.value[0]?.code
             ?? 'L1_RST';
-        selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
 
+        await loadBooksForSelectedTranslation();
+        selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
         await loadChapter();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
@@ -347,7 +389,7 @@ onMounted(async () => {
                     <select
                         v-model="selectedTranslationCode"
                         aria-label="Перевод"
-                        @change="loadChapter"
+                        @change="changeTranslation"
                     >
                         <option
                             v-for="translation in translations"
@@ -363,7 +405,7 @@ onMounted(async () => {
                         aria-label="Книга"
                         @change="changeBook"
                     >
-                        <template v-if="isLoading">
+                        <template v-if="isLoading || isBooksLoading">
                             <option>Загрузка книг...</option>
                         </template>
                         <template v-else>
@@ -372,8 +414,9 @@ onMounted(async () => {
                                 :key="book.slug"
                                 :value="book.slug"
                             >
-                                {{ book.names.en?.name ?? book.slug }} ({{ book.chapters_count }})
+                                {{ book.name }} ({{ book.chapters_count }})
                             </option>
+                            <option v-if="books.length === 0" value="genesis">Книги ещё не импортированы</option>
                         </template>
                     </select>
                     <select
@@ -400,6 +443,9 @@ onMounted(async () => {
                 <article class="chapter">
                     <p v-if="isChapterLoading" class="reader-status">
                         Загружаю главу...
+                    </p>
+                    <p v-else-if="currentVerses.length === 0" class="reader-status">
+                        В этой главе пока нет импортированного текста.
                     </p>
                     <p
                         v-for="verse in currentVerses"

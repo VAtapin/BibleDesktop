@@ -64,6 +64,62 @@ class ReferenceDataController extends Controller
         return response()->json(['data' => $translations]);
     }
 
+    public function translationBooks(string $translationCode): JsonResponse
+    {
+        $translation = DB::table('translations')
+            ->join('modules', 'modules.id', '=', 'translations.module_id')
+            ->where('translations.code', $translationCode)
+            ->where('modules.is_active', true)
+            ->first([
+                'translations.id',
+                'translations.code',
+                'translations.name',
+                'translations.short_name',
+            ]);
+
+        if (! $translation) {
+            abort(404, 'Translation not found.');
+        }
+
+        $books = DB::table('module_books')
+            ->leftJoin('canonical_books', 'canonical_books.id', '=', 'module_books.canonical_book_id')
+            ->where('module_books.translation_id', $translation->id)
+            ->orderBy('module_books.book_order')
+            ->get([
+                'module_books.slug',
+                'module_books.name',
+                'module_books.short_name',
+                'module_books.book_order',
+                'module_books.chapters_count',
+                'canonical_books.osis_code',
+                'canonical_books.testament',
+                'canonical_books.is_deuterocanonical',
+            ])
+            ->map(fn ($book) => [
+                'slug' => $book->slug,
+                'name' => $book->name,
+                'short_name' => $book->short_name,
+                'order' => (int) $book->book_order,
+                'chapters_count' => (int) $book->chapters_count,
+                'canonical_book' => $book->osis_code === null ? null : [
+                    'osis_code' => $book->osis_code,
+                    'testament' => $book->testament,
+                    'is_deuterocanonical' => (bool) $book->is_deuterocanonical,
+                ],
+            ]);
+
+        return response()->json([
+            'data' => [
+                'translation' => [
+                    'code' => $translation->code,
+                    'name' => $translation->name,
+                    'short_name' => $translation->short_name,
+                ],
+                'books' => $books,
+            ],
+        ]);
+    }
+
     public function canonBooks(Canon $canon): JsonResponse
     {
         $books = $canon->books()

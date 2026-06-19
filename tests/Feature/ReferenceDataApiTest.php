@@ -81,4 +81,60 @@ class ReferenceDataApiTest extends TestCase
             ->assertJsonPath('data.0.has_strong', true)
             ->assertJsonPath('data.0.is_default', true);
     }
+
+    public function test_translation_books_endpoint_returns_module_book_names(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $now = now();
+        $languageId = DB::table('languages')->where('code', 'ru')->value('id');
+        $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
+        $bookId = DB::table('canonical_books')->where('slug', 'genesis')->value('id');
+
+        DB::table('modules')->insert([
+            'language_id' => $languageId,
+            'type' => 'bible',
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'is_active' => true,
+            'is_public' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleId = DB::table('modules')->where('code', 'L1_RST')->value('id');
+
+        DB::table('translations')->insert([
+            'module_id' => $moduleId,
+            'language_id' => $languageId,
+            'canon_id' => $canonId,
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'has_old_testament' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $translationId = DB::table('translations')->where('code', 'L1_RST')->value('id');
+
+        DB::table('module_books')->insert([
+            'module_id' => $moduleId,
+            'translation_id' => $translationId,
+            'canonical_book_id' => $bookId,
+            'slug' => 'genesis',
+            'name' => 'Бытие',
+            'short_name' => 'Быт.',
+            'book_order' => 1,
+            'chapters_count' => 50,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->getJson('/api/translations/L1_RST/books')
+            ->assertOk()
+            ->assertJsonPath('data.translation.code', 'L1_RST')
+            ->assertJsonPath('data.books.0.slug', 'genesis')
+            ->assertJsonPath('data.books.0.name', 'Бытие')
+            ->assertJsonPath('data.books.0.canonical_book.osis_code', 'Gen');
+    }
 }

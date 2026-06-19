@@ -4,6 +4,36 @@
 
 ## 2026-06-19
 
+Задача: улучшить reader flow для книг перевода.
+
+Изменённые файлы:
+
+```text
+app/Http/Controllers/Api/ReferenceDataController.php
+resources/js/components/BibleDesktopApp.vue
+routes/api.php
+tests/Feature/ReferenceDataApiTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлен endpoint `GET /api/translations/{translationCode}/books`;
+* endpoint возвращает книги конкретного перевода из `module_books` с реальными названиями, порядком, количеством глав и canonical metadata;
+* Vue reader загружает книги после выбора перевода и обновляет список книг при смене перевода;
+* reader показывает понятное состояние, если в выбранной главе ещё нет импортированного текста;
+* добавлен feature test для endpoint книг перевода.
+
+Результат:
+
+* reader больше не зависит от английских имён канонических книг для выбора книги;
+* `route:list --path=api` показывает 11 API routes;
+* проверки проходят: PHPUnit 21 tests / 89 assertions, `npm run typecheck`, `npm run build`.
+
+---
+
 Задача: импортировать православный календарь и подключить календарные Telegram-команды.
 
 Изменённые файлы:
