@@ -388,6 +388,7 @@ php artisan bible:migrate-quotes
 * текущий verse importer параметризован по одной библиотеке: `php artisan bible:legacy:import-verses --library=1`.
 * Strong dictionaries importer готов: `php artisan bible:legacy:import-strong`.
 * Strong token importer готов для первого вертикального среза: `php artisan bible:legacy:import-strong-tokens --translation=L1_RST`.
+* Cross reference importer готов для `quote.tsk`: `php artisan bible:legacy:import-cross-references`.
 
 ---
 
@@ -403,3 +404,4 @@ php artisan bible:migrate-quotes
 * Strong `H0430` находится в словаре и связан с RST verses;
 * `text_plain` не содержит Strong-маркеров.
 * `Gen.1.1` имеет Strong-токены в `verse_strong_tokens`.
+* `Gen.1.1` имеет 72 cross references после импорта `quote.tsk`.

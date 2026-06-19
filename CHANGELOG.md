@@ -13,11 +13,13 @@ app/Console/Commands/ImportLegacyMetadata.php
 app/Console/Commands/ImportLegacyVerses.php
 app/Console/Commands/ImportLegacyStrong.php
 app/Console/Commands/ImportLegacyStrongTokens.php
+app/Console/Commands/ImportLegacyCrossReferences.php
 app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
 app/Http/Controllers/Api/ChapterController.php
 app/Models/*
 app/Support/LegacySqlDump.php
+app/Support/TskReferenceParser.php
 bootstrap/app.php
 database/seeders/*
 resources/js/components/BibleDesktopApp.vue
@@ -44,7 +46,8 @@ CHANGELOG.md
 * verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
 * добавлена команда `bible:legacy:import-strong` для `strong_lexicons` и `strong_numbers`;
 * добавлена команда `bible:legacy:import-strong-tokens --translation=L1_RST` для переноса Strong-маркеров из `verse_texts.text_raw` в `verse_strong_tokens`;
-* добавлены тесты seeders, API и SQL dump reader;
+* добавлена команда `bible:legacy:import-cross-references` и TSK parser для переноса `quote.tsk` в `cross_references`;
+* добавлены тесты seeders, API, SQL dump reader и TSK parser;
 * `.gitignore` дополнен локальными SQLite/test артефактами.
 
 Результат:
@@ -54,7 +57,8 @@ CHANGELOG.md
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
 * Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
-* проверки проходят: PHPUnit 7 tests / 32 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
+* cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;
+* проверки проходят: PHPUnit 9 tests / 37 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---
 
