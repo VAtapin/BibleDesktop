@@ -125,6 +125,7 @@ type ReaderTab = {
 
 type ReaderState = {
     translationCode: string;
+    compareTranslationCode?: string;
     bookSlug: string;
     chapterNumber: number;
     activeTabId?: string;
@@ -141,6 +142,7 @@ const isBooksLoading = ref(false);
 const isChapterLoading = ref(false);
 const apiError = ref<string | null>(null);
 const selectedTranslationCode = ref('L1_RST');
+const compareTranslationCode = ref('');
 const selectedBookSlug = ref('genesis');
 const selectedChapterNumber = ref(1);
 const selectedVerse = ref<Verse | null>(null);
@@ -194,12 +196,18 @@ const demoVerses: Verse[] = [
     },
 ];
 const currentVerses = ref<Verse[]>(demoVerses);
+const compareVerses = ref<Verse[]>([]);
+const isCompareLoading = ref(false);
+const compareError = ref<string | null>(null);
 
 const tools = ['M', 'B', 'R', 'P', 'S#'];
 
 const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Русский');
 const currentTranslation = computed(() => {
     return translations.value.find((translation) => translation.code === selectedTranslationCode.value) ?? translations.value[0] ?? null;
+});
+const compareTranslation = computed(() => {
+    return translations.value.find((translation) => translation.code === compareTranslationCode.value) ?? null;
 });
 
 const currentBook = computed(() => {
@@ -223,6 +231,9 @@ const visibleReaderTabs = computed(() => {
     }));
 });
 const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
+const compareVerseByNumber = computed(() => {
+    return new Map(compareVerses.value.map((verse) => [verse.number, verse]));
+});
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
     const translationCode = state.translationCode ?? selectedTranslationCode.value;
@@ -318,6 +329,7 @@ function readReaderState(): ReaderState | null {
 
         return {
             translationCode: parsed.translationCode,
+            compareTranslationCode: typeof parsed.compareTranslationCode === 'string' ? parsed.compareTranslationCode : undefined,
             bookSlug: parsed.bookSlug,
             chapterNumber: Math.max(1, Number(parsed.chapterNumber)),
             activeTabId: typeof parsed.activeTabId === 'string' ? parsed.activeTabId : undefined,
@@ -335,6 +347,7 @@ function persistReaderState(): void {
 
     window.localStorage.setItem(readerStateKey, JSON.stringify({
         translationCode: selectedTranslationCode.value,
+        compareTranslationCode: compareTranslationCode.value,
         bookSlug: selectedBookSlug.value,
         chapterNumber: selectedChapterNumber.value,
         activeTabId: activeTabId.value,
@@ -375,15 +388,40 @@ async function loadChapter(targetVerseNumber: number | null = null): Promise<voi
         if (selectedVerse.value?.id) {
             await loadStudyData(selectedVerse.value);
         }
+        await loadCompareChapter();
         apiError.value = null;
     } catch (error) {
         currentVerses.value = demoVerses;
+        compareVerses.value = [];
         selectedVerse.value = null;
         strongTokens.value = [];
         crossReferences.value = [];
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить главу';
     } finally {
         isChapterLoading.value = false;
+    }
+}
+
+async function loadCompareChapter(): Promise<void> {
+    compareVerses.value = [];
+    compareError.value = null;
+
+    if (!compareTranslationCode.value || compareTranslationCode.value === selectedTranslationCode.value) {
+        return;
+    }
+
+    isCompareLoading.value = true;
+
+    try {
+        const chapterResponse = await loadJson<ApiResponse<ChapterDto>>(
+            `/api/translations/${compareTranslationCode.value}/books/${selectedBookSlug.value}/chapters/${selectedChapterNumber.value}`,
+        );
+
+        compareVerses.value = chapterResponse.data.verses;
+    } catch (error) {
+        compareError.value = error instanceof Error ? error.message : 'Не удалось загрузить параллельный перевод';
+    } finally {
+        isCompareLoading.value = false;
     }
 }
 
@@ -421,6 +459,10 @@ async function loadBooksForSelectedTranslation(): Promise<void> {
 }
 
 async function changeTranslation(): Promise<void> {
+    if (compareTranslationCode.value === selectedTranslationCode.value) {
+        compareTranslationCode.value = '';
+    }
+
     selectedChapterNumber.value = 1;
     await loadBooksForSelectedTranslation();
     await loadChapter();
@@ -431,6 +473,11 @@ async function changeTranslation(): Promise<void> {
 function changeBook(): void {
     selectedChapterNumber.value = 1;
     void loadChapter();
+}
+
+function changeCompareTranslation(): void {
+    void loadCompareChapter();
+    persistReaderState();
 }
 
 function goChapter(delta: number): void {
@@ -678,6 +725,9 @@ onMounted(async () => {
         selectedTranslationCode.value = savedState && translations.value.some((translation) => translation.code === savedState.translationCode)
             ? savedState.translationCode
             : defaultTranslationCode;
+        compareTranslationCode.value = savedState?.compareTranslationCode && translations.value.some((translation) => translation.code === savedState.compareTranslationCode)
+            ? savedState.compareTranslationCode
+            : '';
         selectedBookSlug.value = savedState?.bookSlug ?? selectedBookSlug.value;
         selectedChapterNumber.value = savedState?.chapterNumber ?? selectedChapterNumber.value;
         readerTabs.value = savedState?.tabs?.length
@@ -711,7 +761,7 @@ onMounted(async () => {
     }
 });
 
-watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
+watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
     syncActiveTabFromSelection();
     persistReaderState();
 });
@@ -867,6 +917,21 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                             {{ chapter }}
                         </option>
                     </select>
+                    <select
+                        v-model="compareTranslationCode"
+                        class="compare-select"
+                        aria-label="Параллельный перевод"
+                        @change="changeCompareTranslation"
+                    >
+                        <option value="">Один перевод</option>
+                        <option
+                            v-for="translation in translations.filter((item) => item.code !== selectedTranslationCode)"
+                            :key="translation.code"
+                            :value="translation.code"
+                        >
+                            + {{ translation.short_name ?? translation.name }}
+                        </option>
+                    </select>
                     <div class="reader-actions">
                         <button type="button" aria-label="Strong">S#</button>
                         <button type="button" aria-label="Печать">P</button>
@@ -895,6 +960,19 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => 
                             {{ verse.number }}
                         </button>
                         <span @click="selectVerse(verse)">{{ verse.text }}</span>
+                        <small
+                            v-if="compareVerseByNumber.get(verse.number)"
+                            class="compare-verse"
+                        >
+                            <strong>{{ compareTranslation?.short_name ?? compareTranslation?.name }}</strong>
+                            {{ compareVerseByNumber.get(verse.number)?.text }}
+                        </small>
+                    </p>
+                    <p v-if="isCompareLoading" class="reader-status">
+                        Загружаю параллельный перевод...
+                    </p>
+                    <p v-else-if="compareError" class="reader-status">
+                        {{ compareError }}
                     </p>
                     <div
                         v-if="verseMenu"

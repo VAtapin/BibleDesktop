@@ -326,8 +326,13 @@ button {
     outline: 0;
 }
 
-.reader-toolbar .chapter-select {
+.reader-toolbar .chapter-select,
+.reader-toolbar .compare-select {
     min-width: 72px;
+}
+
+.reader-toolbar .compare-select {
+    min-width: 142px;
 }
 
 .reader-actions {
@@ -358,6 +363,19 @@ button {
 
 .chapter p span {
     cursor: pointer;
+}
+
+.compare-verse {
+    grid-column: 2;
+    display: block;
+    color: #6d7787;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.compare-verse strong {
+    color: #557496;
+    margin-right: 6px;
 }
 
 .verse-number {
