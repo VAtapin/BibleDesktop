@@ -228,6 +228,10 @@ button {
     outline: 0;
 }
 
+.reader-toolbar .chapter-select {
+    min-width: 72px;
+}
+
 .reader-actions {
     display: flex;
     gap: 8px;
@@ -257,6 +261,10 @@ button {
     text-align: right;
 }
 
+.reader-status {
+    color: #7b8797;
+}
+
 .reader-footer {
     display: flex;
     align-items: center;
@@ -271,6 +279,10 @@ button {
     background: #f7f9fb;
     color: #7b8797;
     padding: 6px 12px;
+}
+
+.reader-footer button:disabled {
+    opacity: 0.45;
 }
 
 .analysis-panel {

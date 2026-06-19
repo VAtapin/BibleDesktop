@@ -112,10 +112,19 @@ Admin panel:
 /admin/legacy-verses
 ```
 
+Доступные API endpoints:
+
+```text
+GET /api/languages
+GET /api/translations
+GET /api/canons/{canon}/books
+GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
+```
+
 ## Ближайший фокус
 
-1. Подготовить полноценный reader flow: выбор перевода, книги и главы.
-2. Подготовить импорт остальных поддерживаемых переводов.
-3. Подготовить API для Strong и cross references.
+1. Подготовить импорт остальных поддерживаемых переводов.
+2. Подготовить API для Strong и cross references.
+3. Улучшить reader flow: имена книг из module_books, состояние вкладок, обработка пустых глав.
 4. Подготовить Telegram Bot MVP skeleton.
 5. Подготовить Docker/PostgreSQL окружение.

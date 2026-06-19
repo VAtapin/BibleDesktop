@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ReferenceDataApiTest extends TestCase
@@ -33,5 +34,51 @@ class ReferenceDataApiTest extends TestCase
             ->assertJsonPath('data.books.76.slug', 'tobit')
             ->assertJsonPath('data.books.76.is_deuterocanonical', true)
             ->assertJsonCount(77, 'data.books');
+    }
+
+    public function test_translations_endpoint_returns_active_module_translations(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $now = now();
+        $languageId = DB::table('languages')->where('code', 'ru')->value('id');
+        $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
+
+        DB::table('modules')->insert([
+            'language_id' => $languageId,
+            'type' => 'bible',
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'is_active' => true,
+            'is_public' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleId = DB::table('modules')->where('code', 'L1_RST')->value('id');
+
+        DB::table('translations')->insert([
+            'module_id' => $moduleId,
+            'language_id' => $languageId,
+            'canon_id' => $canonId,
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'has_old_testament' => true,
+            'has_new_testament' => true,
+            'has_apocrypha' => true,
+            'has_strong' => true,
+            'is_default' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->getJson('/api/translations')
+            ->assertOk()
+            ->assertJsonPath('data.0.code', 'L1_RST')
+            ->assertJsonPath('data.0.language.code', 'ru')
+            ->assertJsonPath('data.0.canon_code', 'orthodox')
+            ->assertJsonPath('data.0.has_strong', true)
+            ->assertJsonPath('data.0.is_default', true);
     }
 }

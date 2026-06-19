@@ -17,19 +17,53 @@ type CanonBookDto = {
     names: Record<string, { name: string; short_name: string; aliases: string[] }>;
 };
 
+type TranslationDto = {
+    code: string;
+    name: string;
+    short_name: string | null;
+    language: {
+        code: string;
+        name: string;
+    };
+    canon_code: string | null;
+    has_strong: boolean;
+    is_default: boolean;
+};
+
 type ApiResponse<T> = {
     data: T;
 };
 
 type Verse = {
+    id?: number;
     number: number;
+    osis_ref?: string | null;
     text: string;
+    has_strong_markup?: boolean;
 };
 
 type ChapterDto = {
-    verses: Array<{
+    translation: {
+        code: string;
+        name: string;
+        short_name: string | null;
+    };
+    book: {
+        slug: string;
+        name: string;
+        short_name: string | null;
+        chapters_count: number;
+    };
+    chapter: {
         number: number;
+        verses_count: number;
+    };
+    verses: Array<{
+        id: number;
+        number: number;
+        osis_ref: string | null;
         text: string;
+        has_strong_markup: boolean;
     }>;
 };
 
@@ -40,9 +74,14 @@ type Tab = {
 };
 
 const languages = ref<LanguageDto[]>([]);
+const translations = ref<TranslationDto[]>([]);
 const books = ref<CanonBookDto[]>([]);
 const isLoading = ref(true);
+const isChapterLoading = ref(false);
 const apiError = ref<string | null>(null);
+const selectedTranslationCode = ref('L1_RST');
+const selectedBookSlug = ref('genesis');
+const selectedChapterNumber = ref(1);
 
 const tabs: Tab[] = [
     { title: 'Бытие 4', active: true },
@@ -90,9 +129,22 @@ const tools = ['M', 'B', 'R', 'P', 'S#'];
 
 const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Русский');
 const visibleBooks = computed(() => books.value.slice(0, 12));
+const currentTranslation = computed(() => {
+    return translations.value.find((translation) => translation.code === selectedTranslationCode.value) ?? translations.value[0] ?? null;
+});
 
 const currentBook = computed(() => {
-    return books.value.find((book) => book.slug === 'genesis') ?? books.value[0] ?? null;
+    return books.value.find((book) => book.slug === selectedBookSlug.value) ?? books.value[0] ?? null;
+});
+const chapterOptions = computed(() => {
+    const count = currentBook.value?.chapters_count ?? 1;
+
+    return Array.from({ length: count }, (_, index) => index + 1);
+});
+const currentTitle = computed(() => {
+    const bookName = currentBook.value?.names.en?.name ?? currentBook.value?.slug ?? 'Библия';
+
+    return `${bookName} ${selectedChapterNumber.value}`;
 });
 
 async function loadJson<T>(url: string): Promise<T> {
@@ -109,22 +161,68 @@ async function loadJson<T>(url: string): Promise<T> {
     return response.json() as Promise<T>;
 }
 
+async function loadChapter(): Promise<void> {
+    if (!selectedTranslationCode.value || !selectedBookSlug.value || selectedChapterNumber.value < 1) {
+        return;
+    }
+
+    isChapterLoading.value = true;
+
+    try {
+        const chapterResponse = await loadJson<ApiResponse<ChapterDto>>(
+            `/api/translations/${selectedTranslationCode.value}/books/${selectedBookSlug.value}/chapters/${selectedChapterNumber.value}`,
+        );
+
+        currentVerses.value = chapterResponse.data.verses;
+        apiError.value = null;
+    } catch (error) {
+        currentVerses.value = demoVerses;
+        apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить главу';
+    } finally {
+        isChapterLoading.value = false;
+    }
+}
+
+function changeBook(): void {
+    selectedChapterNumber.value = 1;
+    void loadChapter();
+}
+
+function chooseBook(slug: string): void {
+    selectedBookSlug.value = slug;
+    changeBook();
+}
+
+function goChapter(delta: number): void {
+    const nextChapter = selectedChapterNumber.value + delta;
+    const maxChapter = currentBook.value?.chapters_count ?? 1;
+
+    if (nextChapter < 1 || nextChapter > maxChapter) {
+        return;
+    }
+
+    selectedChapterNumber.value = nextChapter;
+    void loadChapter();
+}
+
 onMounted(async () => {
     try {
-        const [languagesResponse, booksResponse] = await Promise.all([
+        const [languagesResponse, translationsResponse, booksResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
+            loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
             loadJson<ApiResponse<{ books: CanonBookDto[] }>>('/api/canons/orthodox/books'),
         ]);
 
         languages.value = languagesResponse.data;
+        translations.value = translationsResponse.data;
         books.value = booksResponse.data.books;
+        selectedTranslationCode.value = translations.value.find((translation) => translation.is_default)?.code
+            ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
+            ?? translations.value[0]?.code
+            ?? 'L1_RST';
+        selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
 
-        try {
-            const chapterResponse = await loadJson<ApiResponse<ChapterDto>>('/api/translations/L1_RST/books/genesis/chapters/1');
-            currentVerses.value = chapterResponse.data.verses;
-        } catch {
-            currentVerses.value = demoVerses;
-        }
+        await loadChapter();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
     } finally {
@@ -184,10 +282,25 @@ onMounted(async () => {
             <section class="reader-panel">
                 <div class="reader-toolbar">
                     <button type="button" class="bookmark" aria-label="Закладка">+</button>
-                    <select aria-label="Перевод">
-                        <option>Русский синодальный текст</option>
+                    <select
+                        v-model="selectedTranslationCode"
+                        aria-label="Перевод"
+                        @change="loadChapter"
+                    >
+                        <option
+                            v-for="translation in translations"
+                            :key="translation.code"
+                            :value="translation.code"
+                        >
+                            {{ translation.short_name ?? translation.name }}
+                        </option>
+                        <option v-if="translations.length === 0" value="L1_RST">RST</option>
                     </select>
-                    <select aria-label="Книга">
+                    <select
+                        v-model="selectedBookSlug"
+                        aria-label="Книга"
+                        @change="changeBook"
+                    >
                         <template v-if="isLoading">
                             <option>Загрузка книг...</option>
                         </template>
@@ -201,6 +314,20 @@ onMounted(async () => {
                             </option>
                         </template>
                     </select>
+                    <select
+                        v-model.number="selectedChapterNumber"
+                        class="chapter-select"
+                        aria-label="Глава"
+                        @change="loadChapter"
+                    >
+                        <option
+                            v-for="chapter in chapterOptions"
+                            :key="chapter"
+                            :value="chapter"
+                        >
+                            {{ chapter }}
+                        </option>
+                    </select>
                     <div class="reader-actions">
                         <button type="button" aria-label="Strong">S#</button>
                         <button type="button" aria-label="Печать">P</button>
@@ -209,6 +336,9 @@ onMounted(async () => {
                 </div>
 
                 <article class="chapter">
+                    <p v-if="isChapterLoading" class="reader-status">
+                        Загружаю главу...
+                    </p>
                     <p v-for="verse in currentVerses" :key="verse.number">
                         <button type="button" class="verse-number">{{ verse.number }}</button>
                         <span>{{ verse.text }}</span>
@@ -216,9 +346,21 @@ onMounted(async () => {
                 </article>
 
                 <div class="reader-footer">
-                    <button type="button">Назад</button>
-                    <span>{{ currentBook?.names.en?.name ?? 'Откровение' }} 1</span>
-                    <button type="button">Далее</button>
+                    <button
+                        type="button"
+                        :disabled="selectedChapterNumber <= 1"
+                        @click="goChapter(-1)"
+                    >
+                        Назад
+                    </button>
+                    <span>{{ currentTitle }}</span>
+                    <button
+                        type="button"
+                        :disabled="selectedChapterNumber >= (currentBook?.chapters_count ?? 1)"
+                        @click="goChapter(1)"
+                    >
+                        Далее
+                    </button>
                 </div>
             </section>
 
@@ -254,6 +396,7 @@ onMounted(async () => {
                             :key="book.slug"
                             type="button"
                             :class="{ active: book.slug === currentBook?.slug }"
+                            @click="chooseBook(book.slug)"
                         >
                             <span>{{ book.order }}</span>
                             {{ book.names.en?.name ?? book.slug }}

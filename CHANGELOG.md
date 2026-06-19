@@ -38,9 +38,11 @@ CHANGELOG.md
 * добавлены Filament resources для модулей, переводов и read-only legacy mapping таблиц;
 * добавлены seeders для 5 языков и 77-книжного православного канона;
 * добавлены API endpoints `GET /api/languages` и `GET /api/canons/{canon}/books`;
+* добавлен API endpoint `GET /api/translations`;
 * добавлен API endpoint `GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}`;
 * Vue reader shell подключён к API справочников;
 * Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
+* Vue reader shell получил рабочий выбор перевода, книги, главы и кнопки перехода между главами;
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
 * добавлена команда `bible:legacy:import-verses --library=1`;
@@ -59,7 +61,7 @@ CHANGELOG.md
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
 * Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
 * cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;
-* проверки проходят: PHPUnit 9 tests / 37 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
+* проверки проходят: PHPUnit 10 tests / 43 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---
 
