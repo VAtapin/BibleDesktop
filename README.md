@@ -76,13 +76,14 @@ Telegram Mini App
 .\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:import-verses --library=1
 .\tools\artisan.ps1 bible:legacy:import-verses --all --missing-only
+.\tools\artisan.ps1 bible:legacy:report-skipped-verses
 .\tools\artisan.ps1 bible:legacy:import-strong
 .\tools\artisan.ps1 bible:legacy:import-strong-tokens --translation=L1_RST
 .\tools\artisan.ps1 bible:legacy:import-cross-references
 .\tools\artisan.ps1 calendar:legacy:import-events
 ```
 
-Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
+Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
 Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API.
 
 Frontend:
@@ -162,7 +163,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Улучшить reader flow: вкладки/состояние и переход к стиху.
-2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
+2. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
 3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.

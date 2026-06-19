@@ -4,6 +4,36 @@
 
 ## 2026-06-19
 
+Задача: диагностировать skipped legacy verses.
+
+Изменённые файлы:
+
+```text
+.gitignore
+app/Console/Commands/ReportSkippedLegacyVerses.php
+tests/Feature/ReportSkippedLegacyVersesCommandTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена команда `bible:legacy:report-skipped-verses`;
+* команда читает legacy SQL dump и группирует skipped verse rows по причине, библиотеке, книге и legacy chapter;
+* добавлен агрегат по библиотекам, чтобы отделять системные проблемы модулей от точечных canonical mapping расхождений;
+* `.gitignore` дополнен локальной папкой `/.tmp/` для временных инструментов;
+* добавлен feature test для сценария `missing_canonical_chapter`.
+
+Результат:
+
+* реальный отчёт на `database/testing.sqlite` показывает 1127 skipped verses, все с причиной `missing_canonical_chapter`;
+* крупнейший источник skipped строк: `L376_LOP` с 859 строками, вероятно commentary/non-Bible module;
+* заметные точечные расхождения: `Baruch 6`, `Sirach 52`, `Joel 4`;
+* проверки проходят: PHPUnit 22 tests / 92 assertions.
+
+---
+
 Задача: улучшить reader flow для книг перевода.
 
 Изменённые файлы:
