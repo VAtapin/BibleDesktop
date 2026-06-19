@@ -123,12 +123,23 @@ GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 GET /api/strong/{number}
 GET /api/verses/{verse}/strong-tokens
 GET /api/verses/{verse}/cross-references
+POST /api/telegram/webhook
 ```
+
+Telegram Bot skeleton:
+
+```text
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_DEFAULT_TRANSLATION=L1_RST
+```
+
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`.
 
 ## Ближайший фокус
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
-3. Подготовить Telegram Bot MVP skeleton.
+3. Подготовить реальную отправку Telegram API и команду установки webhook.
 4. Подготовить Docker/PostgreSQL окружение.
 5. Подготовить базовый поиск по `verse_texts`.

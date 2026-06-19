@@ -18,7 +18,9 @@ app/Filament/Resources/*
 app/Http/Controllers/Api/ReferenceDataController.php
 app/Http/Controllers/Api/ChapterController.php
 app/Http/Controllers/Api/StudyDataController.php
+app/Http/Controllers/Api/TelegramWebhookController.php
 app/Models/*
+app/Services/Telegram/TelegramUpdateHandler.php
 app/Support/LegacySqlDump.php
 app/Support/TskReferenceParser.php
 bootstrap/app.php
@@ -42,6 +44,7 @@ CHANGELOG.md
 * добавлен API endpoint `GET /api/translations`;
 * добавлен API endpoint `GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}`;
 * добавлены Study API endpoints `GET /api/strong/{number}`, `GET /api/verses/{verse}/strong-tokens`, `GET /api/verses/{verse}/cross-references`;
+* добавлен Telegram Bot MVP skeleton: config/env, webhook endpoint и handler для `/start`, `/help`, `/random`;
 * Vue reader shell подключён к API справочников;
 * Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
 * Vue reader shell получил рабочий выбор перевода, книги, главы и кнопки перехода между главами;
@@ -68,7 +71,7 @@ CHANGELOG.md
 * Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
 * cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;
 * Study API проверен тестами и на реальной testing.sqlite: `Gen.1.1` имеет 8 Strong tokens и 72 cross references;
-* проверки проходят: PHPUnit 11 tests / 53 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
+* проверки проходят: PHPUnit 13 tests / 58 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---
 
