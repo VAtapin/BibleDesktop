@@ -147,7 +147,7 @@ TELEGRAM_API_BASE_URL=https://api.telegram.org
 TELEGRAM_SEND_RESPONSES=false
 ```
 
-Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`.
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; calendar commands return placeholders until calendar import is implemented.
 
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 
@@ -159,6 +159,6 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
-3. Добавить Telegram commands `/search`, `/today`, `/gospel`, `/settings`.
+3. Импортировать православный календарь и подключить `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting`.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.

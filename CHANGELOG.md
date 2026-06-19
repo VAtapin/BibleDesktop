@@ -52,6 +52,7 @@ CHANGELOG.md
 * добавлен базовый Search API endpoint `GET /api/search/verses`;
 * добавлен Telegram Bot MVP skeleton: config/env, webhook endpoint и handler для `/start`, `/help`, `/random`;
 * Telegram Bot skeleton получил optional real sending через Telegram Bot API и команду `telegram:set-webhook`;
+* Telegram Bot handler получил `/search`, `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting`, `/settings` skeleton responses;
 * добавлен Docker compose для PostgreSQL 16 + pgvector и Redis;
 * Vue reader shell подключён к API справочников;
 * Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
@@ -80,7 +81,7 @@ CHANGELOG.md
 * cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;
 * Study API проверен тестами и на реальной testing.sqlite: `Gen.1.1` имеет 8 Strong tokens и 72 cross references;
 * Search API проверен тестами и на реальной testing.sqlite: запрос `сотворил` по `L1_RST` возвращает `Gen.1.1`;
-* проверки проходят: PHPUnit 15 tests / 65 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
+* проверки проходят: PHPUnit 16 tests / 67 assertions, `npm run typecheck`, `npm run build`, `composer validate`.
 
 ---
 
