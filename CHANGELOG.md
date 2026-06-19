@@ -24,6 +24,8 @@ app/Services/Telegram/TelegramUpdateHandler.php
 app/Support/LegacySqlDump.php
 app/Support/TskReferenceParser.php
 bootstrap/app.php
+docker-compose.yml
+docs/INFRASTRUCTURE.md
 database/seeders/*
 resources/js/components/BibleDesktopApp.vue
 resources/css/app.css
@@ -45,6 +47,7 @@ CHANGELOG.md
 * добавлен API endpoint `GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}`;
 * добавлены Study API endpoints `GET /api/strong/{number}`, `GET /api/verses/{verse}/strong-tokens`, `GET /api/verses/{verse}/cross-references`;
 * добавлен Telegram Bot MVP skeleton: config/env, webhook endpoint и handler для `/start`, `/help`, `/random`;
+* добавлен Docker compose для PostgreSQL 16 + pgvector и Redis;
 * Vue reader shell подключён к API справочников;
 * Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
 * Vue reader shell получил рабочий выбор перевода, книги, главы и кнопки перехода между главами;

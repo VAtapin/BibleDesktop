@@ -31,6 +31,7 @@
 * `docs/DATA_MODEL.md` - черновик новой ER-модели;
 * `docs/MIGRATION_PLAN.md` - черновик стратегии миграции;
 * `docs/CALENDAR_ANALYSIS.md` - первичный анализ православного календаря.
+* `docs/INFRASTRUCTURE.md` - Docker/PostgreSQL/Redis окружение.
 
 ## Исходные материалы
 
@@ -90,6 +91,15 @@ npm run typecheck
 npm run build
 ```
 
+Docker services:
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+docker compose --env-file .env.docker up -d
+```
+
+Первый compose слой поднимает PostgreSQL 16 + pgvector и Redis. Laravel/PHP пока запускается локально через `tools/*.ps1`.
+
 Проверенные команды:
 
 ```powershell
@@ -141,5 +151,5 @@ Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBH
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
 3. Подготовить реальную отправку Telegram API и команду установки webhook.
-4. Подготовить Docker/PostgreSQL окружение.
-5. Подготовить базовый поиск по `verse_texts`.
+4. Подготовить базовый поиск по `verse_texts`.
+5. Подготовить реальный PHP/app container и queue worker.
