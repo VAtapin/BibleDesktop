@@ -102,10 +102,13 @@ Docker services:
 
 ```powershell
 Copy-Item .env.docker.example .env.docker
-docker compose --env-file .env.docker up -d
+docker compose --env-file .env.docker run --rm app php artisan key:generate --show
+# paste generated key into APP_KEY in .env.docker
+docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker exec app php artisan migrate --seed
 ```
 
-Первый compose слой поднимает PostgreSQL 16 + pgvector и Redis. Laravel/PHP пока запускается локально через `tools/*.ps1`.
+Compose поднимает Laravel app container, queue worker, PostgreSQL 16 + pgvector и Redis. Локальные Windows helper-скрипты `tools/*.ps1` остаются удобным путём для разработки без Docker.
 
 Проверенные команды:
 
@@ -170,5 +173,4 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Подключить или подготовить реальный CSV-источник для `calendar_readings`: отдельные Евангелие и Апостол.
-2. Подготовить реальный PHP/app container и queue worker.
-3. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.
+2. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.

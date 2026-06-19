@@ -4,6 +4,35 @@
 
 ## 2026-06-19
 
+Задача: добавить Laravel app container и queue worker.
+
+Изменённые файлы:
+
+```text
+Dockerfile
+.dockerignore
+docker-compose.yml
+.env.docker.example
+docs/INFRASTRUCTURE.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлен Dockerfile с Composer dependency stage и Vite build stage;
+* compose получил `app` service на `php artisan serve`;
+* compose получил `queue` service на `php artisan queue:work`;
+* app/queue используют PostgreSQL service host `postgres` и Redis service host `redis`;
+* обновлены Docker-инструкции запуска и проверки.
+
+Результат:
+
+* проект можно поднимать в Docker не только как внешние сервисы, но и как Laravel app + worker.
+
+---
+
 Задача: добавить PostgreSQL Full Text Search path и подсветку поиска.
 
 Изменённые файлы:
