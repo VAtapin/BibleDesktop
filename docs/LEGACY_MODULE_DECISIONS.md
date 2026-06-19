@@ -97,7 +97,9 @@ map_chapter
 
 `bible:legacy:import-metadata` применяет `map_chapter` только если обычный canonical lookup не нашёл главу. Это защищает нормальные главы от случайного override.
 
-Следующие действия ещё нужно реализовать в importer/report:
+`bible:legacy:report-skipped-verses` читает overrides и показывает такие строки как `override_{action}` вместо общего `missing_canonical_chapter`.
+
+Следующие действия ещё нужно наполнить реальными правилами и обработать в importer там, где это нужно:
 
 ```text
 heading

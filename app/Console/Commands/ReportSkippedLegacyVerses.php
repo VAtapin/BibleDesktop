@@ -67,14 +67,10 @@ class ReportSkippedLegacyVerses extends Command
             ])
             ->keyBy('legacy_id');
 
+        $chapterOverrides = $this->chapterOverrides();
         $groups = [];
         $libraryTotals = [];
-        $totals = [
-            'missing_book' => 0,
-            'missing_canonical_book' => 0,
-            'missing_chapter' => 0,
-            'missing_canonical_chapter' => 0,
-        ];
+        $totals = [];
 
         foreach ((new LegacySqlDump($path))->rows('verse') as $row) {
             $libraryId = (int) $row['bibleID'];
@@ -96,13 +92,15 @@ class ReportSkippedLegacyVerses extends Command
             } elseif (! $chapter) {
                 $reason = 'missing_chapter';
             } elseif (! $chapter->canonical_chapter_id) {
-                $reason = 'missing_canonical_chapter';
+                $override = $this->chapterOverride($chapterOverrides, $libraryId, (string) $book->slug, (int) $chapter->chapter_number);
+                $reason = $override ? "override_{$override->action}" : 'missing_canonical_chapter';
             }
 
             if (! $reason) {
                 continue;
             }
 
+            $totals[$reason] ??= 0;
             $totals[$reason]++;
             $libraryTotals[$libraryId] ??= [
                 'library' => $libraryId,
@@ -169,5 +167,41 @@ class ReportSkippedLegacyVerses extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<string, object>
+     */
+    private function chapterOverrides(): array
+    {
+        if (! DB::getSchemaBuilder()->hasTable('legacy_canonical_chapter_overrides')) {
+            return [];
+        }
+
+        return DB::table('legacy_canonical_chapter_overrides')
+            ->get([
+                'legacy_bible_id',
+                'legacy_book_slug',
+                'legacy_chapter_number',
+                'action',
+            ])
+            ->mapWithKeys(function ($override): array {
+                $legacyBibleId = $override->legacy_bible_id === null ? '*' : (string) $override->legacy_bible_id;
+
+                return [
+                    "{$legacyBibleId}:{$override->legacy_book_slug}:{$override->legacy_chapter_number}" => $override,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param array<string, object> $chapterOverrides
+     */
+    private function chapterOverride(array $chapterOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber): ?object
+    {
+        return $chapterOverrides["{$legacyBibleId}:{$legacyBookSlug}:{$legacyChapterNumber}"]
+            ?? $chapterOverrides["*:{$legacyBookSlug}:{$legacyChapterNumber}"]
+            ?? null;
     }
 }

@@ -15,6 +15,46 @@ class ReportSkippedLegacyVersesCommandTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
+        $this->createSkippedVerseFixture();
+
+        $path = $this->writeSkippedVerseDump();
+
+        $this->artisan('bible:legacy:report-skipped-verses', ['--path' => 'storage/app/skipped-report.sql'])
+            ->expectsOutputToContain('Skipped legacy verses: 2')
+            ->expectsOutputToContain('missing_canonical_chapter: 2')
+            ->assertSuccessful();
+
+        @unlink($path);
+    }
+
+    public function test_it_classifies_skipped_legacy_verses_with_chapter_overrides(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->createSkippedVerseFixture();
+
+        DB::table('legacy_canonical_chapter_overrides')->insert([
+            'legacy_bible_id' => 1,
+            'legacy_book_slug' => 'genesis',
+            'legacy_chapter_number' => 51,
+            'action' => 'heading',
+            'reason' => 'test heading',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $path = $this->writeSkippedVerseDump();
+
+        $this->artisan('bible:legacy:report-skipped-verses', ['--path' => 'storage/app/skipped-report.sql'])
+            ->expectsOutputToContain('Skipped legacy verses: 2')
+            ->expectsOutputToContain('override_heading: 2')
+            ->assertSuccessful();
+
+        @unlink($path);
+    }
+
+    private function createSkippedVerseFixture(): void
+    {
         $now = now();
         $languageId = DB::table('languages')->where('code', 'ru')->value('id');
         $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
@@ -97,7 +137,10 @@ class ReportSkippedLegacyVersesCommandTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+    }
 
+    private function writeSkippedVerseDump(): string
+    {
         $path = storage_path('app/skipped-report.sql');
 
         if (! is_dir(dirname($path))) {
@@ -110,11 +153,6 @@ INSERT INTO `verse` (`verseID`, `bookID`, `bibleID`, `chapterID`, `verseNr`, `ve
 (2, 10, 1, 100, 2, '2 test');
 SQL);
 
-        $this->artisan('bible:legacy:report-skipped-verses', ['--path' => 'storage/app/skipped-report.sql'])
-            ->expectsOutputToContain('Skipped legacy verses: 2')
-            ->expectsOutputToContain('missing_canonical_chapter: 2')
-            ->assertSuccessful();
-
-        @unlink($path);
+        return $path;
     }
 }
