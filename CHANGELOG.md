@@ -35,6 +35,7 @@ CHANGELOG.md
 
 * установлен Filament 5.6 и создана admin panel `/admin`;
 * добавлены Filament resources для языков, канонов и канонических книг;
+* добавлены Filament resources для модулей, переводов и read-only legacy mapping таблиц;
 * добавлены seeders для 5 языков и 77-книжного православного канона;
 * добавлены API endpoints `GET /api/languages` и `GET /api/canons/{canon}/books`;
 * добавлен API endpoint `GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}`;
@@ -52,7 +53,7 @@ CHANGELOG.md
 
 Результат:
 
-* `route:list` видит `/admin/*` и `/api/*`;
+* `route:list` видит `/admin/*`, включая `/admin/bible-modules`, `/admin/translations`, `/admin/legacy-*`, и `/api/*`;
 * на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;

@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, первичные legacy importers и первый перенос RST/Strong/cross reference данных.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers и первый перенос RST/Strong/cross reference данных.
 
 Основные документы:
 
@@ -98,10 +98,24 @@ npm run build
 .\tools\artisan.ps1 route:list
 ```
 
+Admin panel:
+
+```text
+/admin/languages
+/admin/canons
+/admin/canonical-books
+/admin/bible-modules
+/admin/translations
+/admin/legacy-libraries
+/admin/legacy-books
+/admin/legacy-chapters
+/admin/legacy-verses
+```
+
 ## Ближайший фокус
 
-1. Расширить Filament для переводов и legacy mapping.
-2. Подготовить полноценный reader flow: выбор перевода, книги и главы.
-3. Подготовить импорт остальных поддерживаемых переводов.
-4. Подготовить API для Strong и cross references.
-5. Подготовить Telegram Bot MVP skeleton.
+1. Подготовить полноценный reader flow: выбор перевода, книги и главы.
+2. Подготовить импорт остальных поддерживаемых переводов.
+3. Подготовить API для Strong и cross references.
+4. Подготовить Telegram Bot MVP skeleton.
+5. Подготовить Docker/PostgreSQL окружение.
