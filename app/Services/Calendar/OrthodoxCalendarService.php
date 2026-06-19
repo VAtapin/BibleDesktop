@@ -9,17 +9,26 @@ use Illuminate\Support\Facades\DB;
 class OrthodoxCalendarService
 {
     /**
-     * @return array{date: string, pascha_date: string, events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string}>}
+     * @return array{
+     *     date: string,
+     *     pascha_date: string,
+     *     events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
+     *     fasting_events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
+     * }
      */
     public function day(string $date): array
     {
         $day = CarbonImmutable::parse($date)->startOfDay();
         $pascha = $this->orthodoxPascha($day->year);
+        $events = $this->eventsForDay($day, $pascha);
 
         return [
             'date' => $day->toDateString(),
             'pascha_date' => $pascha->toDateString(),
-            'events' => $this->eventsForDay($day, $pascha),
+            'events' => $events,
+            'fasting_events' => $events
+                ->filter(fn (array $event): bool => $event['is_fasting'])
+                ->values(),
         ];
     }
 
@@ -41,7 +50,7 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string}>
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
      */
     private function eventsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
@@ -56,6 +65,7 @@ class OrthodoxCalendarService
                 'name' => (string) $event->name,
                 'legacy_type' => $event->legacy_type === null ? null : (int) $event->legacy_type,
                 'date_rule_type' => (string) $event->date_rule_type,
+                'is_fasting' => (int) $event->legacy_type === 10,
             ]);
     }
 

@@ -83,7 +83,7 @@ Telegram Mini App
 ```
 
 Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
-Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты и даты относительно Пасхи доступны через общий API.
+Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API.
 
 Frontend:
 
@@ -150,7 +150,7 @@ TELEGRAM_API_BASE_URL=https://api.telegram.org
 TELEGRAM_SEND_RESPONSES=false
 ```
 
-Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting` read imported calendar events for the current day.
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` honestly report that a separate daily-reading source has not been imported yet.
 
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 
@@ -162,6 +162,6 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
-3. Разобрать чтения дня в православном календаре: отдельные Евангелие, Апостол и пост.
+3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.

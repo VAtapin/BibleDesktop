@@ -105,6 +105,40 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', "Календарь на ".now()->toDateString()."\n- Святое Богоявление");
     }
 
+    public function test_telegram_fasting_command_returns_fasting_events(): void
+    {
+        DB::table('calendar_events')->insert([
+            'name' => 'Великий пост',
+            'legacy_type' => 10,
+            'date_rule_type' => 'fixed',
+            'start_month' => (int) now()->month,
+            'start_day' => (int) now()->day,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 123],
+                'text' => '/fasting',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Пост на ".now()->toDateString()."\n- Великий пост");
+    }
+
+    public function test_telegram_gospel_command_reports_missing_reading_source(): void
+    {
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 123],
+                'text' => '/gospel',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', 'Чтение дня (Евангелие) ещё не импортировано: в legacy-дампе не найден отдельный источник чтений.');
+    }
+
     private function createSearchFixture(): void
     {
         $this->seed(\Database\Seeders\DatabaseSeeder::class);

@@ -39,7 +39,10 @@ class TelegramUpdateHandler
                     '/start' => $this->startText(),
                     '/help' => $this->helpText(),
                     '/search' => $this->searchText($text),
-                    '/today', '/gospel', '/apostle', '/calendar', '/fasting' => $this->calendarText(),
+                    '/today', '/calendar' => $this->calendarText(),
+                    '/gospel' => $this->readingPlaceholderText('Евангелие'),
+                    '/apostle' => $this->readingPlaceholderText('Апостол'),
+                    '/fasting' => $this->fastingText(),
                     '/settings' => $this->settingsText(),
                     '/random' => $this->randomVerseText(),
                     default => $this->helpText(),
@@ -119,6 +122,27 @@ class TelegramUpdateHandler
             ->implode("\n");
 
         return "Календарь на {$day['date']}\n{$events}";
+    }
+
+    private function fastingText(): string
+    {
+        $day = $this->calendar->day(now()->toDateString());
+
+        if ($day['fasting_events']->isEmpty()) {
+            return 'Постных правил на сегодня не найдено.';
+        }
+
+        $events = $day['fasting_events']
+            ->take(8)
+            ->map(fn (array $event) => '- '.$event['name'])
+            ->implode("\n");
+
+        return "Пост на {$day['date']}\n{$events}";
+    }
+
+    private function readingPlaceholderText(string $readingName): string
+    {
+        return "Чтение дня ({$readingName}) ещё не импортировано: в legacy-дампе не найден отдельный источник чтений.";
     }
 
     private function settingsText(): string

@@ -37,6 +37,14 @@ class CalendarApiTest extends TestCase
         <name>Святое Богоявление</name>
         <type>1</type>
     </event>
+    <event>
+        <s_month>0</s_month>
+        <s_date>-48</s_date>
+        <f_month>0</f_month>
+        <f_date>-1</f_date>
+        <name>Великий пост</name>
+        <type>10</type>
+    </event>
 </MemoryDays>
 XML);
 
@@ -45,7 +53,7 @@ XML);
 
         @unlink($path);
 
-        $this->assertSame(2, DB::table('calendar_events')->count());
+        $this->assertSame(3, DB::table('calendar_events')->count());
 
         $this->getJson('/api/calendar/day?date=2026-01-06')
             ->assertOk()
@@ -56,5 +64,10 @@ XML);
             ->assertOk()
             ->assertJsonPath('data.pascha_date', '2026-04-12')
             ->assertJsonPath('data.events.0.name', 'Светлое Христово Воскресение. Пасха');
+
+        $this->getJson('/api/calendar/day?date=2026-03-01')
+            ->assertOk()
+            ->assertJsonPath('data.fasting_events.0.name', 'Великий пост')
+            ->assertJsonPath('data.fasting_events.0.is_fasting', true);
     }
 }

@@ -13,6 +13,7 @@ app/Console/Commands/ImportLegacyCalendarEvents.php
 app/Http/Controllers/Api/CalendarController.php
 app/Services/Calendar/OrthodoxCalendarService.php
 app/Services/Telegram/TelegramUpdateHandler.php
+docs/CALENDAR_ANALYSIS.md
 routes/api.php
 tests/Feature/CalendarApiTest.php
 tests/Feature/TelegramWebhookTest.php
@@ -27,14 +28,18 @@ CHANGELOG.md
 * legacy calendar importer создаёт типы событий и переносит фиксированные даты, даты относительно Пасхи и диапазоны;
 * добавлен `OrthodoxCalendarService` с расчётом православной Пасхи и подбором событий дня;
 * добавлен API endpoint `GET /api/calendar/day?date=YYYY-MM-DD`;
-* Telegram команды `/today`, `/gospel`, `/apostle`, `/calendar`, `/fasting` подключены к импортированным событиям текущего дня;
+* API календаря отдельно отдаёт `fasting_events` для постных событий `legacy_type=10`;
+* Telegram команды `/today` и `/calendar` подключены к импортированным событиям текущего дня;
+* Telegram команда `/fasting` показывает постные события текущего дня;
+* Telegram команды `/gospel` и `/apostle` возвращают честный placeholder, потому что отдельный источник чтений в legacy SQL не найден;
 * добавлены feature tests для calendar API/importer и Telegram calendar command.
 
 Результат:
 
 * реальный импорт `OLD/MemoryDays.xml` перенёс 48 типов и 3811 календарных событий;
 * `GET /api/calendar/day` покрыт тестом на фиксированную дату и Пасху 2026 года;
-* проверки проходят: PHPUnit 18 tests / 77 assertions.
+* постные события покрыты тестом на Великий пост;
+* проверки проходят: PHPUnit 20 tests / 84 assertions.
 
 ---
 
