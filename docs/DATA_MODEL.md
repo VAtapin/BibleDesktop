@@ -233,6 +233,31 @@ updated_at
 
 ---
 
+## `legacy_canonical_chapter_overrides`
+
+```text
+id
+legacy_bible_id          nullable, null means global override
+legacy_book_slug
+legacy_chapter_number
+action                   map_chapter, heading, appendix, non_canonical, requires_verse_mapping
+target_book_slug
+target_chapter_number
+reason
+note
+metadata_json
+created_at
+updated_at
+```
+
+Назначение:
+
+* хранить ручные правила для legacy chapters, которые не совпадают с базовым canonical seed;
+* не расширять канон случайными дополнительными главами;
+* дать importer/report явный способ отличать реальные ошибки mapping от заголовков, приложений и альтернативной нумерации.
+
+---
+
 # 5. Strong
 
 ## `strong_lexicons`
@@ -561,4 +586,3 @@ cross_references(target_verse_id)
 * group study model;
 * расширенные события;
 * импорт старого `symphony`.
-

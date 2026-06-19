@@ -164,7 +164,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Спроектировать canonical mapping overrides для Baruch/Sirach/Joel/Psalms/Esther/chapter 0.
-2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
-3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
-4. Подготовить реальный PHP/app container и queue worker.
-5. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.
+2. Наполнить canonical mapping overrides реальными правилами и научить report классифицировать heading/appendix/non-canonical cases.
+3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
+4. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
+5. Подготовить реальный PHP/app container и queue worker.

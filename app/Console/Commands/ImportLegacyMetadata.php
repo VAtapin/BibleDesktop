@@ -216,7 +216,7 @@ class ImportLegacyMetadata extends Command
     /**
      * @param array{by_id: array<int, array{module_id: int, translation_id: int}>} $libraries
      * @param array<string, int> $canonicalBooks
-     * @return array{imported: int, skipped: int, by_id: array<int, array{module_book_id: int, canonical_book_id: int|null}>}
+     * @return array{imported: int, skipped: int, by_id: array<int, array{module_book_id: int, canonical_book_id: int|null, slug: string}>}
      */
     private function importBooks(LegacySqlDump $reader, array $libraries, array $canonicalBooks): array
     {
@@ -277,6 +277,7 @@ class ImportLegacyMetadata extends Command
             $byId[$legacyBookId] = [
                 'module_book_id' => $moduleBookId,
                 'canonical_book_id' => $canonicalBookId,
+                'slug' => $slug,
             ];
             $imported++;
         }
@@ -290,7 +291,7 @@ class ImportLegacyMetadata extends Command
 
     /**
      * @param array{by_id: array<int, array{module_id: int, translation_id: int}>} $libraries
-     * @param array{by_id: array<int, array{module_book_id: int, canonical_book_id: int|null}>} $books
+     * @param array{by_id: array<int, array{module_book_id: int, canonical_book_id: int|null, slug: string}>} $books
      * @return array{imported: int, skipped: int}
      */
     private function importChapters(LegacySqlDump $reader, array $libraries, array $books): array
@@ -306,6 +307,12 @@ class ImportLegacyMetadata extends Command
             ->get(['id', 'canonical_book_id', 'number'])
             ->mapWithKeys(fn ($chapter) => ["{$chapter->canonical_book_id}:{$chapter->number}" => (int) $chapter->id])
             ->all();
+        $canonicalChapterSlugLookup = DB::table('canonical_chapters')
+            ->join('canonical_books', 'canonical_books.id', '=', 'canonical_chapters.canonical_book_id')
+            ->get(['canonical_chapters.id', 'canonical_chapters.number', 'canonical_books.slug'])
+            ->mapWithKeys(fn ($chapter) => ["{$chapter->slug}:{$chapter->number}" => (int) $chapter->id])
+            ->all();
+        $chapterOverrides = $this->chapterOverrides();
 
         foreach ($reader->rows('chapter') as $row) {
             $legacyBibleId = (int) $row['bibleID'];
@@ -323,6 +330,14 @@ class ImportLegacyMetadata extends Command
             if ($book['canonical_book_id']) {
                 $canonicalChapterId = $canonicalChapterLookup["{$book['canonical_book_id']}:{$chapterNumber}"] ?? null;
             }
+
+            $canonicalChapterId ??= $this->canonicalChapterIdFromOverride(
+                $chapterOverrides,
+                $canonicalChapterSlugLookup,
+                $legacyBibleId,
+                $book['slug'],
+                $chapterNumber,
+            );
 
             $moduleBookId = $book['module_book_id'];
             $moduleBookIds[$moduleBookId] = true;
@@ -411,6 +426,60 @@ class ImportLegacyMetadata extends Command
             'imported' => $imported,
             'skipped' => $skipped,
         ];
+    }
+
+    /**
+     * @return array<string, object>
+     */
+    private function chapterOverrides(): array
+    {
+        if (! DB::getSchemaBuilder()->hasTable('legacy_canonical_chapter_overrides')) {
+            return [];
+        }
+
+        return DB::table('legacy_canonical_chapter_overrides')
+            ->get([
+                'legacy_bible_id',
+                'legacy_book_slug',
+                'legacy_chapter_number',
+                'action',
+                'target_book_slug',
+                'target_chapter_number',
+            ])
+            ->mapWithKeys(function ($override): array {
+                $legacyBibleId = $override->legacy_bible_id === null ? '*' : (string) $override->legacy_bible_id;
+
+                return [
+                    "{$legacyBibleId}:{$override->legacy_book_slug}:{$override->legacy_chapter_number}" => $override,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param array<string, object> $chapterOverrides
+     * @param array<string, int> $canonicalChapterSlugLookup
+     */
+    private function canonicalChapterIdFromOverride(
+        array $chapterOverrides,
+        array $canonicalChapterSlugLookup,
+        int $legacyBibleId,
+        string $legacyBookSlug,
+        int $legacyChapterNumber,
+    ): ?int {
+        $override = $chapterOverrides["{$legacyBibleId}:{$legacyBookSlug}:{$legacyChapterNumber}"]
+            ?? $chapterOverrides["*:{$legacyBookSlug}:{$legacyChapterNumber}"]
+            ?? null;
+
+        if (! $override || $override->action !== 'map_chapter') {
+            return null;
+        }
+
+        if (! $override->target_book_slug || ! $override->target_chapter_number) {
+            return null;
+        }
+
+        return $canonicalChapterSlugLookup["{$override->target_book_slug}:{$override->target_chapter_number}"] ?? null;
     }
 
     private function legacyLanguageCode(string $language): ?string

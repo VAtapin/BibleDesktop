@@ -4,6 +4,36 @@
 
 ## 2026-06-19
 
+Задача: добавить первый слой canonical mapping overrides.
+
+Изменённые файлы:
+
+```text
+database/migrations/2026_06_19_000700_create_legacy_canonical_overrides_table.php
+app/Console/Commands/ImportLegacyMetadata.php
+tests/Feature/ImportLegacyMetadataCommandTest.php
+docs/LEGACY_MODULE_DECISIONS.md
+docs/DATA_MODEL.md
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена таблица `legacy_canonical_chapter_overrides`;
+* override может быть привязан к конкретной legacy library или быть глобальным;
+* `bible:legacy:import-metadata` применяет действие `map_chapter`, если обычный canonical lookup не нашёл главу;
+* добавлен feature test на применение chapter mapping override;
+* документация описывает будущие действия `heading`, `appendix`, `non_canonical`, `requires_verse_mapping`.
+
+Результат:
+
+* появился безопасный слой для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 cases без расширения базового канона случайными главами;
+* проверки проходят: `ImportLegacyMetadataCommandTest`.
+
+---
+
 Задача: отделить legacy commentary modules от Bible translations.
 
 Изменённые файлы:

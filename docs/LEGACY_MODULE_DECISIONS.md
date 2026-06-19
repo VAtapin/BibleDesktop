@@ -71,12 +71,39 @@ L492_IBSNT      chapter 0 headings, 27 total
 
 ---
 
-# 4. Следующее решение
+# 4. Canonical mapping overrides
 
-Нужен отдельный слой canonical mapping overrides:
+Добавлен первый слой canonical mapping overrides:
 
-* explicit map для альтернативных глав;
-* возможность помечать legacy chapter как `heading`, `appendix`, `commentary` или `non_canonical`;
-* отдельная модель для дополнительных глав/материалов, которые должны быть доступны, но не как обычный canonical verse.
+```text
+legacy_canonical_chapter_overrides
+```
+
+Таблица поддерживает:
+
+* `legacy_bible_id` - конкретная legacy library или `null` для общего правила;
+* `legacy_book_slug`;
+* `legacy_chapter_number`;
+* `action`;
+* `target_book_slug`;
+* `target_chapter_number`;
+* `reason`, `note`, `metadata_json`.
+
+Первое поддержанное действие:
+
+```text
+map_chapter
+```
+
+`bible:legacy:import-metadata` применяет `map_chapter` только если обычный canonical lookup не нашёл главу. Это защищает нормальные главы от случайного override.
+
+Следующие действия ещё нужно реализовать в importer/report:
+
+```text
+heading
+appendix
+non_canonical
+requires_verse_mapping
+```
 
 До этого не надо расширять базовый православный канон случайными главами только ради того, чтобы убрать skipped count.

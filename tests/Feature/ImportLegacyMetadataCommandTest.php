@@ -60,6 +60,49 @@ class ImportLegacyMetadataCommandTest extends TestCase
         $this->assertNull($legacyLibrary->translation_id);
     }
 
+    public function test_metadata_import_applies_chapter_mapping_overrides(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        DB::table('legacy_canonical_chapter_overrides')->insert([
+            'legacy_bible_id' => 1,
+            'legacy_book_slug' => 'genesis',
+            'legacy_chapter_number' => 51,
+            'action' => 'map_chapter',
+            'target_book_slug' => 'genesis',
+            'target_chapter_number' => 50,
+            'reason' => 'test override',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $path = base_path('.tmp/legacy-metadata-command-test.sql');
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+
+        file_put_contents($path, $this->legacySqlFixture());
+
+        try {
+            $this->artisan('bible:legacy:import-metadata', [
+                '--path' => '.tmp/legacy-metadata-command-test.sql',
+            ])->assertExitCode(0);
+        } finally {
+            @unlink($path);
+        }
+
+        $canonicalBookId = DB::table('canonical_books')->where('slug', 'genesis')->value('id');
+        $canonicalChapterId = DB::table('canonical_chapters')
+            ->where('canonical_book_id', $canonicalBookId)
+            ->where('number', 50)
+            ->value('id');
+
+        $this->assertDatabaseHas('legacy_chapters', [
+            'legacy_id' => 100,
+            'canonical_chapter_id' => $canonicalChapterId,
+        ]);
+    }
+
     private function legacySqlFixture(): string
     {
         return <<<'SQL'
@@ -71,6 +114,7 @@ INSERT INTO `book` (`bookID`, `bibleID`, `bookIndex`, `pathName`, `fullName`, `s
 (3700, 376, 'genesis', 'Genesis.htm', 'Бытие', 'Быт.', 51, 0, '1', 1);
 INSERT INTO `chapter` (`chapterID`, `bookID`, `bibleID`, `chapterNr`, `verseQty`, `title`, `description`, `dataTime`, `admin`) VALUES
 (1, 1, 1, 1, 31, 'Глава ', '', '0000-00-00 00:00:00', 0),
+(100, 1, 1, 51, 2, 'Глава ', '', '0000-00-00 00:00:00', 0),
 (227800, 3700, 376, 1, 31, 'Глава ', '', '0000-00-00 00:00:00', 0);
 SQL;
     }
