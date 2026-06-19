@@ -240,7 +240,7 @@ id
 legacy_bible_id          nullable, null means global override
 legacy_book_slug
 legacy_chapter_number
-action                   map_chapter, heading, appendix, non_canonical, requires_verse_mapping
+action                   map_chapter, heading, appendix, non_canonical, requires_verse_mapping, requires_book_mapping
 target_book_slug
 target_chapter_number
 reason

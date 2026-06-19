@@ -4,6 +4,35 @@
 
 ## 2026-06-19
 
+Задача: наполнить canonical mapping overrides реальными правилами.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/SeedLegacyCanonicalOverrides.php
+tests/Feature/SeedLegacyCanonicalOverridesCommandTest.php
+README.md
+PROJECT_PLAN.md
+docs/DATA_MODEL.md
+docs/LEGACY_MODULE_DECISIONS.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена команда `bible:legacy:seed-canonical-overrides`;
+* команда idempotent-но создаёт 38 правил для Baruch 6, Sirach 52, Joel 4, Psalms 151/152, Esther 11, IBSNT chapter 0 и legacy anomaly `L3_UKR 2thessalonians 4`;
+* Baruch 6 классифицируется как `map_chapter` на `epistle 1`;
+* Joel 4 помечен как `requires_verse_mapping`, а misaligned UKR chapter как `requires_book_mapping`;
+* appendix/heading cases отделены от реальных mapping misses.
+
+Результат:
+
+* после seeding на `database/testing.sqlite` обычных `missing_canonical_chapter` не осталось;
+* report показывает: 72 `override_map_chapter`, 84 `override_requires_verse_mapping`, 20 `override_requires_book_mapping`, 65 `override_appendix`, 27 `override_heading`.
+
+---
+
 Задача: добавить первый слой canonical mapping overrides.
 
 Изменённые файлы:

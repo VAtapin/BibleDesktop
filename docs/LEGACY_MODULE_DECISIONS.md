@@ -58,6 +58,7 @@ L336_SLR        Psalms 151      8
 L4_BBS          Psalms 151/152 13
 L325_UKH        Esther 11       6
 L492_IBSNT      chapter 0 headings, 27 total
+L3_UKR          2 Thessalonians 4, 20 total
 ```
 
 Предварительная классификация:
@@ -68,6 +69,7 @@ L492_IBSNT      chapter 0 headings, 27 total
 * `Psalms 151/152` - не входит в текущий 150-главный canonical Psalms seed;
 * `Esther 11` - греческие добавления к Есфири;
 * `chapter 0` в `IBSNT` - заголовки/структурные секции, не стихи.
+* `L3_UKR 2thessalonians 4` - legacy anomaly: строка лежит под 2 Thessalonians, но текст и title относятся к 1 Timothy 1.
 
 ---
 
@@ -106,6 +108,24 @@ heading
 appendix
 non_canonical
 requires_verse_mapping
+requires_book_mapping
 ```
 
 До этого не надо расширять базовый православный канон случайными главами только ради того, чтобы убрать skipped count.
+
+Реальные правила заполняются командой:
+
+```text
+php artisan bible:legacy:seed-canonical-overrides
+```
+
+Текущее состояние после seeding на `database/testing.sqlite`:
+
+```text
+override_map_chapter: 72
+override_requires_verse_mapping: 84
+override_requires_book_mapping: 20
+override_appendix: 65
+override_heading: 27
+missing_canonical_chapter: 0
+```
