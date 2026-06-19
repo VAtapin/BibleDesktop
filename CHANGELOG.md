@@ -45,6 +45,7 @@ CHANGELOG.md
 * Vue reader shell подключён к API справочников;
 * Vue reader shell подключён к chapter endpoint с fallback на demo-текст;
 * Vue reader shell получил рабочий выбор перевода, книги, главы и кнопки перехода между главами;
+* Vue reader shell показывает Strong tokens и cross references выбранного стиха в правой панели;
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
 * добавлена команда `bible:legacy:import-verses --library=1`;

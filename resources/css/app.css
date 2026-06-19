@@ -253,6 +253,14 @@ button {
     margin: 0 0 12px;
 }
 
+.chapter p.selected {
+    background: #f4f8fc;
+}
+
+.chapter p span {
+    cursor: pointer;
+}
+
 .verse-number {
     border: 0;
     background: transparent;
@@ -344,6 +352,7 @@ button {
 }
 
 .events {
+    overflow: auto;
     padding: 18px;
 }
 
@@ -378,6 +387,40 @@ button {
 .book-list span {
     color: #8b96a5;
     font-size: 12px;
+}
+
+.study-list,
+.reference-list {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.study-list a,
+.reference-list button {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    width: 100%;
+    border: 1px solid #e0e5eb;
+    background: #f8fafc;
+    color: #596579;
+    padding: 7px 9px;
+    text-align: left;
+    text-decoration: none;
+}
+
+.study-list strong,
+.reference-list strong {
+    color: #557496;
+}
+
+.reference-list span,
+.study-list span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .comment-form {

@@ -127,7 +127,7 @@ GET /api/verses/{verse}/cross-references
 
 ## Ближайший фокус
 
-1. Улучшить reader flow: имена книг из module_books, показ Strong/cross refs в правой панели.
+1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать `L750_GLNT` и skipped verses/import mappings.
 3. Подготовить Telegram Bot MVP skeleton.
 4. Подготовить Docker/PostgreSQL окружение.

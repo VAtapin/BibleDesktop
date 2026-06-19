@@ -67,6 +67,29 @@ type ChapterDto = {
     }>;
 };
 
+type StrongTokenDto = {
+    id: number;
+    strong_number: string;
+    token_order: number;
+    surface_text: string | null;
+    grammar_code: string | null;
+    entry: {
+        word: string | null;
+        transliteration: string | null;
+    };
+};
+
+type CrossReferenceDto = {
+    id: number;
+    type: string;
+    source: string;
+    target: {
+        verse_id: number;
+        osis_ref: string | null;
+        text: string | null;
+    };
+};
+
 type Tab = {
     title: string;
     locked?: boolean;
@@ -82,6 +105,11 @@ const apiError = ref<string | null>(null);
 const selectedTranslationCode = ref('L1_RST');
 const selectedBookSlug = ref('genesis');
 const selectedChapterNumber = ref(1);
+const selectedVerse = ref<Verse | null>(null);
+const strongTokens = ref<StrongTokenDto[]>([]);
+const crossReferences = ref<CrossReferenceDto[]>([]);
+const isStudyLoading = ref(false);
+const studyError = ref<string | null>(null);
 
 const tabs: Tab[] = [
     { title: 'Бытие 4', active: true },
@@ -128,7 +156,6 @@ const currentVerses = ref<Verse[]>(demoVerses);
 const tools = ['M', 'B', 'R', 'P', 'S#'];
 
 const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Русский');
-const visibleBooks = computed(() => books.value.slice(0, 12));
 const currentTranslation = computed(() => {
     return translations.value.find((translation) => translation.code === selectedTranslationCode.value) ?? translations.value[0] ?? null;
 });
@@ -146,6 +173,7 @@ const currentTitle = computed(() => {
 
     return `${bookName} ${selectedChapterNumber.value}`;
 });
+const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
 
 async function loadJson<T>(url: string): Promise<T> {
     const response = await fetch(url, {
@@ -174,9 +202,16 @@ async function loadChapter(): Promise<void> {
         );
 
         currentVerses.value = chapterResponse.data.verses;
+        selectedVerse.value = currentVerses.value[0] ?? null;
+        if (selectedVerse.value?.id) {
+            await loadStudyData(selectedVerse.value);
+        }
         apiError.value = null;
     } catch (error) {
         currentVerses.value = demoVerses;
+        selectedVerse.value = null;
+        strongTokens.value = [];
+        crossReferences.value = [];
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить главу';
     } finally {
         isChapterLoading.value = false;
@@ -186,11 +221,6 @@ async function loadChapter(): Promise<void> {
 function changeBook(): void {
     selectedChapterNumber.value = 1;
     void loadChapter();
-}
-
-function chooseBook(slug: string): void {
-    selectedBookSlug.value = slug;
-    changeBook();
 }
 
 function goChapter(delta: number): void {
@@ -203,6 +233,38 @@ function goChapter(delta: number): void {
 
     selectedChapterNumber.value = nextChapter;
     void loadChapter();
+}
+
+async function loadStudyData(verse: Verse): Promise<void> {
+    if (!verse.id) {
+        return;
+    }
+
+    isStudyLoading.value = true;
+    studyError.value = null;
+
+    try {
+        const [strongResponse, referencesResponse] = await Promise.all([
+            loadJson<ApiResponse<{ tokens: StrongTokenDto[] }>>(`/api/verses/${verse.id}/strong-tokens`),
+            loadJson<ApiResponse<{ references: CrossReferenceDto[] }>>(
+                `/api/verses/${verse.id}/cross-references?translation=${selectedTranslationCode.value}`,
+            ),
+        ]);
+
+        strongTokens.value = strongResponse.data.tokens;
+        crossReferences.value = referencesResponse.data.references;
+    } catch (error) {
+        strongTokens.value = [];
+        crossReferences.value = [];
+        studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник стиха';
+    } finally {
+        isStudyLoading.value = false;
+    }
+}
+
+function selectVerse(verse: Verse): void {
+    selectedVerse.value = verse;
+    void loadStudyData(verse);
 }
 
 onMounted(async () => {
@@ -339,9 +401,19 @@ onMounted(async () => {
                     <p v-if="isChapterLoading" class="reader-status">
                         Загружаю главу...
                     </p>
-                    <p v-for="verse in currentVerses" :key="verse.number">
-                        <button type="button" class="verse-number">{{ verse.number }}</button>
-                        <span>{{ verse.text }}</span>
+                    <p
+                        v-for="verse in currentVerses"
+                        :key="verse.id ?? verse.number"
+                        :class="{ selected: verse.id === selectedVerse?.id }"
+                    >
+                        <button
+                            type="button"
+                            class="verse-number"
+                            @click="selectVerse(verse)"
+                        >
+                            {{ verse.number }}
+                        </button>
+                        <span @click="selectVerse(verse)">{{ verse.text }}</span>
                     </p>
                 </article>
 
@@ -371,36 +443,52 @@ onMounted(async () => {
                 </header>
 
                 <div class="analysis-tabs">
-                    <button type="button" class="active">Канон</button>
-                    <button type="button">Заметки</button>
+                    <button type="button" class="active">Strong</button>
+                    <button type="button">Ссылки</button>
                 </div>
 
                 <section class="note">
                     <div class="note-meta">
                         <div class="avatar small">{{ selectedLanguage.slice(0, 2).toUpperCase() }}</div>
-                        <strong>Orthodox canon</strong>
-                        <span>{{ books.length || 0 }} книг</span>
+                        <strong>{{ selectedVerse?.osis_ref ?? currentTitle }}</strong>
+                        <span>{{ currentTranslation?.short_name ?? currentTranslation?.code ?? 'RST' }}</span>
                     </div>
                     <p v-if="isLoading">Загружаю языки и канон из API.</p>
                     <p v-else-if="apiError">API: {{ apiError }}</p>
+                    <p v-else-if="studyError">API: {{ studyError }}</p>
+                    <p v-else-if="isStudyLoading">Загружаю справочник стиха.</p>
                     <p v-else>
-                        Доступно языков: {{ languages.length }}. Канон готов к привязке переводов.
+                        Strong: {{ strongTokens.length }}. Ссылки: {{ crossReferences.length }}.
                     </p>
                 </section>
 
                 <section class="events">
-                    <h3>Первые книги</h3>
-                    <div class="book-list">
-                        <button
-                            v-for="book in visibleBooks"
-                            :key="book.slug"
-                            type="button"
-                            :class="{ active: book.slug === currentBook?.slug }"
-                            @click="chooseBook(book.slug)"
+                    <h3>Strong</h3>
+                    <div class="study-list">
+                        <a
+                            v-for="token in strongTokens"
+                            :key="token.id"
+                            :href="`/api/strong/${token.strong_number}`"
+                            target="_blank"
+                            rel="noreferrer"
                         >
-                            <span>{{ book.order }}</span>
-                            {{ book.names.en?.name ?? book.slug }}
+                            <strong>{{ token.strong_number }}</strong>
+                            <span>{{ token.surface_text ?? token.entry.transliteration ?? token.entry.word ?? '' }}</span>
+                        </a>
+                        <p v-if="!isStudyLoading && strongTokens.length === 0">Нет Strong-разметки.</p>
+                    </div>
+
+                    <h3>Перекрёстные ссылки</h3>
+                    <div class="reference-list">
+                        <button
+                            v-for="reference in visibleCrossReferences"
+                            :key="reference.id"
+                            type="button"
+                        >
+                            <strong>{{ reference.target.osis_ref }}</strong>
+                            <span>{{ reference.target.text ?? reference.type }}</span>
                         </button>
+                        <p v-if="!isStudyLoading && crossReferences.length === 0">Нет ссылок.</p>
                     </div>
                 </section>
 
