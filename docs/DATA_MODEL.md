@@ -258,6 +258,39 @@ updated_at
 
 ---
 
+## `legacy_supplemental_texts`
+
+```text
+id
+module_id
+translation_id
+module_book_id
+module_chapter_id
+legacy_verse_id
+legacy_bible_id
+legacy_book_id
+legacy_chapter_id
+legacy_book_slug
+legacy_chapter_number
+legacy_verse_number
+type                  heading, appendix, non_canonical
+title
+text
+text_plain
+text_raw
+metadata_json
+created_at
+updated_at
+```
+
+Назначение:
+
+* хранить legacy heading/appendix/non-canonical материалы отдельно от `verse_texts`;
+* не засорять canonical `verses` дополнительными главами;
+* оставить эти материалы доступными для будущего API, reader sidebar или admin review.
+
+---
+
 # 5. Strong
 
 ## `strong_lexicons`

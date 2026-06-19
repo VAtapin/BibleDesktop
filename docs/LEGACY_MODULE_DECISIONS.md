@@ -137,3 +137,10 @@ L10_DRB EpJer.1.1
 ```
 
 После этого остаются 196 classified skipped rows: appendix, heading, `requires_verse_mapping` и `requires_book_mapping`.
+
+`bible:legacy:import-supplemental-texts` переносит appendix/heading/non-canonical rows в отдельную таблицу `legacy_supplemental_texts`. На `database/testing.sqlite` импортировано:
+
+```text
+appendix: 65
+heading: 27
+```

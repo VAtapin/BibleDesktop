@@ -1,0 +1,159 @@
+<?php
+
+namespace Tests\Feature;
+
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class ImportLegacySupplementalTextsCommandTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_imports_heading_override_verses_as_supplemental_texts(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->createLegacyHeadingFixture();
+
+        $path = base_path('.tmp/legacy-supplemental-command-test.sql');
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+
+        file_put_contents($path, <<<'SQL'
+INSERT INTO `verse` (`verseID`, `bookID`, `bibleID`, `chapterID`, `verseNr`, `vers`, `description`, `history`) VALUES
+(1265822, 3978, 492, 231597, 1, '0 Евангелие Матфея начинается родословием.<h6>Родословие Иисуса</h6>', '', '0000-00-00 00:00:00');
+SQL);
+
+        try {
+            $this->artisan('bible:legacy:import-supplemental-texts', [
+                '--path' => '.tmp/legacy-supplemental-command-test.sql',
+                '--types' => 'heading',
+            ])
+                ->expectsOutputToContain('Imported supplemental legacy texts: 1 rows.')
+                ->assertSuccessful();
+
+            $this->artisan('bible:legacy:import-supplemental-texts', [
+                '--path' => '.tmp/legacy-supplemental-command-test.sql',
+                '--types' => 'heading',
+            ])->assertSuccessful();
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(1, DB::table('legacy_supplemental_texts')->count());
+        $this->assertDatabaseHas('legacy_supplemental_texts', [
+            'legacy_verse_id' => 1265822,
+            'legacy_bible_id' => 492,
+            'legacy_book_id' => 3978,
+            'legacy_chapter_id' => 231597,
+            'legacy_book_slug' => 'matthew',
+            'legacy_chapter_number' => 0,
+            'legacy_verse_number' => 1,
+            'type' => 'heading',
+            'title' => 'Intro',
+            'text' => 'Евангелие Матфея начинается родословием.<h6>Родословие Иисуса</h6>',
+            'text_plain' => 'Евангелие Матфея начинается родословием.Родословие Иисуса',
+        ]);
+    }
+
+    private function createLegacyHeadingFixture(): void
+    {
+        $now = now();
+        $languageId = DB::table('languages')->where('code', 'ru')->value('id');
+        $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
+        $matthewId = DB::table('canonical_books')->where('slug', 'matthew')->value('id');
+
+        DB::table('modules')->insert([
+            'language_id' => $languageId,
+            'type' => 'bible',
+            'code' => 'L492_IBSNT',
+            'name' => 'IBSNT Test',
+            'short_name' => 'IBSNT',
+            'is_active' => true,
+            'is_public' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleId = DB::table('modules')->where('code', 'L492_IBSNT')->value('id');
+
+        DB::table('translations')->insert([
+            'module_id' => $moduleId,
+            'language_id' => $languageId,
+            'canon_id' => $canonId,
+            'code' => 'L492_IBSNT',
+            'name' => 'IBSNT Test',
+            'short_name' => 'IBSNT',
+            'has_new_testament' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $translationId = DB::table('translations')->where('code', 'L492_IBSNT')->value('id');
+
+        DB::table('legacy_libraries')->insert([
+            'legacy_id' => 492,
+            'module_id' => $moduleId,
+            'translation_id' => $translationId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('module_books')->insert([
+            'module_id' => $moduleId,
+            'translation_id' => $translationId,
+            'canonical_book_id' => $matthewId,
+            'legacy_book_id' => 3978,
+            'slug' => 'matthew',
+            'name' => 'От Матфея',
+            'short_name' => 'Матф.',
+            'book_order' => 1,
+            'chapters_count' => 29,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleBookId = DB::table('module_books')->where('legacy_book_id', 3978)->value('id');
+
+        DB::table('legacy_books')->insert([
+            'legacy_id' => 3978,
+            'legacy_bible_id' => 492,
+            'module_book_id' => $moduleBookId,
+            'canonical_book_id' => $matthewId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('module_chapters')->insert([
+            'module_book_id' => $moduleBookId,
+            'canonical_chapter_id' => null,
+            'legacy_chapter_id' => 231597,
+            'chapter_number' => 0,
+            'title' => 'Intro',
+            'verses_count' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleChapterId = DB::table('module_chapters')->where('legacy_chapter_id', 231597)->value('id');
+
+        DB::table('legacy_chapters')->insert([
+            'legacy_id' => 231597,
+            'legacy_book_id' => 3978,
+            'legacy_bible_id' => 492,
+            'module_chapter_id' => $moduleChapterId,
+            'canonical_chapter_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('legacy_canonical_chapter_overrides')->insert([
+            'legacy_bible_id' => 492,
+            'legacy_book_slug' => 'matthew',
+            'legacy_chapter_number' => 0,
+            'action' => 'heading',
+            'reason' => 'ibsb_nt_book_intro',
+            'note' => 'Test heading.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+}

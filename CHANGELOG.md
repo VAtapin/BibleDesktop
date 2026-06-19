@@ -4,6 +4,35 @@
 
 ## 2026-06-19
 
+Задача: импортировать supplemental legacy texts отдельно от canonical verses.
+
+Изменённые файлы:
+
+```text
+database/migrations/2026_06_19_000800_create_legacy_supplemental_texts_table.php
+app/Console/Commands/ImportLegacySupplementalTexts.php
+tests/Feature/ImportLegacySupplementalTextsCommandTest.php
+README.md
+PROJECT_PLAN.md
+docs/DATA_MODEL.md
+docs/LEGACY_MODULE_DECISIONS.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена таблица `legacy_supplemental_texts`;
+* добавлена команда `bible:legacy:import-supplemental-texts`;
+* команда импортирует override actions `heading`, `appendix`, `non_canonical` отдельно от `verse_texts`;
+* добавлен feature test на heading import и idempotent upsert.
+
+Результат:
+
+* на `database/testing.sqlite` импортировано 92 supplemental rows: 65 appendix и 27 heading;
+* appendix/heading больше не нужно превращать в canonical chapters ради сохранения текста.
+
+---
+
 Задача: применить target canonical chapter в verse importer.
 
 Изменённые файлы:
