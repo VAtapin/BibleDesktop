@@ -152,7 +152,7 @@ TELEGRAM_API_BASE_URL=https://api.telegram.org
 TELEGRAM_SEND_RESPONSES=false
 ```
 
-Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` honestly report that a separate daily-reading source has not been imported yet.
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/search` uses the shared verse search service and accepts text or references such as `Gen.1.1`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` honestly report that a separate daily-reading source has not been imported yet.
 
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 

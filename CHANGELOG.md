@@ -4,6 +4,34 @@
 
 ## 2026-06-19
 
+Задача: переиспользовать Search API в Telegram Bot.
+
+Изменённые файлы:
+
+```text
+app/Http/Controllers/Api/SearchController.php
+app/Services/Bible/VerseSearchService.php
+app/Services/Telegram/TelegramUpdateHandler.php
+tests/Feature/TelegramWebhookTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* логика поиска стихов вынесена из API controller в `VerseSearchService`;
+* `SearchController` оставлен тонким HTTP-слоем;
+* Telegram `/search` теперь использует тот же сервис, что API и reader UI;
+* Telegram `/search` принимает не только текст, но и ссылки вида `Gen.1.1`.
+
+Результат:
+
+* поиск больше не дублируется между API и Telegram Bot;
+* проверки проходят: `SearchApiTest`, `TelegramWebhookTest`.
+
+---
+
 Задача: сохранить состояние reader shell.
 
 Изменённые файлы:

@@ -2,12 +2,16 @@
 
 namespace App\Services\Telegram;
 
+use App\Services\Bible\VerseSearchService;
 use App\Services\Calendar\OrthodoxCalendarService;
 use Illuminate\Support\Facades\DB;
 
 class TelegramUpdateHandler
 {
-    public function __construct(private readonly OrthodoxCalendarService $calendar) {}
+    public function __construct(
+        private readonly OrthodoxCalendarService $calendar,
+        private readonly VerseSearchService $verseSearch,
+    ) {}
 
     /**
      * @param array<string, mixed> $update
@@ -90,21 +94,14 @@ class TelegramUpdateHandler
         }
 
         $translationCode = (string) config('telegram.default_translation', 'L1_RST');
-        $results = DB::table('verse_texts')
-            ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
-            ->join('verses', 'verses.id', '=', 'verse_texts.verse_id')
-            ->where('translations.code', $translationCode)
-            ->where('verse_texts.text_plain', 'like', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%')
-            ->orderBy('verses.id')
-            ->limit(5)
-            ->get(['verses.osis_ref', 'verse_texts.text']);
+        $results = $this->verseSearch->search($query, $translationCode, 5)['results'];
 
         if ($results->isEmpty()) {
             return "Ничего не найдено: {$query}";
         }
 
         return $results
-            ->map(fn ($row) => "{$row->osis_ref} {$row->text}")
+            ->map(fn (array $row) => "{$row['osis_ref']} {$row['text']}")
             ->implode("\n\n");
     }
 

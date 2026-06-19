@@ -83,6 +83,20 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
     }
 
+    public function test_telegram_search_command_accepts_verse_reference(): void
+    {
+        $this->createSearchFixture();
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 123],
+                'text' => '/search Gen.1.1',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
+    }
+
     public function test_telegram_today_command_returns_calendar_events(): void
     {
         DB::table('calendar_events')->insert([
