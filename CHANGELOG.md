@@ -4,6 +4,35 @@
 
 ## 2026-06-19
 
+Задача: добавить ручную модель чтений дня для календаря и Telegram.
+
+Изменённые файлы:
+
+```text
+database/migrations/2026_06_19_000900_create_calendar_readings_table.php
+app/Services/Calendar/OrthodoxCalendarService.php
+app/Services/Telegram/TelegramUpdateHandler.php
+tests/Feature/CalendarApiTest.php
+tests/Feature/TelegramWebhookTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена таблица `calendar_readings` для fixed и pascha-relative чтений;
+* `OrthodoxCalendarService::day()` теперь возвращает `readings`;
+* Telegram `/gospel` и `/apostle` читают реальные записи из `calendar_readings`;
+* если чтение не задано, бот возвращает короткий понятный fallback;
+* добавлены feature tests для Calendar API и Telegram gospel command.
+
+Результат:
+
+* календарь получил import-ready слой для Евангелия и Апостола дня без зависимости от legacy SQL, где отдельного источника чтений нет.
+
+---
+
 Задача: открыть supplemental legacy texts через API.
 
 Изменённые файлы:

@@ -70,4 +70,41 @@ XML);
             ->assertJsonPath('data.fasting_events.0.name', 'Великий пост')
             ->assertJsonPath('data.fasting_events.0.is_fasting', true);
     }
+
+    public function test_day_endpoint_returns_calendar_readings(): void
+    {
+        DB::table('calendar_readings')->insert([
+            'date_rule_type' => 'fixed',
+            'month' => 1,
+            'day' => 6,
+            'reading_type' => 'gospel',
+            'title' => 'Навечерие Богоявления',
+            'passage_ref' => 'Mark.1.9-11',
+            'sort_order' => 10,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('calendar_readings')->insert([
+            'date_rule_type' => 'pascha_relative',
+            'offset' => 0,
+            'reading_type' => 'apostle',
+            'title' => 'Пасха',
+            'passage_ref' => 'Acts.1.1-8',
+            'sort_order' => 10,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('/api/calendar/day?date=2026-01-06')
+            ->assertOk()
+            ->assertJsonPath('data.readings.0.type', 'gospel')
+            ->assertJsonPath('data.readings.0.title', 'Навечерие Богоявления')
+            ->assertJsonPath('data.readings.0.passage_ref', 'Mark.1.9-11');
+
+        $this->getJson('/api/calendar/day?date=2026-04-12')
+            ->assertOk()
+            ->assertJsonPath('data.readings.0.type', 'apostle')
+            ->assertJsonPath('data.readings.0.passage_ref', 'Acts.1.1-8');
+    }
 }

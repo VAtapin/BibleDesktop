@@ -44,8 +44,8 @@ class TelegramUpdateHandler
                     '/help' => $this->helpText(),
                     '/search' => $this->searchText($text),
                     '/today', '/calendar' => $this->calendarText(),
-                    '/gospel' => $this->readingPlaceholderText('Евангелие'),
-                    '/apostle' => $this->readingPlaceholderText('Апостол'),
+                    '/gospel' => $this->readingText('gospel', 'Евангелие'),
+                    '/apostle' => $this->readingText('apostle', 'Апостол'),
                     '/fasting' => $this->fastingText(),
                     '/settings' => $this->settingsText(),
                     '/random' => $this->randomVerseText(),
@@ -62,7 +62,7 @@ class TelegramUpdateHandler
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/search текст - поиск\n/today - чтения дня\n/settings - настройки";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/search текст - поиск\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - настройки";
     }
 
     private function randomVerseText(): string
@@ -137,9 +137,27 @@ class TelegramUpdateHandler
         return "Пост на {$day['date']}\n{$events}";
     }
 
-    private function readingPlaceholderText(string $readingName): string
+    private function readingText(string $readingType, string $readingName): string
     {
-        return "Чтение дня ({$readingName}) ещё не импортировано: в legacy-дампе не найден отдельный источник чтений.";
+        $day = $this->calendar->day(now()->toDateString());
+        $readings = $day['readings']
+            ->filter(fn (array $reading): bool => $reading['type'] === $readingType)
+            ->values();
+
+        if ($readings->isEmpty()) {
+            return "Чтение дня ({$readingName}) ещё не задано.";
+        }
+
+        $lines = $readings
+            ->take(4)
+            ->map(function (array $reading): string {
+                $title = $reading['title'] ? "{$reading['title']}: " : '';
+
+                return "- {$title}{$reading['passage_ref']}";
+            })
+            ->implode("\n");
+
+        return "{$readingName} на {$day['date']}\n{$lines}";
     }
 
     private function settingsText(): string

@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных и рабочий reader shell с выбором перевода, поиском, справочной панелью и вкладками чтения.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью и вкладками чтения.
 
 Основные документы:
 
@@ -87,7 +87,7 @@ Telegram Mini App
 ```
 
 Canonical override seeder заполняет известные правила для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 legacy cases; запускайте его до metadata import или повторите metadata import после seeding. Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`, применяя безопасные `map_chapter` overrides. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Supplemental importer переносит heading/appendix/non-canonical legacy тексты в `legacy_supplemental_texts`, не смешивая их с canonical verses. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings или сознательно классифицированных overrides. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
-Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API.
+Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API. Таблица `calendar_readings` хранит ручные или будущие импортированные чтения дня: `fixed` и `pascha_relative` правила, типы `gospel`/`apostle` и ссылку на отрывок.
 
 Frontend:
 
@@ -156,7 +156,7 @@ TELEGRAM_API_BASE_URL=https://api.telegram.org
 TELEGRAM_SEND_RESPONSES=false
 ```
 
-Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/search` uses the shared verse search service and accepts text or references such as `Gen.1.1`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` honestly report that a separate daily-reading source has not been imported yet.
+Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`, `/search`, `/settings`; `/search` uses the shared verse search service and accepts text or references such as `Gen.1.1`; `/today` and `/calendar` read imported calendar events, `/fasting` reads fasting events, `/gospel` and `/apostle` read `calendar_readings` and report a clear fallback when readings for the day are not set yet.
 
 To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
 
@@ -167,7 +167,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 ## Ближайший фокус
 
 1. Реализовать verse/book mapping rules для `requires_*` cases.
-2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
+2. Наполнить `calendar_readings` реальным источником чтений дня: отдельные Евангелие и Апостол.
 3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 4. Подготовить реальный PHP/app container и queue worker.
 5. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.

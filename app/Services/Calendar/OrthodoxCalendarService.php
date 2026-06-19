@@ -13,7 +13,8 @@ class OrthodoxCalendarService
      *     date: string,
      *     pascha_date: string,
      *     events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
-     *     fasting_events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
+     *     fasting_events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
+     *     readings: \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
      * }
      */
     public function day(string $date): array
@@ -21,6 +22,7 @@ class OrthodoxCalendarService
         $day = CarbonImmutable::parse($date)->startOfDay();
         $pascha = $this->orthodoxPascha($day->year);
         $events = $this->eventsForDay($day, $pascha);
+        $readings = $this->readingsForDay($day, $pascha);
 
         return [
             'date' => $day->toDateString(),
@@ -29,6 +31,7 @@ class OrthodoxCalendarService
             'fasting_events' => $events
                 ->filter(fn (array $event): bool => $event['is_fasting'])
                 ->values(),
+            'readings' => $readings,
         ];
     }
 
@@ -67,6 +70,36 @@ class OrthodoxCalendarService
                 'date_rule_type' => (string) $event->date_rule_type,
                 'is_fasting' => (int) $event->legacy_type === 10,
             ]);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
+     */
+    private function readingsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
+    {
+        return DB::table('calendar_readings')
+            ->orderBy('sort_order')
+            ->orderBy('reading_type')
+            ->orderBy('passage_ref')
+            ->get(['id', 'reading_type', 'title', 'passage_ref', 'date_rule_type', 'month', 'day', 'offset'])
+            ->filter(fn ($reading): bool => $this->readingMatchesDay($reading, $day, $pascha))
+            ->values()
+            ->map(fn ($reading) => [
+                'id' => (int) $reading->id,
+                'type' => (string) $reading->reading_type,
+                'title' => $reading->title === null ? null : (string) $reading->title,
+                'passage_ref' => (string) $reading->passage_ref,
+                'date_rule_type' => (string) $reading->date_rule_type,
+            ]);
+    }
+
+    private function readingMatchesDay(object $reading, CarbonImmutable $day, CarbonImmutable $pascha): bool
+    {
+        return match ($reading->date_rule_type) {
+            'fixed' => (int) $reading->month === $day->month && (int) $reading->day === $day->day,
+            'pascha_relative' => $pascha->addDays((int) $reading->offset)->isSameDay($day),
+            default => false,
+        };
     }
 
     private function matchesDay(object $event, CarbonImmutable $day, CarbonImmutable $pascha): bool

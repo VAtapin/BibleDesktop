@@ -141,7 +141,7 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', "Пост на ".now()->toDateString()."\n- Великий пост");
     }
 
-    public function test_telegram_gospel_command_reports_missing_reading_source(): void
+    public function test_telegram_gospel_command_reports_missing_reading(): void
     {
         $this->postJson('/api/telegram/webhook', [
             'message' => [
@@ -150,7 +150,31 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', 'Чтение дня (Евангелие) ещё не импортировано: в legacy-дампе не найден отдельный источник чтений.');
+            ->assertJsonPath('actions.0.payload.text', 'Чтение дня (Евангелие) ещё не задано.');
+    }
+
+    public function test_telegram_gospel_command_returns_calendar_reading(): void
+    {
+        DB::table('calendar_readings')->insert([
+            'date_rule_type' => 'fixed',
+            'month' => (int) now()->month,
+            'day' => (int) now()->day,
+            'reading_type' => 'gospel',
+            'title' => 'Евангелие дня',
+            'passage_ref' => 'John.1.1-17',
+            'sort_order' => 10,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'chat' => ['id' => 123],
+                'text' => '/gospel',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Евангелие на ".now()->toDateString()."\n- Евангелие дня: John.1.1-17");
     }
 
     private function createSearchFixture(): void
