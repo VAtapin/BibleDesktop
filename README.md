@@ -143,14 +143,22 @@ Telegram Bot skeleton:
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 TELEGRAM_DEFAULT_TRANSLATION=L1_RST
+TELEGRAM_API_BASE_URL=https://api.telegram.org
+TELEGRAM_SEND_RESPONSES=false
 ```
 
 Webhook endpoint validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is set and currently returns planned `sendMessage` actions for `/start`, `/help`, `/random`.
+
+To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register webhook:
+
+```powershell
+.\tools\artisan.ps1 telegram:set-webhook https://example.com/api/telegram/webhook --drop-pending
+```
 
 ## Ближайший фокус
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
 2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
-3. Подготовить реальную отправку Telegram API и команду установки webhook.
+3. Добавить Telegram commands `/search`, `/today`, `/gospel`, `/settings`.
 4. Улучшить поиск: PostgreSQL Full Text Search, поиск по ссылке, подсветка совпадений.
 5. Подготовить реальный PHP/app container и queue worker.
