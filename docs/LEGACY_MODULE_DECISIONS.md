@@ -129,3 +129,11 @@ override_appendix: 65
 override_heading: 27
 missing_canonical_chapter: 0
 ```
+
+После повторного `bible:legacy:import-metadata` mapped `Baruch 6 -> Epistle of Jeremiah 1` перестаёт быть skipped. Повторный `bible:legacy:import-verses --library=10` импортирует DRB без skipped и создаёт:
+
+```text
+L10_DRB EpJer.1.1
+```
+
+После этого остаются 196 classified skipped rows: appendix, heading, `requires_verse_mapping` и `requires_book_mapping`.

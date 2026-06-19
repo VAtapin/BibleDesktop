@@ -51,12 +51,15 @@ class ImportLegacyVerses extends Command
             ->keyBy('legacy_id');
         $chapterMap = DB::table('legacy_chapters')
             ->join('module_chapters', 'module_chapters.id', '=', 'legacy_chapters.module_chapter_id')
+            ->leftJoin('canonical_chapters', 'canonical_chapters.id', '=', 'legacy_chapters.canonical_chapter_id')
             ->where('legacy_bible_id', $libraryId)
             ->get([
                 'legacy_chapters.legacy_id',
                 'legacy_chapters.module_chapter_id',
                 'legacy_chapters.canonical_chapter_id',
                 'module_chapters.chapter_number',
+                'canonical_chapters.canonical_book_id as canonical_chapter_book_id',
+                'canonical_chapters.number as canonical_chapter_number',
             ])
             ->keyBy('legacy_id');
 
@@ -66,10 +69,7 @@ class ImportLegacyVerses extends Command
             return self::FAILURE;
         }
 
-        $osisCodes = DB::table('canonical_books')
-            ->whereIn('id', $bookMap->pluck('canonical_book_id')->filter()->unique()->values())
-            ->pluck('osis_code', 'id')
-            ->all();
+        $osisCodes = DB::table('canonical_books')->pluck('osis_code', 'id')->all();
 
         $reader = new LegacySqlDump($path);
         $sourceRows = [];
@@ -89,35 +89,14 @@ class ImportLegacyVerses extends Command
             }
 
             $seenTargetLibrary = true;
-            $legacyBookId = (int) $row['bookID'];
-            $legacyChapterId = (int) $row['chapterID'];
-            $book = $bookMap[$legacyBookId] ?? null;
-            $chapter = $chapterMap[$legacyChapterId] ?? null;
+            $sourceRow = $this->legacyVerseSourceRow($row, $libraryId, $bookMap, $chapterMap, $osisCodes);
 
-            if (! $book || ! $chapter || ! $book->canonical_book_id || ! $chapter->canonical_chapter_id) {
+            if (! $sourceRow) {
                 $skipped++;
                 continue;
             }
 
-            $chapterNumber = (int) $chapter->chapter_number;
-            $verseNumber = (int) $row['verseNr'];
-            $osisCode = $osisCodes[$book->canonical_book_id] ?? null;
-
-            $sourceRows[] = [
-                'legacy_id' => (int) $row['verseID'],
-                'legacy_book_id' => $legacyBookId,
-                'legacy_chapter_id' => $legacyChapterId,
-                'legacy_bible_id' => $libraryId,
-                'module_book_id' => (int) $book->module_book_id,
-                'module_chapter_id' => (int) $chapter->module_chapter_id,
-                'canonical_book_id' => (int) $book->canonical_book_id,
-                'canonical_chapter_id' => (int) $chapter->canonical_chapter_id,
-                'chapter_number' => $chapterNumber,
-                'verse_number' => $verseNumber,
-                'osis_code' => $osisCode,
-                'raw_text' => (string) $row['vers'],
-                'raw_json' => json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            ];
+            $sourceRows[] = $sourceRow;
 
             if (count($sourceRows) >= $chunkSize) {
                 $result = $this->importVerseChunk($sourceRows, (int) $legacyLibrary->translation_id, $chunkSize);
@@ -161,12 +140,15 @@ class ImportLegacyVerses extends Command
             ->keyBy('legacy_id');
         $chapterMap = DB::table('legacy_chapters')
             ->join('module_chapters', 'module_chapters.id', '=', 'legacy_chapters.module_chapter_id')
+            ->leftJoin('canonical_chapters', 'canonical_chapters.id', '=', 'legacy_chapters.canonical_chapter_id')
             ->get([
                 'legacy_chapters.legacy_id',
                 'legacy_chapters.legacy_bible_id',
                 'legacy_chapters.module_chapter_id',
                 'legacy_chapters.canonical_chapter_id',
                 'module_chapters.chapter_number',
+                'canonical_chapters.canonical_book_id as canonical_chapter_book_id',
+                'canonical_chapters.number as canonical_chapter_number',
             ])
             ->keyBy('legacy_id');
 
@@ -405,13 +387,19 @@ class ImportLegacyVerses extends Command
         $book = $bookMap[$legacyBookId] ?? null;
         $chapter = $chapterMap[$legacyChapterId] ?? null;
 
-        if (! $book || ! $chapter || ! $book->canonical_book_id || ! $chapter->canonical_chapter_id) {
+        if (! $book || ! $chapter || ! $chapter->canonical_chapter_id) {
             return null;
         }
 
-        $chapterNumber = (int) $chapter->chapter_number;
+        $canonicalBookId = (int) ($chapter->canonical_chapter_book_id ?: $book->canonical_book_id);
+
+        if (! $canonicalBookId) {
+            return null;
+        }
+
+        $chapterNumber = (int) ($chapter->canonical_chapter_number ?: $chapter->chapter_number);
         $verseNumber = (int) $row['verseNr'];
-        $osisCode = $osisCodes[$book->canonical_book_id] ?? null;
+        $osisCode = $osisCodes[$canonicalBookId] ?? null;
 
         return [
             'legacy_id' => (int) $row['verseID'],
@@ -420,7 +408,7 @@ class ImportLegacyVerses extends Command
             'legacy_bible_id' => $libraryId,
             'module_book_id' => (int) $book->module_book_id,
             'module_chapter_id' => (int) $chapter->module_chapter_id,
-            'canonical_book_id' => (int) $book->canonical_book_id,
+            'canonical_book_id' => $canonicalBookId,
             'canonical_chapter_id' => (int) $chapter->canonical_chapter_id,
             'chapter_number' => $chapterNumber,
             'verse_number' => $verseNumber,

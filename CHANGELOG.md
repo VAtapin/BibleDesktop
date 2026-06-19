@@ -4,6 +4,32 @@
 
 ## 2026-06-19
 
+Задача: применить target canonical chapter в verse importer.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/ImportLegacyVerses.php
+tests/Feature/ImportLegacyVersesCommandTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* `bible:legacy:import-verses` теперь читает target canonical book/chapter из `canonical_chapters`, если legacy chapter замаплен override-ом;
+* single-library и all-library import используют одинаковую сборку legacy source row;
+* добавлен feature test для случая `Baruch 6 -> Epistle of Jeremiah 1`;
+* порядок команд в README/плане уточнён: canonical overrides seeding должен идти до metadata import или metadata import нужно повторить после seeding.
+
+Результат:
+
+* mapped chapters могут корректно уходить в другую canonical book и получать правильный OSIS ref, например `EpJer.1.1`;
+* на `database/testing.sqlite` повторный metadata import снизил skipped report с 268 до 196, а `bible:legacy:import-verses --library=10` импортировал DRB без skipped и создал `L10_DRB EpJer.1.1`.
+
+---
+
 Задача: наполнить canonical mapping overrides реальными правилами.
 
 Изменённые файлы:

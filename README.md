@@ -74,8 +74,8 @@ Telegram Mini App
 
 ```powershell
 .\tools\artisan.ps1 migrate --seed
-.\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:seed-canonical-overrides
+.\tools\artisan.ps1 bible:legacy:import-metadata
 .\tools\artisan.ps1 bible:legacy:import-verses --library=1
 .\tools\artisan.ps1 bible:legacy:import-verses --all --missing-only
 .\tools\artisan.ps1 bible:legacy:report-skipped-verses
@@ -85,7 +85,7 @@ Telegram Mini App
 .\tools\artisan.ps1 calendar:legacy:import-events
 ```
 
-Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`. Canonical override seeder заполняет известные правила для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 legacy cases. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings или сознательно классифицированных overrides. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
+Canonical override seeder заполняет известные правила для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 legacy cases; запускайте его до metadata import или повторите metadata import после seeding. Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`, применяя безопасные `map_chapter` overrides. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings или сознательно классифицированных overrides. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
 Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API.
 
 Frontend:
@@ -164,7 +164,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Реализовать обработку `map_chapter`/appendix/heading overrides в verse import flow и отдельной модели дополнительных материалов.
+1. Реализовать отдельную модель дополнительных материалов для appendix/heading и verse/book mapping rules для `requires_*` cases.
 2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 4. Подготовить реальный PHP/app container и queue worker.
