@@ -162,7 +162,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Улучшить reader flow: вкладки/состояние и переход к стиху.
+1. Улучшить reader flow: вкладки и сохранение состояния.
 2. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
 3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 4. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.

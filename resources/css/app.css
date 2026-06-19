@@ -92,11 +92,18 @@ button {
 
 .search {
     display: flex;
+    position: relative;
     align-items: center;
     gap: 10px;
     flex: 1;
     min-width: 220px;
     color: #9aa4b1;
+}
+
+.search button {
+    border: 0;
+    background: transparent;
+    color: #6f7f93;
 }
 
 .search input {
@@ -105,6 +112,50 @@ button {
     outline: 0;
     background: transparent;
     color: #46515f;
+}
+
+.search-results {
+    position: absolute;
+    z-index: 20;
+    top: 42px;
+    left: 0;
+    right: 0;
+    display: grid;
+    gap: 4px;
+    max-height: 320px;
+    overflow: auto;
+    border: 1px solid #cfd7e1;
+    background: #ffffff;
+    box-shadow: 0 12px 24px rgb(48 64 80 / 14%);
+    padding: 8px;
+}
+
+.search-results p {
+    margin: 0;
+    color: #7b8797;
+    font-size: 13px;
+}
+
+.search-results button {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    border: 1px solid #e0e5eb;
+    background: #f8fafc;
+    color: #596579;
+    padding: 7px 9px;
+    text-align: left;
+}
+
+.search-results strong {
+    color: #557496;
+}
+
+.search-results span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .profile {

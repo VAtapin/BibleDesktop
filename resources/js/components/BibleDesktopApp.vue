@@ -93,6 +93,24 @@ type CrossReferenceDto = {
     };
 };
 
+type SearchResultDto = {
+    verse_text_id: number;
+    verse_id: number;
+    osis_ref: string | null;
+    translation: {
+        code: string;
+        short_name: string | null;
+    };
+    book: {
+        slug: string;
+        osis_code: string | null;
+    };
+    chapter_number: number;
+    verse_number: number;
+    text: string;
+    snippet: string;
+};
+
 type Tab = {
     title: string;
     locked?: boolean;
@@ -114,6 +132,11 @@ const strongTokens = ref<StrongTokenDto[]>([]);
 const crossReferences = ref<CrossReferenceDto[]>([]);
 const isStudyLoading = ref(false);
 const studyError = ref<string | null>(null);
+const searchQuery = ref('');
+const searchResults = ref<SearchResultDto[]>([]);
+const isSearchLoading = ref(false);
+const searchError = ref<string | null>(null);
+const showSearchResults = ref(false);
 
 const tabs: Tab[] = [
     { title: 'Бытие 4', active: true },
@@ -193,7 +216,7 @@ async function loadJson<T>(url: string): Promise<T> {
     return response.json() as Promise<T>;
 }
 
-async function loadChapter(): Promise<void> {
+async function loadChapter(targetVerseNumber: number | null = null): Promise<void> {
     if (!selectedTranslationCode.value || !selectedBookSlug.value || selectedChapterNumber.value < 1) {
         return;
     }
@@ -206,7 +229,9 @@ async function loadChapter(): Promise<void> {
         );
 
         currentVerses.value = chapterResponse.data.verses;
-        selectedVerse.value = currentVerses.value[0] ?? null;
+        selectedVerse.value = targetVerseNumber === null
+            ? currentVerses.value[0] ?? null
+            : currentVerses.value.find((verse) => verse.number === targetVerseNumber) ?? currentVerses.value[0] ?? null;
         if (selectedVerse.value?.id) {
             await loadStudyData(selectedVerse.value);
         }
@@ -310,6 +335,47 @@ function selectVerse(verse: Verse): void {
     void loadStudyData(verse);
 }
 
+async function runSearch(): Promise<void> {
+    const query = searchQuery.value.trim();
+
+    if (query.length < 2) {
+        searchResults.value = [];
+        showSearchResults.value = false;
+
+        return;
+    }
+
+    isSearchLoading.value = true;
+    searchError.value = null;
+
+    try {
+        const params = new URLSearchParams({
+            q: query,
+            translation: selectedTranslationCode.value,
+            limit: '8',
+        });
+        const response = await loadJson<ApiResponse<{ results: SearchResultDto[] }>>(`/api/search/verses?${params.toString()}`);
+
+        searchResults.value = response.data.results;
+        showSearchResults.value = true;
+    } catch (error) {
+        searchResults.value = [];
+        showSearchResults.value = true;
+        searchError.value = error instanceof Error ? error.message : 'Не удалось выполнить поиск';
+    } finally {
+        isSearchLoading.value = false;
+    }
+}
+
+async function openSearchResult(result: SearchResultDto): Promise<void> {
+    selectedBookSlug.value = result.book.slug;
+    selectedChapterNumber.value = result.chapter_number;
+    searchQuery.value = result.osis_ref ?? `${result.book.osis_code ?? result.book.slug}.${result.chapter_number}.${result.verse_number}`;
+    showSearchResults.value = false;
+
+    await loadChapter(result.verse_number);
+}
+
 onMounted(async () => {
     try {
         const [languagesResponse, translationsResponse] = await Promise.all([
@@ -346,10 +412,31 @@ onMounted(async () => {
                 </div>
             </div>
 
-            <label class="search">
-                <span>S</span>
-                <input type="search" placeholder="Поиск по книгам" />
-            </label>
+            <form class="search" role="search" @submit.prevent="runSearch">
+                <button type="submit" aria-label="Найти">S</button>
+                <input
+                    v-model="searchQuery"
+                    type="search"
+                    placeholder="Поиск или ссылка"
+                    @focus="showSearchResults = searchResults.length > 0 || searchError !== null"
+                />
+                <div v-if="showSearchResults" class="search-results">
+                    <p v-if="isSearchLoading">Ищу...</p>
+                    <p v-else-if="searchError">{{ searchError }}</p>
+                    <p v-else-if="searchResults.length === 0">Ничего не найдено.</p>
+                    <template v-else>
+                        <button
+                            v-for="result in searchResults"
+                            :key="result.verse_text_id"
+                            type="button"
+                            @click="openSearchResult(result)"
+                        >
+                            <strong>{{ result.osis_ref ?? `${result.book.osis_code ?? result.book.slug}.${result.chapter_number}.${result.verse_number}` }}</strong>
+                            <span>{{ result.snippet }}</span>
+                        </button>
+                    </template>
+                </div>
+            </form>
 
             <div class="profile">
                 <div class="profile-text">
@@ -423,7 +510,7 @@ onMounted(async () => {
                         v-model.number="selectedChapterNumber"
                         class="chapter-select"
                         aria-label="Глава"
-                        @change="loadChapter"
+                        @change="() => loadChapter()"
                     >
                         <option
                             v-for="chapter in chapterOptions"
