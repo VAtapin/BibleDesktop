@@ -84,10 +84,11 @@ Telegram Mini App
 .\tools\artisan.ps1 bible:legacy:import-strong-tokens --translation=L1_RST
 .\tools\artisan.ps1 bible:legacy:import-cross-references
 .\tools\artisan.ps1 calendar:legacy:import-events
+.\tools\artisan.ps1 calendar:import-readings --path=storage/app/calendar-readings.csv
 ```
 
 Canonical override seeder заполняет известные правила для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 legacy cases; запускайте его до metadata import или повторите metadata import после seeding. Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`, применяя безопасные `map_chapter` overrides. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Для 4-главного Joel (`L3_UKR`, `L5_LB`, `L325_UKH`, `L359_SCH2000NEU`) seeder добавляет verse-level rules: `Joel 3:1-5 -> Joel 2:28-32`, `Joel 4:1-21 -> Joel 3:1-21`; если эти библиотеки уже импортированы раньше, их нужно повторно прогнать без `--missing-only`. Supplemental importer переносит heading/appendix/non-canonical/requires_book_mapping legacy тексты в `legacy_supplemental_texts`, не смешивая их с canonical verses; конфликтный `L3_UKR 2Thess 4` сохраняется именно так, чтобы не перезаписать нормальную `1Tim 1`. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings или сознательно классифицированных overrides. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
-Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API. Таблица `calendar_readings` хранит ручные или будущие импортированные чтения дня: `fixed` и `pascha_relative` правила, типы `gospel`/`apostle` и ссылку на отрывок.
+Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API. Таблица `calendar_readings` хранит ручные или импортированные чтения дня: `fixed` и `pascha_relative` правила, типы `gospel`/`apostle` и ссылку на отрывок. CSV importer `calendar:import-readings` принимает UTF-8 файл с колонками `date_rule_type,month,day,offset,reading_type,title,passage_ref,sort_order`.
 
 Frontend:
 
@@ -166,7 +167,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Наполнить `calendar_readings` реальным источником чтений дня: отдельные Евангелие и Апостол.
+1. Подключить или подготовить реальный CSV-источник для `calendar_readings`: отдельные Евангелие и Апостол.
 2. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 4. Подготовить реальный PHP/app container и queue worker.

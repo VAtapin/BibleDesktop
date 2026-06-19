@@ -4,6 +4,31 @@
 
 ## 2026-06-19
 
+Задача: добавить CSV importer для чтений дня.
+
+Изменённые файлы:
+
+```text
+app/Console/Commands/ImportCalendarReadings.php
+tests/Feature/ImportCalendarReadingsCommandTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлена команда `calendar:import-readings`;
+* команда импортирует UTF-8 CSV с fixed и pascha-relative правилами;
+* поддержаны типы `gospel` и `apostle`;
+* добавлен feature test, который проверяет import и выдачу через Calendar API.
+
+Результат:
+
+* для `calendar_readings` появился нормальный канал наполнения из внешнего или ручного источника.
+
+---
+
 Задача: сохранить конфликтный duplicate book mapping как supplemental text.
 
 Изменённые файлы:
