@@ -120,12 +120,15 @@ GET /api/languages
 GET /api/translations
 GET /api/canons/{canon}/books
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
+GET /api/strong/{number}
+GET /api/verses/{verse}/strong-tokens
+GET /api/verses/{verse}/cross-references
 ```
 
 ## Ближайший фокус
 
-1. Подготовить API для Strong и cross references.
-2. Улучшить reader flow: имена книг из module_books, состояние вкладок, обработка пустых глав.
-3. Разобрать `L750_GLNT` и skipped verses/import mappings.
-4. Подготовить Telegram Bot MVP skeleton.
-5. Подготовить Docker/PostgreSQL окружение.
+1. Улучшить reader flow: имена книг из module_books, показ Strong/cross refs в правой панели.
+2. Разобрать `L750_GLNT` и skipped verses/import mappings.
+3. Подготовить Telegram Bot MVP skeleton.
+4. Подготовить Docker/PostgreSQL окружение.
+5. Подготовить базовый поиск по `verse_texts`.
