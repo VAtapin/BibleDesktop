@@ -128,7 +128,7 @@ GET /api/verses/{verse}/cross-references
 ## Ближайший фокус
 
 1. Улучшить reader flow: имена книг из module_books, вкладки/состояние, обработка пустых глав.
-2. Разобрать `L750_GLNT` и skipped verses/import mappings.
+2. Разобрать 1127 skipped verses с отсутствующими canonical chapters.
 3. Подготовить Telegram Bot MVP skeleton.
 4. Подготовить Docker/PostgreSQL окружение.
 5. Подготовить базовый поиск по `verse_texts`.

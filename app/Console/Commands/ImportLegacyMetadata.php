@@ -73,6 +73,11 @@ class ImportLegacyMetadata extends Command
                 continue;
             }
 
+            if (($row['oldTestament'] ?? '') !== 'Y' && ($row['newTestament'] ?? '') !== 'Y' && ($row['apocrypha'] ?? '') !== 'Y') {
+                $skipped++;
+                continue;
+            }
+
             $languageCode = $this->legacyLanguageCode((string) ($row['language'] ?? ''));
 
             if (! $languageCode || ! isset($languageIds[$languageCode])) {
@@ -152,11 +157,39 @@ class ImportLegacyMetadata extends Command
             $imported++;
         }
 
+        $this->deleteStaleLegacyLibraries(array_keys($byId));
+
         return [
             'imported' => $imported,
             'skipped' => $skipped,
             'by_id' => $byId,
         ];
+    }
+
+    /**
+     * @param list<int> $importedLegacyIds
+     */
+    private function deleteStaleLegacyLibraries(array $importedLegacyIds): void
+    {
+        if ($importedLegacyIds === []) {
+            return;
+        }
+
+        $staleLibraries = DB::table('legacy_libraries')
+            ->whereNotIn('legacy_id', $importedLegacyIds)
+            ->get(['legacy_id', 'module_id', 'translation_id']);
+
+        foreach ($staleLibraries as $library) {
+            DB::table('legacy_libraries')->where('legacy_id', $library->legacy_id)->delete();
+
+            if ($library->translation_id && DB::table('verse_texts')->where('translation_id', $library->translation_id)->doesntExist()) {
+                DB::table('translations')->where('id', $library->translation_id)->delete();
+            }
+
+            if ($library->module_id && DB::table('translations')->where('module_id', $library->module_id)->doesntExist()) {
+                DB::table('modules')->where('id', $library->module_id)->delete();
+            }
+        }
     }
 
     /**
@@ -380,14 +413,28 @@ class ImportLegacyMetadata extends Command
 
     private function legacyBookSlug(string $bookIndex, string $pathName, int $legacyBookId): string
     {
-        if ($bookIndex !== '') {
-            return $bookIndex;
-        }
+        $slug = $bookIndex !== ''
+            ? $bookIndex
+            : (Str::slug(pathinfo($pathName, PATHINFO_FILENAME)) ?: "book-{$legacyBookId}");
 
-        return match ($legacyBookId) {
-            69 => '3maccabees',
-            72 => '3esdras',
-            default => Str::slug(pathinfo($pathName, PATHINFO_FILENAME)) ?: "book-{$legacyBookId}",
+        return match ($slug) {
+            'revelations', 're', 'rev', 'nrt-66' => 'revelation',
+            '67-mak1', 'slr67', '1ma' => '1maccabees',
+            '68-mak2', 'slr68', '2ma' => '2maccabees',
+            '3ma' => '3maccabees',
+            '69-var', 'slr70' => 'baruch',
+            '70-jdt', 'slr73' => 'judith',
+            '71-lyst', 'slr74' => 'epistle',
+            '72-mudr', 'slr75' => 'wisdom',
+            '73-syr', 'slr76' => 'sirach',
+            '74-tov', 'slr77' => 'tobit',
+            'slr71' => '2esdras',
+            'slr72' => '3esdras',
+            default => match ($legacyBookId) {
+                69 => '3maccabees',
+                72 => '3esdras',
+                default => $slug,
+            },
         };
     }
 

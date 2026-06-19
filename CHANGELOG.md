@@ -48,6 +48,7 @@ CHANGELOG.md
 * Vue reader shell показывает Strong tokens и cross references выбранного стиха в правой панели;
 * добавлен SQL dump reader и команда `bible:legacy:import-metadata`;
 * importer переносит legacy `library`, `book`, `chapter` в `modules`, `translations`, `module_books`, `module_chapters` и `legacy_*`;
+* metadata importer исключает legacy псевдомодуль `Greek letters / GLNT` и чистит устаревшие legacy mappings без verse texts;
 * добавлена команда `bible:legacy:import-verses --library=1`;
 * команда `bible:legacy:import-verses` получила режимы `--all` и `--missing-only` для импорта/допрогона всех поддерживаемых legacy переводов;
 * verse importer переносит RST в `verses`, `verse_texts`, `legacy_verses`, очищая Strong-коды из display-текста и сохраняя исходник в `text_raw`;
@@ -60,9 +61,9 @@ CHANGELOG.md
 Результат:
 
 * `route:list` видит `/admin/*`, включая `/admin/bible-modules`, `/admin/translations`, `/admin/legacy-*`, и `/api/*`;
-* на реальном `OLD/bible-desktop.sql` metadata importer переносит 21 поддерживаемую Bible-библиотеку, 1205 книг и 20773 главы;
+* на реальном `OLD/bible-desktop.sql` metadata importer переносит 20 поддерживаемых Bible-библиотек, 1204 книги и 20773 главы;
 * RST verse importer переносит 37050 verse texts; `Gen.1.1` сохраняется как `В начале сотворил Бог небо и землю.`, а Strong-разметка остаётся в `text_raw`;
-* all-verses importer перенёс 525729 verse texts по 21 mapped legacy libraries; повторный `--missing-only` добавляет 0 строк, 525729 уже импортированы, 15925 skipped;
+* all-verses importer перенёс 540527 verse texts по 20 mapped legacy libraries; повторный `--missing-only` добавляет 0 строк, 540527 уже импортированы, 1127 skipped;
 * Strong importer переносит 2 лексикона и 14696 словарных статей; `H7225` проверен как Hebrew entry;
 * Strong token importer для `L1_RST` просканировал 31160 стихов с разметкой и перенёс 458984 токена в `verse_strong_tokens`;
 * cross reference importer просканировал 31092 legacy quotes и сохранил 540781 связь; `Gen.1.1` имеет 72 cross references;

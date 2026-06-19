@@ -23,6 +23,10 @@ class ImportLegacyVerses extends Command
         $libraryId = (int) $this->option('library');
         $chunkSize = max(100, (int) $this->option('chunk'));
 
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $chunkSize = min($chunkSize, 500);
+        }
+
         if (! is_file($path)) {
             $this->error("Legacy SQL dump not found: {$path}");
 
