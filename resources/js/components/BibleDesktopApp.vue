@@ -111,19 +111,24 @@ type SearchResultDto = {
     snippet: string;
 };
 
-type Tab = {
+type ReaderTab = {
+    id: string;
     title: string;
-    locked?: boolean;
-    active?: boolean;
+    translationCode: string;
+    bookSlug: string;
+    chapterNumber: number;
 };
 
 type ReaderState = {
     translationCode: string;
     bookSlug: string;
     chapterNumber: number;
+    activeTabId?: string;
+    tabs?: ReaderTab[];
 };
 
 const readerStateKey = 'bible-desktop-reader-state';
+const maxReaderTabs = 8;
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
 const books = ref<ReaderBookDto[]>([]);
@@ -144,6 +149,8 @@ const searchResults = ref<SearchResultDto[]>([]);
 const isSearchLoading = ref(false);
 const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
+const readerTabs = ref<ReaderTab[]>([]);
+const activeTabId = ref('');
 
 const demoVerses: Verse[] = [
     {
@@ -201,12 +208,88 @@ const currentTitle = computed(() => {
 
     return `${bookName} ${selectedChapterNumber.value}`;
 });
-const tabs = computed<Tab[]>(() => [
-    { title: currentTitle.value, active: true },
-    { title: 'Откровение 1' },
-    { title: 'Второзаконие 28', locked: true },
-]);
+const visibleReaderTabs = computed(() => {
+    return readerTabs.value.map((tab) => ({
+        ...tab,
+        title: tab.id === activeTabId.value ? currentTitle.value : tab.title,
+        active: tab.id === activeTabId.value,
+    }));
+});
 const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
+
+function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
+    const translationCode = state.translationCode ?? selectedTranslationCode.value;
+    const bookSlug = state.bookSlug ?? selectedBookSlug.value;
+    const chapterNumber = Math.max(1, Number(state.chapterNumber ?? selectedChapterNumber.value));
+
+    return {
+        id: state.id ?? createClientId(),
+        title: state.title ?? formatStoredTabTitle(bookSlug, chapterNumber),
+        translationCode,
+        bookSlug,
+        chapterNumber,
+    };
+}
+
+function createClientId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+
+    return `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatStoredTabTitle(bookSlug: string, chapterNumber: number): string {
+    const book = books.value.find((candidate) => candidate.slug === bookSlug);
+
+    return `${book?.name ?? bookSlug} ${chapterNumber}`;
+}
+
+function normalizeReaderTabs(tabs: unknown): ReaderTab[] {
+    if (!Array.isArray(tabs)) {
+        return [];
+    }
+
+    return tabs
+        .map((tab) => {
+            if (!tab || typeof tab !== 'object') {
+                return null;
+            }
+
+            const candidate = tab as Partial<ReaderTab>;
+
+            if (!candidate.translationCode || !candidate.bookSlug || !candidate.chapterNumber) {
+                return null;
+            }
+
+            return createReaderTab({
+                id: typeof candidate.id === 'string' && candidate.id !== '' ? candidate.id : undefined,
+                title: typeof candidate.title === 'string' && candidate.title !== '' ? candidate.title : undefined,
+                translationCode: candidate.translationCode,
+                bookSlug: candidate.bookSlug,
+                chapterNumber: Number(candidate.chapterNumber),
+            });
+        })
+        .filter((tab): tab is ReaderTab => tab !== null)
+        .slice(0, maxReaderTabs);
+}
+
+function activeReaderTab(): ReaderTab | null {
+    return readerTabs.value.find((tab) => tab.id === activeTabId.value) ?? readerTabs.value[0] ?? null;
+}
+
+function syncActiveTabFromSelection(): void {
+    const tab = activeReaderTab();
+
+    if (!tab) {
+        return;
+    }
+
+    tab.translationCode = selectedTranslationCode.value;
+    tab.bookSlug = selectedBookSlug.value;
+    tab.chapterNumber = selectedChapterNumber.value;
+    tab.title = currentTitle.value;
+}
 
 function readReaderState(): ReaderState | null {
     if (typeof window === 'undefined') {
@@ -230,6 +313,8 @@ function readReaderState(): ReaderState | null {
             translationCode: parsed.translationCode,
             bookSlug: parsed.bookSlug,
             chapterNumber: Math.max(1, Number(parsed.chapterNumber)),
+            activeTabId: typeof parsed.activeTabId === 'string' ? parsed.activeTabId : undefined,
+            tabs: normalizeReaderTabs(parsed.tabs),
         };
     } catch {
         return null;
@@ -245,6 +330,8 @@ function persistReaderState(): void {
         translationCode: selectedTranslationCode.value,
         bookSlug: selectedBookSlug.value,
         chapterNumber: selectedChapterNumber.value,
+        activeTabId: activeTabId.value,
+        tabs: readerTabs.value,
     }));
 }
 
@@ -330,6 +417,8 @@ async function changeTranslation(): Promise<void> {
     selectedChapterNumber.value = 1;
     await loadBooksForSelectedTranslation();
     await loadChapter();
+    syncActiveTabFromSelection();
+    persistReaderState();
 }
 
 function changeBook(): void {
@@ -347,6 +436,78 @@ function goChapter(delta: number): void {
 
     selectedChapterNumber.value = nextChapter;
     void loadChapter();
+}
+
+async function addReaderTab(): Promise<void> {
+    if (readerTabs.value.length >= maxReaderTabs) {
+        return;
+    }
+
+    syncActiveTabFromSelection();
+    const tab = createReaderTab({
+        translationCode: selectedTranslationCode.value,
+        bookSlug: selectedBookSlug.value,
+        chapterNumber: selectedChapterNumber.value,
+        title: currentTitle.value,
+    });
+
+    readerTabs.value.push(tab);
+    activeTabId.value = tab.id;
+    persistReaderState();
+}
+
+async function switchReaderTab(tabId: string): Promise<void> {
+    const tab = readerTabs.value.find((candidate) => candidate.id === tabId);
+
+    if (!tab || tab.id === activeTabId.value) {
+        return;
+    }
+
+    syncActiveTabFromSelection();
+    activeTabId.value = tab.id;
+    selectedTranslationCode.value = tab.translationCode;
+    selectedBookSlug.value = tab.bookSlug;
+    selectedChapterNumber.value = tab.chapterNumber;
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter();
+    persistReaderState();
+}
+
+async function closeReaderTab(tabId: string): Promise<void> {
+    if (readerTabs.value.length <= 1) {
+        return;
+    }
+
+    const closingIndex = readerTabs.value.findIndex((tab) => tab.id === tabId);
+
+    if (closingIndex === -1) {
+        return;
+    }
+
+    const wasActive = readerTabs.value[closingIndex]?.id === activeTabId.value;
+    readerTabs.value.splice(closingIndex, 1);
+
+    if (!wasActive) {
+        persistReaderState();
+
+        return;
+    }
+
+    const nextTab = readerTabs.value[Math.max(0, closingIndex - 1)] ?? readerTabs.value[0];
+
+    if (!nextTab) {
+        return;
+    }
+
+    activeTabId.value = nextTab.id;
+    selectedTranslationCode.value = nextTab.translationCode;
+    selectedBookSlug.value = nextTab.bookSlug;
+    selectedChapterNumber.value = nextTab.chapterNumber;
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter();
+    persistReaderState();
 }
 
 async function loadStudyData(verse: Verse): Promise<void> {
@@ -420,6 +581,8 @@ async function openSearchResult(result: SearchResultDto): Promise<void> {
     showSearchResults.value = false;
 
     await loadChapter(result.verse_number);
+    syncActiveTabFromSelection();
+    persistReaderState();
 }
 
 onMounted(async () => {
@@ -441,12 +604,30 @@ onMounted(async () => {
             : defaultTranslationCode;
         selectedBookSlug.value = savedState?.bookSlug ?? selectedBookSlug.value;
         selectedChapterNumber.value = savedState?.chapterNumber ?? selectedChapterNumber.value;
+        readerTabs.value = savedState?.tabs?.length
+            ? savedState.tabs
+            : [createReaderTab({
+                translationCode: selectedTranslationCode.value,
+                bookSlug: selectedBookSlug.value,
+                chapterNumber: selectedChapterNumber.value,
+            })];
+        activeTabId.value = savedState?.activeTabId && readerTabs.value.some((tab) => tab.id === savedState.activeTabId)
+            ? savedState.activeTabId
+            : readerTabs.value[0]?.id ?? '';
+        const initialTab = activeReaderTab();
+        if (initialTab && translations.value.some((translation) => translation.code === initialTab.translationCode)) {
+            selectedTranslationCode.value = initialTab.translationCode;
+            selectedBookSlug.value = initialTab.bookSlug;
+            selectedChapterNumber.value = initialTab.chapterNumber;
+        }
 
         await loadBooksForSelectedTranslation();
         if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
             selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
         }
         await loadChapter();
+        syncActiveTabFromSelection();
+        persistReaderState();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
     } finally {
@@ -454,7 +635,10 @@ onMounted(async () => {
     }
 });
 
-watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], persistReaderState);
+watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
+    syncActiveTabFromSelection();
+    persistReaderState();
+});
 </script>
 
 <template>
@@ -510,14 +694,37 @@ watch([selectedTranslationCode, selectedBookSlug, selectedChapterNumber], persis
         </section>
 
         <nav class="tabs" aria-label="Открытые вкладки">
-            <button
-                v-for="tab in tabs"
-                :key="tab.title"
-                type="button"
+            <div
+                v-for="tab in visibleReaderTabs"
+                :key="tab.id"
+                class="reader-tab"
                 :class="{ active: tab.active }"
             >
-                <span v-if="tab.locked">lock</span>
-                {{ tab.title }}
+                <button
+                    type="button"
+                    class="reader-tab-main"
+                    @click="switchReaderTab(tab.id)"
+                >
+                    {{ tab.title }}
+                </button>
+                <button
+                    v-if="readerTabs.length > 1"
+                    type="button"
+                    class="reader-tab-close"
+                    aria-label="Закрыть вкладку"
+                    @click="closeReaderTab(tab.id)"
+                >
+                    X
+                </button>
+            </div>
+            <button
+                type="button"
+                class="reader-tab-add"
+                :disabled="readerTabs.length >= maxReaderTabs"
+                aria-label="Открыть новую вкладку"
+                @click="addReaderTab"
+            >
+                +
             </button>
         </nav>
 

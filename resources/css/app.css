@@ -193,7 +193,6 @@ button {
 }
 
 .workspace-title button,
-.tabs button,
 .tool-rail button,
 .reader-actions button,
 .analysis-panel button,
@@ -206,19 +205,60 @@ button {
 .tabs {
     padding-left: 48px;
     gap: 4px;
+    overflow-x: auto;
 }
 
-.tabs button {
+.reader-tab {
+    display: flex;
+    align-items: center;
     height: 42px;
-    padding: 0 18px;
     border-bottom: 3px solid transparent;
     color: #697586;
 }
 
-.tabs button.active {
+.reader-tab.active {
     border-bottom-color: #537ca6;
     color: #334155;
     font-weight: 600;
+}
+
+.reader-tab-main,
+.reader-tab-close,
+.reader-tab-add {
+    height: 39px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+}
+
+.reader-tab-main {
+    min-width: 120px;
+    max-width: 220px;
+    overflow: hidden;
+    padding: 0 10px 0 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reader-tab-close {
+    width: 28px;
+    color: #9aa4b1;
+    font-size: 12px;
+}
+
+.reader-tab-close:hover,
+.reader-tab-add:hover {
+    color: #537ca6;
+}
+
+.reader-tab-add {
+    width: 38px;
+    color: #697586;
+}
+
+.reader-tab-add:disabled {
+    cursor: default;
+    opacity: 0.45;
 }
 
 .reader-layout {

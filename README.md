@@ -18,7 +18,7 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers и первый перенос RST/Strong/cross reference данных.
+Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных и рабочий reader shell с выбором перевода, поиском, справочной панелью и вкладками чтения.
 
 Основные документы:
 
@@ -162,8 +162,8 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Улучшить reader flow: настоящие вкладки чтения.
-2. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
-3. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
-4. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
-5. Подготовить реальный PHP/app container и queue worker.
+1. Принять решение по non-Bible/commentary modules вроде LOP и по расхождениям канона Baruch/Sirach/Joel.
+2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
+3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
+4. Подготовить реальный PHP/app container и queue worker.
+5. Продолжить reader UI: контекстное меню стиха, режим нескольких переводов и заметки.
