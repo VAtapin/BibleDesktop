@@ -4,6 +4,33 @@
 
 ## 2026-06-19
 
+Задача: открыть supplemental legacy texts через API.
+
+Изменённые файлы:
+
+```text
+app/Http/Controllers/Api/SupplementalTextController.php
+routes/api.php
+tests/Feature/SupplementalTextApiTest.php
+README.md
+PROJECT_PLAN.md
+CHANGELOG.md
+```
+
+Описание изменений:
+
+* добавлен endpoint `GET /api/translations/{translation}/supplemental-texts`;
+* endpoint поддерживает фильтры `book`, `type`, `limit`;
+* response возвращает translation metadata и список supplemental items;
+* добавлен feature test на фильтрацию по книге и типу.
+
+Результат:
+
+* heading/appendix материалы стали доступны через REST API;
+* `route:list --path=api` показывает 12 API routes.
+
+---
+
 Задача: импортировать supplemental legacy texts отдельно от canonical verses.
 
 Изменённые файлы:

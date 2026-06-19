@@ -136,6 +136,7 @@ GET /api/languages
 GET /api/translations
 GET /api/canons/{canon}/books
 GET /api/translations/{translationCode}/books
+GET /api/translations/{translationCode}/supplemental-texts?book={bookSlug}&type={heading|appendix|non_canonical}
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 GET /api/search/verses?q={query-or-reference}&translation={translationCode}
 GET /api/calendar/day?date=YYYY-MM-DD
@@ -165,7 +166,7 @@ To send messages from the webhook, set `TELEGRAM_SEND_RESPONSES=true`. Register 
 
 ## Ближайший фокус
 
-1. Реализовать verse/book mapping rules для `requires_*` cases и API для supplemental legacy texts.
+1. Реализовать verse/book mapping rules для `requires_*` cases.
 2. Найти или подключить внешний источник чтений дня: отдельные Евангелие и Апостол.
 3. Улучшить поиск: PostgreSQL Full Text Search и подсветка совпадений.
 4. Подготовить реальный PHP/app container и queue worker.
