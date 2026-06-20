@@ -113,6 +113,7 @@ type CrossReferenceDto = {
         verse_id: number;
         osis_ref: string | null;
         reference?: string;
+        book_slug?: string;
         book_name?: string | null;
         book_short_name?: string | null;
         chapter_number: number;
@@ -968,6 +969,37 @@ async function openSearchResult(result: SearchResultDto): Promise<void> {
     persistReaderState();
 }
 
+async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
+    const bookSlug = reference.target.book_slug;
+
+    if (!bookSlug) {
+        return;
+    }
+
+    syncActiveTabFromSelection();
+
+    const tab = createReaderTab({
+        translationCode: selectedTranslationCode.value,
+        bookSlug,
+        chapterNumber: reference.target.chapter_number,
+        title: crossReferenceLabel(reference),
+    });
+
+    if (readerTabs.value.length < maxReaderTabs) {
+        readerTabs.value.push(tab);
+        activeTabId.value = tab.id;
+    }
+
+    selectedBookSlug.value = bookSlug;
+    selectedChapterNumber.value = reference.target.chapter_number;
+    highlightedVerseNumbers.value = [reference.target.verse_number];
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter(reference.target.verse_number);
+    syncActiveTabFromSelection();
+    persistReaderState();
+}
+
 onMounted(async () => {
     try {
         const savedState = readReaderState();
@@ -1356,6 +1388,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             v-for="reference in visibleCrossReferences"
                             :key="reference.id"
                             type="button"
+                            @click="openCrossReference(reference)"
                         >
                             <strong>{{ crossReferenceLabel(reference) }}</strong>
                             <span>{{ reference.target.text ?? reference.type }}</span>

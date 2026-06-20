@@ -595,9 +595,19 @@ button {
     text-align: left;
 }
 
+.reference-list button {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+}
+
 .study-list strong,
 .reference-list strong {
     color: #557496;
+}
+
+.reference-list strong {
+    font-size: 12px;
+    line-height: 1.25;
 }
 
 .reference-list span,
@@ -605,6 +615,13 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.reference-list span {
+    overflow: visible;
+    color: #596579;
+    line-height: 1.4;
+    white-space: normal;
 }
 
 .strong-entry {
