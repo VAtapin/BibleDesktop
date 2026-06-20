@@ -88,6 +88,26 @@ class ChapterApiTest extends TestCase
         ]);
         $verseId = DB::table('verses')->where('osis_ref', 'Gen.1.1')->value('id');
 
+        DB::table('strong_lexicons')->insert([
+            'code' => 'HEB',
+            'name' => 'Hebrew',
+            'language' => 'he',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $lexiconId = DB::table('strong_lexicons')->where('code', 'HEB')->value('id');
+
+        DB::table('strong_entries')->insert([
+            'strong_lexicon_id' => $lexiconId,
+            'number' => 'H7225',
+            'word' => 'רֵאשִׁית',
+            'transliteration' => 'reshith',
+            'content' => 'beginning',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $entryId = DB::table('strong_entries')->where('number', 'H7225')->value('id');
+
         DB::table('verse_texts')->insert([
             'verse_id' => $verseId,
             'translation_id' => $translationId,
@@ -100,6 +120,18 @@ class ChapterApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        $verseTextId = DB::table('verse_texts')->where('verse_id', $verseId)->value('id');
+
+        DB::table('verse_strong_tokens')->insert([
+            'verse_text_id' => $verseTextId,
+            'verse_id' => $verseId,
+            'strong_entry_id' => $entryId,
+            'strong_number' => 'H7225',
+            'token_order' => 1,
+            'surface_text' => 'начале',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
         $this->getJson('/api/translations/L1_RST/books/genesis/chapters/1')
             ->assertOk()
@@ -109,6 +141,8 @@ class ChapterApiTest extends TestCase
             ->assertJsonPath('data.verses.0.number', 1)
             ->assertJsonPath('data.verses.0.osis_ref', 'Gen.1.1')
             ->assertJsonPath('data.verses.0.text', 'В начале сотворил Бог небо и землю.')
-            ->assertJsonPath('data.verses.0.has_strong_markup', true);
+            ->assertJsonPath('data.verses.0.has_strong_markup', true)
+            ->assertJsonPath('data.verses.0.strong_tokens.0.strong_number', 'H7225')
+            ->assertJsonPath('data.verses.0.strong_tokens.0.surface_text', 'начале');
     }
 }

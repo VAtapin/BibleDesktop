@@ -43,6 +43,13 @@ type Verse = {
     osis_ref?: string | null;
     text: string;
     has_strong_markup?: boolean;
+    strong_tokens?: StrongTokenDto[];
+};
+
+type VerseTextPart = {
+    key: string;
+    text: string;
+    strongTokens: StrongTokenDto[];
 };
 
 type ChapterDto = {
@@ -67,6 +74,7 @@ type ChapterDto = {
         osis_ref: string | null;
         text: string;
         has_strong_markup: boolean;
+        strong_tokens?: StrongTokenDto[];
     }>;
 };
 
@@ -298,6 +306,40 @@ function shortTranslationLabel(translation: TranslationDto | null | undefined): 
 
 function bookDisplayName(book: ReaderBookDto | null | undefined): string {
     return book?.name || book?.short_name || book?.slug || 'Библия';
+}
+
+function normalizeStrongSurface(value: string | null | undefined): string {
+    return (value ?? '')
+        .toLocaleLowerCase('ru-RU')
+        .replace(/ё/g, 'е')
+        .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function verseTextParts(verse: Verse): VerseTextPart[] {
+    const strongTokens = verse.strong_tokens ?? [];
+    const parts = verse.text.match(/[\p{L}\p{N}]+|[^\p{L}\p{N}]+/gu) ?? [verse.text];
+    let strongIndex = 0;
+
+    return parts.map((text, index) => {
+        const matchedTokens: StrongTokenDto[] = [];
+        const normalizedText = normalizeStrongSurface(text);
+
+        if (normalizedText !== '') {
+            while (
+                strongIndex < strongTokens.length
+                && normalizeStrongSurface(strongTokens[strongIndex]?.surface_text) === normalizedText
+            ) {
+                matchedTokens.push(strongTokens[strongIndex]);
+                strongIndex++;
+            }
+        }
+
+        return {
+            key: `${verse.id ?? verse.number}-${index}`,
+            text,
+            strongTokens: matchedTokens,
+        };
+    });
 }
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
@@ -714,6 +756,20 @@ async function selectStrongToken(token: StrongTokenDto): Promise<void> {
         selectedStrongEntry.value = null;
         studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить номер Strong';
     }
+}
+
+async function selectInlineStrongToken(verse: Verse, token: StrongTokenDto): Promise<void> {
+    const previousVerseId = selectedVerse.value?.id;
+
+    selectedVerse.value = verse;
+    highlightedVerseNumbers.value = [verse.number];
+    activeStudyTab.value = 'strong';
+
+    if (verse.id && verse.id !== previousVerseId) {
+        await loadStudyData(verse);
+    }
+
+    await selectStrongToken(token);
 }
 
 async function loadVerseNotes(verseId: number): Promise<void> {
@@ -1169,21 +1225,23 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         >
                             {{ verse.number }}
                         </button>
-                        <span @click="selectVerse(verse)">{{ verse.text }}</span>
-                        <small
-                            v-if="showStrongNumbers && verse.id === selectedVerse?.id && strongTokens.length > 0"
-                            class="inline-strong"
-                        >
-                            <button
-                                v-for="token in strongTokens"
-                                :key="token.id"
-                                type="button"
-                                @click="selectStrongToken(token)"
+                        <span class="verse-text" @click="selectVerse(verse)">
+                            <template
+                                v-for="part in verseTextParts(verse)"
+                                :key="part.key"
                             >
-                                {{ token.surface_text ?? token.entry.transliteration ?? token.entry.word ?? 'слово' }}
-                                <strong>{{ token.strong_number }}</strong>
-                            </button>
-                        </small>
+                                <span>{{ part.text }}</span>
+                                <button
+                                    v-for="token in showStrongNumbers ? part.strongTokens : []"
+                                    :key="token.id"
+                                    type="button"
+                                    class="strong-inline-number"
+                                    @click.stop="selectInlineStrongToken(verse, token)"
+                                >
+                                    {{ token.strong_number }}
+                                </button>
+                            </template>
+                        </span>
                         <small
                             v-if="compareVerseByNumber.get(verse.number)"
                             class="compare-verse"
