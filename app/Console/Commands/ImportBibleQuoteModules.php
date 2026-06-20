@@ -11,12 +11,13 @@ class ImportBibleQuoteModules extends Command
 {
     protected $signature = 'bible:bq:import
         {--path= : Import one BibleQuote ZIP module}
-        {--dir=OLD/Mod : Import all ZIP modules from a directory}
+        {--dir=OLD/Mod : Import all ZIP/MyBible SQLite modules from a directory}
+        {--languages=ru,de,en,uk : Comma-separated language codes allowed for directory imports}
         {--replace : Delete all existing Bible translations before import}
         {--include-non-bible : Import metadata for non-Bible modules later; currently skipped}
         {--chunk=500 : Database upsert chunk size}';
 
-    protected $description = 'Import BibleQuote ZIP Bible modules into translations, books, chapters, and verse texts.';
+    protected $description = 'Import BibleQuote ZIP and MyBible SQLite Bible modules into translations, books, chapters, and verse texts.';
 
     private const BOOK_SLUG_BY_KEY = [
         'genesis' => 'genesis',
@@ -125,11 +126,12 @@ class ImportBibleQuoteModules extends Command
 
         foreach ($paths as $path) {
             try {
-                $result = $this->importZip($path);
+                $result = $this->importPath($path);
 
                 if ($result['skipped']) {
                     $skipped++;
                     $this->line("Skipped: {$path} ({$result['reason']})");
+
                     continue;
                 }
 
@@ -160,16 +162,26 @@ class ImportBibleQuoteModules extends Command
         $path = trim((string) $this->option('path'));
 
         if ($path !== '') {
-            $resolved = base_path($path);
+            $resolved = is_file($path) ? $path : base_path($path);
 
             return is_file($resolved) ? [$resolved] : [];
         }
 
         $dir = base_path((string) $this->option('dir'));
-        $paths = glob($dir.DIRECTORY_SEPARATOR.'*.zip') ?: [];
+        $patterns = [
+            $dir.DIRECTORY_SEPARATOR.'*.zip',
+            $dir.DIRECTORY_SEPARATOR.'*.SQLite3',
+            $dir.DIRECTORY_SEPARATOR.'*.sqlite3',
+        ];
+        $paths = [];
+
+        foreach ($patterns as $pattern) {
+            $paths = array_merge($paths, glob($pattern) ?: []);
+        }
+
         sort($paths, SORT_NATURAL | SORT_FLAG_CASE);
 
-        return array_values($paths);
+        return array_values(array_unique($paths));
     }
 
     private function deleteExistingBibleModules(): void
@@ -190,13 +202,27 @@ class ImportBibleQuoteModules extends Command
     /**
      * @return array{skipped: bool, reason?: string, code?: string, books?: int, verses?: int}
      */
+    private function importPath(string $path): array
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'zip' => $this->importZip($path),
+            'sqlite3', 'sqlite' => $this->importMyBibleSqlite($path),
+            default => ['skipped' => true, 'reason' => 'unsupported module file type'],
+        };
+    }
+
+    /**
+     * @return array{skipped: bool, reason?: string, code?: string, books?: int, verses?: int}
+     */
     private function importZip(string $path): array
     {
         if (str_starts_with(basename($path), 'BibleQuote_')) {
             return ['skipped' => true, 'reason' => 'BibleQuote program bundle, not a single module'];
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
 
         if ($zip->open($path) !== true) {
             throw new \RuntimeException('Cannot open ZIP.');
@@ -215,10 +241,25 @@ class ImportBibleQuoteModules extends Command
                 return ['skipped' => true, 'reason' => 'not a Bible module'];
             }
 
+            $languageCode = $this->languageCode($path, $ini['meta']);
+
+            if (! $this->languageAllowed($languageCode)) {
+                return ['skipped' => true, 'reason' => "language {$languageCode} is not enabled"];
+            }
+
             $books = $this->mappedBooks($ini['books']);
 
             if ($books === []) {
                 return ['skipped' => true, 'reason' => 'no canonical Bible books mapped'];
+            }
+
+            $missingEntries = $this->missingZipBookEntries($zip, dirname($iniPath), $books);
+
+            if ($missingEntries !== []) {
+                return [
+                    'skipped' => true,
+                    'reason' => sprintf('missing book files: %s', implode(', ', array_slice($missingEntries, 0, 5))),
+                ];
             }
 
             $result = DB::transaction(function () use ($path, $ini, $books, $zip, $iniPath): array {
@@ -244,6 +285,60 @@ class ImportBibleQuoteModules extends Command
         }
     }
 
+    /**
+     * @return array{skipped: bool, reason?: string, code?: string, books?: int, verses?: int}
+     */
+    private function importMyBibleSqlite(string $path): array
+    {
+        $pdo = new \PDO('sqlite:'.$path);
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+        if (! $this->sqliteHasTables($pdo, ['books', 'info', 'verses'])) {
+            return ['skipped' => true, 'reason' => 'not a MyBible SQLite Bible module'];
+        }
+
+        $meta = $this->readSqliteInfo($pdo);
+        $languageCode = (string) ($meta['language'] ?? $this->languageCode($path, []));
+
+        if (! $this->languageAllowed($languageCode)) {
+            return ['skipped' => true, 'reason' => "language {$languageCode} is not enabled"];
+        }
+
+        $books = $this->mappedSqliteBooks($pdo);
+
+        if ($books === []) {
+            return ['skipped' => true, 'reason' => 'no canonical Bible books mapped'];
+        }
+
+        $result = DB::transaction(function () use ($path, $meta, $books, $pdo): array {
+            $translation = $this->upsertTranslation($path, [
+                'BibleName' => (string) ($meta['description'] ?? pathinfo($path, PATHINFO_FILENAME)),
+                'BibleShortName' => pathinfo($path, PATHINFO_FILENAME),
+                'OldTestament' => collect($books)->contains(fn (array $book): bool => (int) $book['book_order'] <= 39) ? 'Y' : 'N',
+                'NewTestament' => collect($books)->contains(fn (array $book): bool => (int) $book['book_order'] >= 40) ? 'Y' : 'N',
+                'Apocrypha' => 'N',
+                'StrongNumbers' => ((string) ($meta['strong_numbers'] ?? 'false')) === 'true' ? 'Y' : 'N',
+                'ModuleVersion' => null,
+                'DefaultEncoding' => 'UTF-8',
+            ]);
+            $bookResult = $this->upsertBooksAndChapters($translation, $books);
+            $verseCount = $this->importSqliteVerses($pdo, $translation, $bookResult['books'], $books);
+
+            return [
+                'code' => $translation['code'],
+                'books' => count($bookResult['books']),
+                'verses' => $verseCount,
+            ];
+        });
+
+        return [
+            'skipped' => false,
+            'code' => $result['code'],
+            'books' => $result['books'],
+            'verses' => $result['verses'],
+        ];
+    }
+
     private function findIniPath(ZipArchive $zip): ?string
     {
         for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -257,9 +352,49 @@ class ImportBibleQuoteModules extends Command
         return null;
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $books
+     * @return list<string>
+     */
+    private function missingZipBookEntries(ZipArchive $zip, string $baseDir, array $books): array
+    {
+        $missing = [];
+
+        foreach ($books as $book) {
+            $entryPath = trim($baseDir.'/'.$book['path_name'], '/');
+
+            if ($this->findZipEntry($zip, $entryPath) === null) {
+                $missing[] = $book['path_name'];
+            }
+        }
+
+        return $missing;
+    }
+
+    private function findZipEntry(ZipArchive $zip, string $path): ?string
+    {
+        $normalizedPath = $this->normalizeZipPath($path);
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if ($this->normalizeZipPath($name) === $normalizedPath) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeZipPath(string $path): string
+    {
+        return strtolower(trim(str_replace('\\', '/', $path), '/'));
+    }
+
     private function readZipText(ZipArchive $zip, string $path, string $encoding = 'UTF-8'): string
     {
-        $content = $zip->getFromName($path);
+        $resolvedPath = $this->findZipEntry($zip, $path) ?? $path;
+        $content = $zip->getFromName($resolvedPath);
 
         if ($content === false) {
             throw new \RuntimeException("ZIP entry not found: {$path}");
@@ -271,8 +406,14 @@ class ImportBibleQuoteModules extends Command
     private function toUtf8(string $value, string $encoding): string
     {
         $encoding = strtoupper(trim($encoding) ?: 'UTF-8');
+        $encoding = match ($encoding) {
+            'WINDOWS-1251', 'CP1251', 'WIN-1251' => 'Windows-1251',
+            'WINDOWS-1252', 'CP1252', 'WIN-1252' => 'Windows-1252',
+            'ANSI' => 'Windows-1251',
+            default => $encoding,
+        };
 
-        if ($encoding !== 'UTF-8') {
+        if (strtoupper($encoding) !== 'UTF-8') {
             $converted = @mb_convert_encoding($value, 'UTF-8', $encoding);
 
             if (is_string($converted)) {
@@ -285,6 +426,34 @@ class ImportBibleQuoteModules extends Command
         }
 
         return mb_convert_encoding($value, 'UTF-8', ['Windows-1251', 'Windows-1252', 'ISO-8859-1']);
+    }
+
+    /**
+     * @param  list<string>  $tables
+     */
+    private function sqliteHasTables(\PDO $pdo, array $tables): bool
+    {
+        $existing = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")
+            ?->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+        $existing = array_map('strtolower', array_map('strval', $existing));
+
+        foreach ($tables as $table) {
+            if (! in_array(strtolower($table), $existing, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function readSqliteInfo(\PDO $pdo): array
+    {
+        $rows = $pdo->query('SELECT name, value FROM info')?->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+
+        return array_map('strval', $rows);
     }
 
     /**
@@ -315,11 +484,13 @@ class ImportBibleQuoteModules extends Command
                 }
 
                 $current = ['PathName' => $value];
+
                 continue;
             }
 
             if ($current !== null && in_array($key, ['FullName', 'ShortName', 'ChapterQty'], true)) {
                 $current[$key] = $value;
+
                 continue;
             }
 
@@ -334,7 +505,7 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
-     * @param list<array<string, string>> $books
+     * @param  list<array<string, string>>  $books
      * @return list<array<string, mixed>>
      */
     private function mappedBooks(array $books): array
@@ -378,6 +549,45 @@ class ImportBibleQuoteModules extends Command
         return $mapped;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mappedSqliteBooks(\PDO $pdo): array
+    {
+        $canonicalByOrder = DB::table('canonical_books')
+            ->orderBy('canonical_order')
+            ->get(['id', 'slug', 'osis_code', 'canonical_order'])
+            ->values();
+        $bookRows = $pdo->query('SELECT book_number, short_name, long_name FROM books ORDER BY book_number')
+            ?->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $chapterRows = $pdo->query('SELECT book_number, MAX(chapter) AS chapters_count FROM verses GROUP BY book_number')
+            ?->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+        $mapped = [];
+
+        foreach ($bookRows as $index => $book) {
+            $canonical = $canonicalByOrder->get($index);
+
+            if (! $canonical) {
+                continue;
+            }
+
+            $bookNumber = (int) $book['book_number'];
+            $mapped[] = [
+                'path_name' => (string) $bookNumber,
+                'name' => (string) ($book['long_name'] ?: $canonical->slug),
+                'short_name' => (string) ($book['short_name'] ?? ''),
+                'chapters_count' => (int) ($chapterRows[$bookNumber] ?? 0),
+                'canonical_book_id' => (int) $canonical->id,
+                'slug' => (string) $canonical->slug,
+                'osis_code' => $canonical->osis_code ? (string) $canonical->osis_code : null,
+                'book_order' => (int) $canonical->canonical_order,
+                'sqlite_book_number' => $bookNumber,
+            ];
+        }
+
+        return $mapped;
+    }
+
     private function slugFromPath(string $pathName): ?string
     {
         $base = strtolower(pathinfo($pathName, PATHINFO_FILENAME));
@@ -388,7 +598,7 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
-     * @param array<string, string> $meta
+     * @param  array<string, string>  $meta
      * @return array{id: int, module_id: int, code: string}
      */
     private function upsertTranslation(string $path, array $meta): array
@@ -467,7 +677,7 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
-     * @param array<string, string> $meta
+     * @param  array<string, string>  $meta
      */
     private function languageCode(string $path, array $meta): string
     {
@@ -503,9 +713,23 @@ class ImportBibleQuoteModules extends Command
         };
     }
 
+    private function languageAllowed(string $languageCode): bool
+    {
+        $allowed = array_filter(array_map(
+            fn (string $language): string => strtolower(trim($language)),
+            explode(',', (string) $this->option('languages')),
+        ));
+
+        if ($allowed === []) {
+            return true;
+        }
+
+        return in_array(strtolower($languageCode), $allowed, true);
+    }
+
     /**
-     * @param array{id: int, module_id: int, code: string} $translation
-     * @param list<array<string, mixed>> $books
+     * @param  array{id: int, module_id: int, code: string}  $translation
+     * @param  list<array<string, mixed>>  $books
      * @return array{books: array<string, array{id: int, chapters: array<int, int>}>}
      */
     private function upsertBooksAndChapters(array $translation, array $books): array
@@ -568,10 +792,10 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
-     * @param array{id: int, module_id: int, code: string} $translation
-     * @param array<string, array{id: int, chapters: array<int, int>}> $moduleBooks
-     * @param list<array<string, mixed>> $books
-     * @param array<string, string> $meta
+     * @param  array{id: int, module_id: int, code: string}  $translation
+     * @param  array<string, array{id: int, chapters: array<int, int>}>  $moduleBooks
+     * @param  list<array<string, mixed>>  $books
+     * @param  array<string, string>  $meta
      */
     private function importVerses(ZipArchive $zip, string $baseDir, array $translation, array $moduleBooks, array $books, array $meta): int
     {
@@ -645,6 +869,85 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
+     * @param  array{id: int, module_id: int, code: string}  $translation
+     * @param  array<string, array{id: int, chapters: array<int, int>}>  $moduleBooks
+     * @param  list<array<string, mixed>>  $books
+     */
+    private function importSqliteVerses(\PDO $pdo, array $translation, array $moduleBooks, array $books): int
+    {
+        $now = now();
+        $chunkSize = max(100, (int) $this->option('chunk'));
+        $canonicalChapters = DB::table('canonical_chapters')
+            ->get(['id', 'canonical_book_id', 'number'])
+            ->mapWithKeys(fn ($chapter) => ["{$chapter->canonical_book_id}:{$chapter->number}" => (int) $chapter->id])
+            ->all();
+        $verseRows = [];
+        $textRows = [];
+        $imported = 0;
+        $statement = $pdo->prepare('SELECT chapter, verse, text FROM verses WHERE book_number = :book_number ORDER BY chapter, verse');
+
+        foreach ($books as $book) {
+            $moduleBook = $moduleBooks[$book['path_name']] ?? null;
+
+            if (! $moduleBook) {
+                continue;
+            }
+
+            $statement->execute(['book_number' => (int) $book['sqlite_book_number']]);
+            $chapterCounts = [];
+
+            while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
+                $chapterNumber = (int) $row['chapter'];
+                $verseNumber = (int) $row['verse'];
+                $canonicalChapterId = $canonicalChapters["{$book['canonical_book_id']}:{$chapterNumber}"] ?? null;
+                $moduleChapterId = $moduleBook['chapters'][$chapterNumber] ?? null;
+
+                if (! $canonicalChapterId || ! $moduleChapterId || $verseNumber < 1) {
+                    continue;
+                }
+
+                $verseRows[] = [
+                    'canonical_book_id' => $book['canonical_book_id'],
+                    'canonical_chapter_id' => $canonicalChapterId,
+                    'chapter_number' => $chapterNumber,
+                    'verse_number' => $verseNumber,
+                    'osis_ref' => $book['osis_code'] ? "{$book['osis_code']}.{$chapterNumber}.{$verseNumber}" : null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+                $textRows[] = [
+                    'book' => $book,
+                    'module_book_id' => $moduleBook['id'],
+                    'module_chapter_id' => $moduleChapterId,
+                    'chapter_number' => $chapterNumber,
+                    'verse_number' => $verseNumber,
+                    'raw_text' => (string) $row['text'],
+                ];
+                $chapterCounts[$moduleChapterId] = ($chapterCounts[$moduleChapterId] ?? 0) + 1;
+
+                if (count($verseRows) >= $chunkSize) {
+                    $imported += $this->flushVerseRows($translation, $verseRows, $textRows);
+                    $verseRows = [];
+                    $textRows = [];
+                }
+            }
+
+            foreach ($chapterCounts as $moduleChapterId => $count) {
+                DB::table('module_chapters')->where('id', $moduleChapterId)->update([
+                    'verses_count' => $count,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        if ($verseRows !== []) {
+            $imported += $this->flushVerseRows($translation, $verseRows, $textRows);
+        }
+
+        return $imported;
+    }
+
+    /**
      * @return array<int, array<int, string>>
      */
     private function parseBookHtml(string $html): array
@@ -703,9 +1006,9 @@ class ImportBibleQuoteModules extends Command
     }
 
     /**
-     * @param array{id: int, module_id: int, code: string} $translation
-     * @param list<array<string, mixed>> $verseRows
-     * @param list<array<string, mixed>> $textRows
+     * @param  array{id: int, module_id: int, code: string}  $translation
+     * @param  list<array<string, mixed>>  $verseRows
+     * @param  list<array<string, mixed>>  $textRows
      */
     private function flushVerseRows(array $translation, array $verseRows, array $textRows): int
     {
@@ -766,11 +1069,11 @@ class ImportBibleQuoteModules extends Command
      */
     private function normalizeVerseText(string $rawText): array
     {
-        $hasStrong = preg_match('/\b[HG]\d{3,5}\b/u', $rawText) === 1;
-        $text = preg_replace('/\s*\b[HG]\d{3,5}\b/u', '', $rawText) ?? $rawText;
-        $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
-        $text = preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
-        $plain = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = $this->normalizeReaderHtml($rawText);
+        $hasStrong = preg_match('/<S\b[^>]*>\s*[GH]?\d{1,5}\s*<\/S>|\b[HG]\d{1,5}\b/iu', $text) === 1;
+        $plainSource = preg_replace('/<S\b[^>]*>\s*[GH]?\d{1,5}\s*<\/S>/iu', '', $text) ?? $text;
+        $plainSource = preg_replace('/\s*\b[HG]\d{1,5}\b/u', '', $plainSource) ?? $plainSource;
+        $plain = html_entity_decode(strip_tags($plainSource), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $plain = preg_replace('/\s{2,}/u', ' ', trim($plain)) ?? trim($plain);
 
         return [
@@ -780,8 +1083,23 @@ class ImportBibleQuoteModules extends Command
         ];
     }
 
+    private function normalizeReaderHtml(string $rawText): string
+    {
+        $text = html_entity_decode($rawText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/<\s*br\s*\/?\s*>/iu', ' ', $text) ?? $text;
+        $text = preg_replace('/<\s*pb\s*\/?\s*>/iu', '', $text) ?? $text;
+        $text = preg_replace('/<\/?\s*(?:J|FI|FO|FR)\b[^>]*>/iu', '', $text) ?? $text;
+        $text = preg_replace('/<\s*s\b[^>]*>\s*([GH]?\d{1,5})\s*<\s*\/\s*s\s*>/iu', '<S>$1</S>', $text) ?? $text;
+        $text = preg_replace('/(?<![>\p{L}\p{N}])([GH]\d{1,5})(?![\p{L}\p{N}<])/u', '<S>$1</S>', $text) ?? $text;
+        $text = strip_tags($text, '<S><i><b><em><strong>');
+        $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
+
+        return $text;
+    }
+
     /**
-     * @param list<array<string, mixed>> $rows
+     * @param  list<array<string, mixed>>  $rows
      */
     private function replaceStrongTokens(int $translationId, array $rows): void
     {
@@ -835,12 +1153,13 @@ class ImportBibleQuoteModules extends Command
     {
         $tokens = [];
         $surface = null;
-        $parts = preg_split('/\s+/u', trim(strip_tags($rawText, '<i><b><em><strong>')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $text = $this->normalizeReaderHtml($rawText);
+        $parts = preg_split('/(<S>\s*[GH]?\d{1,5}\s*<\/S>)|\s+/iu', trim($text), -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE) ?: [];
 
         foreach ($parts as $part) {
-            if (preg_match_all('/[HG]\d{3,5}/u', $part, $matches)) {
+            if (preg_match_all('/(?:<S>\s*)?([GH]?\d{1,5})(?:\s*<\/S>)?/iu', $part, $matches) && preg_match('/<S\b|^[HG]\d{1,5}$/iu', trim($part))) {
                 foreach ($matches[0] as $number) {
-                    $tokens[] = ['number' => $number, 'surface' => $surface];
+                    $tokens[] = ['number' => strip_tags($number), 'surface' => $surface];
                 }
 
                 continue;

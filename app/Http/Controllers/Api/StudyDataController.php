@@ -10,23 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 class StudyDataController extends Controller
 {
-    public function strongEntry(string $number): JsonResponse
+    public function strongEntry(Request $request, string $number): JsonResponse
     {
-        $entry = DB::table('strong_entries')
-            ->join('strong_lexicons', 'strong_lexicons.id', '=', 'strong_entries.strong_lexicon_id')
-            ->where('strong_entries.number', $number)
-            ->first([
-                'strong_entries.id',
-                'strong_entries.number',
-                'strong_entries.word',
-                'strong_entries.transliteration',
-                'strong_entries.pronunciation',
-                'strong_entries.content',
-                'strong_entries.raw_content',
-                'strong_lexicons.code as lexicon_code',
-                'strong_lexicons.name as lexicon_name',
-                'strong_lexicons.language as lexicon_language',
-            ]);
+        $entry = $this->findStrongEntry($number, $request->integer('verse'));
 
         if (! $entry) {
             abort(404, 'Strong entry not found.');
@@ -48,6 +34,61 @@ class StudyDataController extends Controller
                 ],
             ],
         ]);
+    }
+
+    private function findStrongEntry(string $number, ?int $verseId): ?object
+    {
+        $candidates = [$number];
+
+        if (preg_match('/^\d{1,5}$/', $number)) {
+            $prefix = $this->strongPrefixForVerse($verseId);
+
+            if ($prefix) {
+                $candidates[] = $prefix.$number;
+            }
+
+            $candidates[] = 'G'.$number;
+            $candidates[] = 'H'.$number;
+        }
+
+        $candidates = array_values(array_unique($candidates));
+
+        return DB::table('strong_entries')
+            ->join('strong_lexicons', 'strong_lexicons.id', '=', 'strong_entries.strong_lexicon_id')
+            ->whereIn('strong_entries.number', $candidates)
+            ->orderByRaw('CASE strong_entries.number '.collect($candidates)->map(
+                fn (string $candidate, int $index): string => "WHEN ? THEN {$index}"
+            )->implode(' ').' ELSE 999 END', $candidates)
+            ->first([
+                'strong_entries.id',
+                'strong_entries.number',
+                'strong_entries.word',
+                'strong_entries.transliteration',
+                'strong_entries.pronunciation',
+                'strong_entries.content',
+                'strong_entries.raw_content',
+                'strong_lexicons.code as lexicon_code',
+                'strong_lexicons.name as lexicon_name',
+                'strong_lexicons.language as lexicon_language',
+            ]);
+    }
+
+    private function strongPrefixForVerse(?int $verseId): ?string
+    {
+        if (! $verseId) {
+            return null;
+        }
+
+        $testament = DB::table('verses')
+            ->join('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
+            ->where('verses.id', $verseId)
+            ->value('canonical_books.testament');
+
+        return match ($testament) {
+            'old' => 'H',
+            'new' => 'G',
+            default => null,
+        };
     }
 
     public function verseStrongTokens(int $verse): JsonResponse

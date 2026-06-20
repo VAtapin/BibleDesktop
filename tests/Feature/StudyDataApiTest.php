@@ -64,6 +64,11 @@ class StudyDataApiTest extends TestCase
             ->assertJsonPath('data.number', 'H7225')
             ->assertJsonPath('data.lexicon.code', 'HEB');
 
+        $this->getJson("/api/strong/7225?verse={$ids['source_verse_id']}")
+            ->assertOk()
+            ->assertJsonPath('data.number', 'H7225')
+            ->assertJsonPath('data.lexicon.code', 'HEB');
+
         $this->getJson("/api/verses/{$ids['source_verse_id']}/strong-tokens")
             ->assertOk()
             ->assertJsonPath('data.verse.osis_ref', 'Gen.1.1')

@@ -49,7 +49,8 @@ type Verse = {
 type VerseTextPart = {
     key: string;
     text: string;
-    strongTokens: StrongTokenDto[];
+    strongNumber: string | null;
+    strongToken: StrongTokenDto | null;
 };
 
 type ChapterDto = {
@@ -354,31 +355,63 @@ function normalizeStrongSurface(value: string | null | undefined): string {
         .replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
+function stripReaderMarkup(value: string): string {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value
+        .replace(/<br\s*\/?>/giu, ' ')
+        .replace(/<pb\s*\/?>/giu, '')
+        .replace(/<\/?\s*(?:J|FI|FO|FR)\b[^>]*>/giu, '');
+
+    return textarea.value.replace(/<[^>]+>/gu, '');
+}
+
 function verseTextParts(verse: Verse): VerseTextPart[] {
     const strongTokens = verse.strong_tokens ?? [];
-    const parts = verse.text.match(/[\p{L}\p{N}]+|[^\p{L}\p{N}]+/gu) ?? [verse.text];
+    const chunks = verse.text.split(/(<S>\s*[GH]?\d{1,5}\s*<\/S>)/giu);
     let strongIndex = 0;
+    let textIndex = 0;
+    const parts: VerseTextPart[] = [];
 
-    return parts.map((text, index) => {
-        const matchedTokens: StrongTokenDto[] = [];
-        const normalizedText = normalizeStrongSurface(text);
-
-        if (normalizedText !== '') {
-            while (
-                strongIndex < strongTokens.length
-                && normalizeStrongSurface(strongTokens[strongIndex]?.surface_text) === normalizedText
-            ) {
-                matchedTokens.push(strongTokens[strongIndex]);
-                strongIndex++;
-            }
+    for (const chunk of chunks) {
+        if (chunk === '') {
+            continue;
         }
 
-        return {
-            key: `${verse.id ?? verse.number}-${index}`,
-            text,
-            strongTokens: matchedTokens,
-        };
-    });
+        const strongMatch = chunk.match(/^<S>\s*([GH]?\d{1,5})\s*<\/S>$/iu);
+
+        if (strongMatch) {
+            const strongNumber = strongMatch[1];
+            let token = strongTokens[strongIndex] ?? null;
+
+            if (token && token.strong_number !== strongNumber) {
+                token = strongTokens.find((candidate, index) => index >= strongIndex && candidate.strong_number === strongNumber) ?? token;
+            }
+
+            if (token) {
+                strongIndex = Math.max(strongIndex + 1, strongTokens.indexOf(token) + 1);
+            }
+
+            parts.push({
+                key: `${verse.id ?? verse.number}-strong-${parts.length}`,
+                text: '',
+                strongNumber,
+                strongToken: token,
+            });
+
+            continue;
+        }
+
+        for (const text of stripReaderMarkup(chunk).match(/[\p{L}\p{N}]+|[^\p{L}\p{N}]+/gu) ?? [stripReaderMarkup(chunk)]) {
+            parts.push({
+                key: `${verse.id ?? verse.number}-text-${textIndex++}`,
+                text,
+                strongNumber: null,
+                strongToken: null,
+            });
+        }
+    }
+
+    return parts;
 }
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
@@ -878,12 +911,13 @@ async function loadStudyData(verse: Verse): Promise<void> {
     }
 }
 
-async function selectStrongToken(token: StrongTokenDto): Promise<void> {
+async function selectStrongNumber(strongNumber: string, verse: Verse | null = selectedVerse.value): Promise<void> {
     activeStudyTab.value = 'strong';
     studyError.value = null;
 
     try {
-        const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${token.strong_number}`);
+        const verseQuery = verse?.id ? `?verse=${verse.id}` : '';
+        const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${strongNumber}${verseQuery}`);
         selectedStrongEntry.value = response.data;
     } catch (error) {
         selectedStrongEntry.value = null;
@@ -891,7 +925,15 @@ async function selectStrongToken(token: StrongTokenDto): Promise<void> {
     }
 }
 
+async function selectStrongToken(token: StrongTokenDto): Promise<void> {
+    await selectStrongNumber(token.strong_number);
+}
+
 async function selectInlineStrongToken(verse: Verse, token: StrongTokenDto): Promise<void> {
+    await selectInlineStrongNumber(verse, token.strong_number, token);
+}
+
+async function selectInlineStrongNumber(verse: Verse, strongNumber: string, token: StrongTokenDto | null = null): Promise<void> {
     const previousVerseId = selectedVerse.value?.id;
 
     selectedVerse.value = verse;
@@ -902,7 +944,7 @@ async function selectInlineStrongToken(verse: Verse, token: StrongTokenDto): Pro
         await loadStudyData(verse);
     }
 
-    await selectStrongToken(token);
+    await selectStrongNumber(token?.strong_number ?? strongNumber, verse);
 }
 
 async function loadVerseNotes(verseId: number): Promise<void> {
@@ -1508,13 +1550,12 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             >
                                 <span>{{ part.text }}</span>
                                 <button
-                                    v-for="token in showStrongNumbers ? part.strongTokens : []"
-                                    :key="token.id"
+                                    v-if="showStrongNumbers && part.strongNumber"
                                     type="button"
                                     class="strong-inline-number"
-                                    @click.stop="selectInlineStrongToken(verse, token)"
+                                    @click.stop="selectInlineStrongNumber(verse, part.strongNumber, part.strongToken)"
                                 >
-                                    {{ token.strong_number }}
+                                    {{ part.strongNumber }}
                                 </button>
                             </template>
                         </span>
@@ -1593,24 +1634,14 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
 
                 <section v-if="activeStudyTab === 'strong'" class="events">
                     <h3>Strong</h3>
-                    <div class="study-list">
-                        <button
-                            v-for="token in strongTokens"
-                            :key="token.id"
-                            type="button"
-                            @click="selectStrongToken(token)"
-                        >
-                            <strong>{{ token.strong_number }}</strong>
-                            <span>{{ token.surface_text ?? token.entry.transliteration ?? token.entry.word ?? '' }}</span>
-                        </button>
-                        <p v-if="!isStudyLoading && strongTokens.length === 0">Нет Strong-разметки.</p>
-                    </div>
                     <article v-if="selectedStrongEntry" class="strong-entry">
                         <h3>{{ selectedStrongEntry.number }} · {{ selectedStrongEntry.word ?? selectedStrongEntry.transliteration }}</h3>
                         <p v-if="selectedStrongEntry.transliteration">Транслитерация: {{ selectedStrongEntry.transliteration }}</p>
                         <p v-if="selectedStrongEntry.pronunciation">Произношение: {{ selectedStrongEntry.pronunciation }}</p>
-                        <p>{{ selectedStrongEntry.content ?? selectedStrongEntry.raw_content }}</p>
+                        <div class="strong-entry-content" v-html="selectedStrongEntry.content ?? selectedStrongEntry.raw_content"></div>
                     </article>
+                    <p v-else-if="!isStudyLoading && strongTokens.length > 0">Включите S# слева от текста и нажмите номер Strong в стихе.</p>
+                    <p v-else-if="!isStudyLoading">Нет Strong-разметки.</p>
                 </section>
 
                 <section v-if="activeStudyTab === 'references'" class="events">

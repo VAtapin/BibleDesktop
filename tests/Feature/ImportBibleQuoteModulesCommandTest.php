@@ -46,7 +46,7 @@ class ImportBibleQuoteModulesCommandTest extends TestCase
             mkdir(dirname($path), 0777, true);
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
         $zip->addFromString('Bible_Russian_RST/bibleqt.ini', <<<'INI'
 BibleName=Тестовый Синодальный
@@ -96,6 +96,9 @@ HTML);
             'text_plain' => 'В начале сотворил Бог небо и землю.',
             'has_strong_markup' => true,
         ]);
+        $this->assertDatabaseHas('verse_texts', [
+            'text' => 'В <S>G1722</S> начале <S>G746</S> сотворил Бог небо и землю.',
+        ]);
         $this->assertDatabaseHas('verse_strong_tokens', [
             'strong_number' => 'G1722',
             'surface_text' => 'В',
@@ -103,6 +106,52 @@ HTML);
         $this->assertDatabaseHas('verse_strong_tokens', [
             'strong_number' => 'G746',
             'surface_text' => 'начале',
+        ]);
+    }
+
+    public function test_it_imports_mybible_sqlite_modules_with_inline_strong_tags(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $path = base_path('.tmp/NASB_TEST.SQLite3');
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+        @unlink($path);
+
+        $pdo = new \PDO('sqlite:'.$path);
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('CREATE TABLE info (name TEXT, value TEXT)');
+        $pdo->exec('CREATE TABLE books (book_color TEXT, book_number INTEGER, short_name TEXT, long_name TEXT)');
+        $pdo->exec('CREATE TABLE verses (book_number NUMERIC, chapter NUMERIC, verse NUMERIC, text TEXT)');
+        $pdo->exec("INSERT INTO info (name, value) VALUES ('description', 'NASB Test'), ('language', 'en'), ('strong_numbers', 'true')");
+        $pdo->exec("INSERT INTO books (book_color, book_number, short_name, long_name) VALUES ('', 10, 'Gen', 'Genesis')");
+        $statement = $pdo->prepare('INSERT INTO verses (book_number, chapter, verse, text) VALUES (?, ?, ?, ?)');
+        $statement->execute([10, 1, 1, '<pb/>In the beginning<S>7225</S> God<S>430</S> created<S>1254</S>.']);
+
+        try {
+            $this->artisan('bible:bq:import', [
+                '--path' => $path,
+                '--languages' => 'en',
+                '--replace' => true,
+            ])->assertSuccessful();
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertDatabaseHas('translations', [
+            'code' => 'BQ_NASB_TEST',
+            'name' => 'NASB Test',
+            'has_strong' => true,
+        ]);
+        $this->assertDatabaseHas('verse_texts', [
+            'text' => 'In the beginning<S>7225</S> God<S>430</S> created<S>1254</S>.',
+            'text_plain' => 'In the beginning God created.',
+            'has_strong_markup' => true,
+        ]);
+        $this->assertDatabaseHas('verse_strong_tokens', [
+            'strong_number' => '7225',
+            'surface_text' => 'beginning',
         ]);
     }
 }
