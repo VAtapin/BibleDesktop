@@ -193,7 +193,7 @@ class TelegramUpdateHandler
      */
     private function randomVerseText(array $settings, ?string $scopeOverride = null): string
     {
-        $translationCode = (string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST'));
+        $translationCode = $this->selectedTranslationCode($settings);
         $scope = $scopeOverride ?: (string) ($settings['random_scope'] ?? 'all');
         $scope = isset(self::SCOPES[$scope]) ? $scope : 'all';
 
@@ -266,7 +266,7 @@ class TelegramUpdateHandler
             return 'Запрос слишком короткий. Напишите минимум 2 символа.';
         }
 
-        $translationCode = (string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST'));
+        $translationCode = $this->selectedTranslationCode($settings);
         $searchScope = (string) ($settings['search_scope'] ?? 'canonical');
         $results = $this->verseSearch->search($query, $translationCode, 5, [
             'canonical_only' => $searchScope !== 'apocrypha',
@@ -411,7 +411,7 @@ class TelegramUpdateHandler
      */
     private function settingsText(array $settings): string
     {
-        $translation = $this->translationLabel((string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST')));
+        $translation = $this->translationLabel($this->selectedTranslationCode($settings));
         $scope = (string) ($settings['random_scope'] ?? 'all');
         $scopeLabel = self::SCOPES[$scope] ?? self::SCOPES['all'];
         $searchScope = (string) ($settings['search_scope'] ?? 'canonical');
@@ -426,7 +426,7 @@ class TelegramUpdateHandler
      */
     private function settingsKeyboard(array $settings): array
     {
-        $selectedTranslation = (string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST'));
+        $selectedTranslation = $this->selectedTranslationCode($settings);
         $selectedScope = (string) ($settings['random_scope'] ?? 'all');
         $translations = DB::table('translations')
             ->join('languages', 'languages.id', '=', 'translations.language_id')
@@ -503,6 +503,39 @@ class TelegramUpdateHandler
     }
 
     /**
+     * @param array<string, mixed> $settings
+     */
+    private function selectedTranslationCode(array $settings): string
+    {
+        $code = (string) ($settings['translation_code'] ?? '');
+
+        if ($code !== '' && $this->translationExists($code)) {
+            return $code;
+        }
+
+        return $this->defaultTranslationCode();
+    }
+
+    private function defaultTranslationCode(): string
+    {
+        $configured = (string) config('telegram.default_translation', 'BQ_RUSSIAN_RST');
+
+        if ($configured !== '' && $this->translationExists($configured)) {
+            return $configured;
+        }
+
+        $default = DB::table('translations')
+            ->join('modules', 'modules.id', '=', 'translations.module_id')
+            ->where('modules.type', 'bible')
+            ->where('modules.is_active', true)
+            ->orderByDesc('translations.is_default')
+            ->orderBy('translations.name')
+            ->value('translations.code');
+
+        return (string) ($default ?: $configured);
+    }
+
+    /**
      * @param array<string, mixed> $from
      * @return array<string, mixed>
      */
@@ -556,7 +589,7 @@ class TelegramUpdateHandler
     private function defaultSettings(): array
     {
         return [
-            'translation_code' => (string) config('telegram.default_translation', 'L1_RST'),
+            'translation_code' => $this->defaultTranslationCode(),
             'search_scope' => 'canonical',
             'random_scope' => 'all',
             'awaiting_search' => false,

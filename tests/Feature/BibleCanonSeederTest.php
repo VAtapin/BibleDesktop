@@ -18,7 +18,7 @@ class BibleCanonSeederTest extends TestCase
         $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
 
         $this->assertNotNull($canonId);
-        $this->assertSame(5, DB::table('languages')->count());
+        $this->assertSame(26, DB::table('languages')->count());
         $this->assertSame(77, DB::table('canonical_books')->where('canon_id', $canonId)->count());
         $this->assertSame(1360, DB::table('canonical_chapters')->count());
         $this->assertDatabaseHas('canonical_books', [

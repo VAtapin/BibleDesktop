@@ -19,7 +19,7 @@ class ReferenceDataApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.code', 'ru')
             ->assertJsonPath('data.4.code', 'en')
-            ->assertJsonCount(5, 'data');
+            ->assertJsonCount(26, 'data');
     }
 
     public function test_canon_books_endpoint_returns_orthodox_book_order(): void
