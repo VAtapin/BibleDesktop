@@ -2,6 +2,7 @@
 
 namespace App\Services\Bible;
 
+use App\Support\BibleReferenceFormatter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +16,7 @@ class VerseSearchService
         $query = trim($query);
         $translationCode = trim($translationCode);
         $limit = min(50, max(1, $limit));
+        $filters['offset'] = max(0, (int) ($filters['offset'] ?? 0));
 
         if (mb_strlen($query) < 2) {
             return [
@@ -52,6 +54,7 @@ class VerseSearchService
             ->orderBy('canonical_books.canonical_order')
             ->orderBy('verses.chapter_number')
             ->orderBy('verses.verse_number')
+            ->offset((int) ($filters['offset'] ?? 0))
             ->limit($limit)
             ->get($this->resultColumns())
             ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
@@ -72,6 +75,7 @@ class VerseSearchService
             ->orderBy('canonical_books.canonical_order')
             ->orderBy('verses.chapter_number')
             ->orderBy('verses.verse_number')
+            ->offset((int) ($filters['offset'] ?? 0))
             ->limit($limit)
             ->get()
             ->map(fn ($row) => $this->mapResult($row, (string) $row->snippet, $query, true));
@@ -87,6 +91,7 @@ class VerseSearchService
             ->where('verses.chapter_number', $reference['chapter'])
             ->where('verses.verse_number', $reference['verse'])
             ->orderBy('translations.code')
+            ->offset((int) ($filters['offset'] ?? 0))
             ->limit($limit)
             ->get($this->resultColumns())
             ->map(fn ($row) => $this->mapResult($row, mb_substr((string) $row->text_plain, 0, 160), ''));
@@ -97,10 +102,12 @@ class VerseSearchService
         return DB::table('verse_texts')
             ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
             ->join('modules', 'modules.id', '=', 'translations.module_id')
+            ->join('module_books', 'module_books.id', '=', 'verse_texts.module_book_id')
             ->join('verses', 'verses.id', '=', 'verse_texts.verse_id')
             ->join('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('modules.type', 'bible')
             ->when((bool) ($filters['canonical_only'] ?? false), fn ($builder) => $builder->where('canonical_books.is_deuterocanonical', false))
+            ->when((bool) ($filters['deuterocanonical_only'] ?? false), fn ($builder) => $builder->where('canonical_books.is_deuterocanonical', true))
             ->when(($filters['scope'] ?? 'all') === 'old', fn ($builder) => $builder->where('canonical_books.testament', 'old'))
             ->when(($filters['scope'] ?? 'all') === 'new', fn ($builder) => $builder->where('canonical_books.testament', 'new'))
             ->when(($filters['scope'] ?? 'all') === 'psalms', fn ($builder) => $builder->where('canonical_books.slug', 'psalms'))
@@ -124,6 +131,8 @@ class VerseSearchService
             'verses.verse_number',
             'canonical_books.slug as book_slug',
             'canonical_books.osis_code',
+            'module_books.name as book_name',
+            'module_books.short_name as book_short_name',
         ];
     }
 
@@ -140,6 +149,12 @@ class VerseSearchService
             'verse_text_id' => $row->verse_text_id,
             'verse_id' => $row->verse_id,
             'osis_ref' => $row->osis_ref,
+            'reference' => BibleReferenceFormatter::format(
+                $row->book_name ?? null,
+                $row->osis_code ?? null,
+                (int) $row->chapter_number,
+                (int) $row->verse_number,
+            ),
             'translation' => [
                 'code' => $row->translation_code,
                 'short_name' => $row->translation_short_name,
@@ -147,6 +162,8 @@ class VerseSearchService
             'book' => [
                 'slug' => $row->book_slug,
                 'osis_code' => $row->osis_code,
+                'name' => $row->book_name,
+                'short_name' => $row->book_short_name,
             ],
             'chapter_number' => $row->chapter_number,
             'verse_number' => $row->verse_number,

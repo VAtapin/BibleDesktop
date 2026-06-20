@@ -82,6 +82,21 @@ type StrongTokenDto = {
     };
 };
 
+type StrongEntryDto = {
+    id: number;
+    number: string;
+    word: string | null;
+    transliteration: string | null;
+    pronunciation: string | null;
+    content: string | null;
+    raw_content: string | null;
+    lexicon: {
+        code: string;
+        name: string;
+        language: string;
+    };
+};
+
 type CrossReferenceDto = {
     id: number;
     type: string;
@@ -89,6 +104,11 @@ type CrossReferenceDto = {
     target: {
         verse_id: number;
         osis_ref: string | null;
+        reference?: string;
+        book_name?: string | null;
+        book_short_name?: string | null;
+        chapter_number: number;
+        verse_number: number;
         text: string | null;
     };
 };
@@ -105,6 +125,7 @@ type SearchResultDto = {
     verse_text_id: number;
     verse_id: number;
     osis_ref: string | null;
+    reference?: string;
     translation: {
         code: string;
         short_name: string | null;
@@ -112,6 +133,8 @@ type SearchResultDto = {
     book: {
         slug: string;
         osis_code: string | null;
+        name?: string | null;
+        short_name?: string | null;
     };
     chapter_number: number;
     verse_number: number;
@@ -155,6 +178,7 @@ const selectedBookSlug = ref('genesis');
 const selectedChapterNumber = ref(1);
 const selectedVerse = ref<Verse | null>(null);
 const strongTokens = ref<StrongTokenDto[]>([]);
+const selectedStrongEntry = ref<StrongEntryDto | null>(null);
 const crossReferences = ref<CrossReferenceDto[]>([]);
 const verseNotes = ref<NoteDto[]>([]);
 const noteBody = ref('');
@@ -167,10 +191,14 @@ const searchResults = ref<SearchResultDto[]>([]);
 const isSearchLoading = ref(false);
 const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
+const searchScope = ref('canonical');
+const highlightedVerseNumbers = ref<number[]>([]);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
+const activeStudyTab = ref<'strong' | 'references' | 'notes'>('strong');
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
+const showStrongNumbers = ref(false);
 let verseActionMessageTimer: number | undefined;
 
 const demoVerses: Verse[] = [
@@ -243,9 +271,34 @@ const visibleReaderTabs = computed(() => {
     }));
 });
 const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
+const selectedVerseReference = computed(() => {
+    return selectedVerse.value ? verseReference(selectedVerse.value) : currentTitle.value;
+});
 const compareVerseByNumber = computed(() => {
     return new Map(compareVerses.value.map((verse) => [verse.number, verse]));
 });
+
+function translationLabel(translation: TranslationDto | null | undefined): string {
+    if (!translation) {
+        return 'Перевод';
+    }
+
+    return translation.name || translation.short_name || translation.code;
+}
+
+function shortTranslationLabel(translation: TranslationDto | null | undefined): string {
+    if (!translation) {
+        return 'Перевод';
+    }
+
+    return translation.short_name && translation.short_name.length > 3
+        ? translation.short_name
+        : translation.name || translation.short_name || translation.code;
+}
+
+function bookDisplayName(book: ReaderBookDto | null | undefined): string {
+    return book?.name || book?.short_name || book?.slug || 'Библия';
+}
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
     const translationCode = state.translationCode ?? selectedTranslationCode.value;
@@ -352,6 +405,25 @@ function readReaderState(): ReaderState | null {
     }
 }
 
+function readUrlState(): Partial<ReaderState> & { verses?: number[] } {
+    if (typeof window === 'undefined') {
+        return {};
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const verses = (params.get('verses') ?? '')
+        .split(',')
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+    return {
+        translationCode: params.get('translation') || undefined,
+        bookSlug: params.get('book') || undefined,
+        chapterNumber: params.get('chapter') ? Number(params.get('chapter')) : undefined,
+        verses,
+    };
+}
+
 function persistReaderState(): void {
     if (typeof window === 'undefined') {
         return;
@@ -414,6 +486,9 @@ async function loadChapter(targetVerseNumber: number | null = null): Promise<voi
         selectedVerse.value = targetVerseNumber === null
             ? currentVerses.value[0] ?? null
             : currentVerses.value.find((verse) => verse.number === targetVerseNumber) ?? currentVerses.value[0] ?? null;
+        if (highlightedVerseNumbers.value.length > 0) {
+            selectedVerse.value = currentVerses.value.find((verse) => verse.number === highlightedVerseNumbers.value[0]) ?? selectedVerse.value;
+        }
         if (selectedVerse.value?.id) {
             await loadStudyData(selectedVerse.value);
         }
@@ -596,6 +671,7 @@ async function closeReaderTab(tabId: string): Promise<void> {
 async function loadStudyData(verse: Verse): Promise<void> {
     if (!verse.id) {
         strongTokens.value = [];
+        selectedStrongEntry.value = null;
         crossReferences.value = [];
         verseNotes.value = [];
         return;
@@ -613,15 +689,30 @@ async function loadStudyData(verse: Verse): Promise<void> {
         ]);
 
         strongTokens.value = strongResponse.data.tokens;
+        selectedStrongEntry.value = null;
         crossReferences.value = referencesResponse.data.references;
         await loadVerseNotes(verse.id);
     } catch (error) {
         strongTokens.value = [];
+        selectedStrongEntry.value = null;
         crossReferences.value = [];
         verseNotes.value = [];
         studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник стиха';
     } finally {
         isStudyLoading.value = false;
+    }
+}
+
+async function selectStrongToken(token: StrongTokenDto): Promise<void> {
+    activeStudyTab.value = 'strong';
+    studyError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${token.strong_number}`);
+        selectedStrongEntry.value = response.data;
+    } catch (error) {
+        selectedStrongEntry.value = null;
+        studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить номер Strong';
     }
 }
 
@@ -663,12 +754,35 @@ async function submitVerseNote(): Promise<void> {
 
 function selectVerse(verse: Verse): void {
     selectedVerse.value = verse;
+    highlightedVerseNumbers.value = [verse.number];
     verseMenu.value = null;
     void loadStudyData(verse);
 }
 
 function verseReference(verse: Verse): string {
-    return verse.osis_ref ?? `${currentBook.value?.canonical_book?.osis_code ?? selectedBookSlug.value}.${selectedChapterNumber.value}.${verse.number}`;
+    return `${bookDisplayName(currentBook.value)} ${selectedChapterNumber.value}:${verse.number}`;
+}
+
+function searchResultReference(result: SearchResultDto): string {
+    return result.reference
+        ?? `${result.book.name || result.book.short_name || result.book.osis_code || result.book.slug} ${result.chapter_number}:${result.verse_number}`;
+}
+
+function crossReferenceLabel(reference: CrossReferenceDto): string {
+    return reference.target.reference
+        ?? `${reference.target.book_name || reference.target.book_short_name || reference.target.osis_ref || 'Библия'} ${reference.target.chapter_number}:${reference.target.verse_number}`;
+}
+
+function versePermalink(verse: Verse): string {
+    const url = new URL(window.location.href);
+    url.search = new URLSearchParams({
+        translation: selectedTranslationCode.value,
+        book: selectedBookSlug.value,
+        chapter: String(selectedChapterNumber.value),
+        verses: String(verse.number),
+    }).toString();
+
+    return url.toString();
 }
 
 function openVerseMenu(event: MouseEvent, verse: Verse): void {
@@ -707,7 +821,7 @@ async function copyToClipboard(value: string): Promise<void> {
 }
 
 async function copyVerseReference(verse: Verse): Promise<void> {
-    await copyToClipboard(verseReference(verse));
+    await copyToClipboard(versePermalink(verse));
     showVerseActionMessage('Ссылка скопирована');
     closeVerseMenu();
 }
@@ -720,6 +834,7 @@ async function copyVerseText(verse: Verse): Promise<void> {
 
 function openVerseStudy(verse: Verse): void {
     selectVerse(verse);
+    activeStudyTab.value = 'strong';
     showVerseActionMessage('Справочник открыт');
 }
 
@@ -753,7 +868,13 @@ async function runSearch(): Promise<void> {
             q: query,
             translation: selectedTranslationCode.value,
             limit: '8',
+            scope: searchScope.value === 'apocrypha' ? 'all' : searchScope.value,
         });
+        if (searchScope.value === 'apocrypha') {
+            params.set('apocrypha', '1');
+        } else {
+            params.set('canonical', '1');
+        }
         const response = await loadJson<ApiResponse<{ results: SearchResultDto[] }>>(`/api/search/verses?${params.toString()}`);
 
         searchResults.value = response.data.results;
@@ -770,7 +891,8 @@ async function runSearch(): Promise<void> {
 async function openSearchResult(result: SearchResultDto): Promise<void> {
     selectedBookSlug.value = result.book.slug;
     selectedChapterNumber.value = result.chapter_number;
-    searchQuery.value = result.osis_ref ?? `${result.book.osis_code ?? result.book.slug}.${result.chapter_number}.${result.verse_number}`;
+    highlightedVerseNumbers.value = [result.verse_number];
+    searchQuery.value = searchResultReference(result);
     showSearchResults.value = false;
 
     await loadChapter(result.verse_number);
@@ -781,6 +903,7 @@ async function openSearchResult(result: SearchResultDto): Promise<void> {
 onMounted(async () => {
     try {
         const savedState = readReaderState();
+        const urlState = readUrlState();
         const [languagesResponse, translationsResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
             loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
@@ -792,14 +915,17 @@ onMounted(async () => {
             ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
             ?? translations.value[0]?.code
             ?? 'L1_RST';
-        selectedTranslationCode.value = savedState && translations.value.some((translation) => translation.code === savedState.translationCode)
-            ? savedState.translationCode
+        selectedTranslationCode.value = urlState.translationCode && translations.value.some((translation) => translation.code === urlState.translationCode)
+            ? urlState.translationCode
+            : savedState && translations.value.some((translation) => translation.code === savedState.translationCode)
+                ? savedState.translationCode
             : defaultTranslationCode;
         compareTranslationCode.value = savedState?.compareTranslationCode && translations.value.some((translation) => translation.code === savedState.compareTranslationCode)
             ? savedState.compareTranslationCode
             : '';
-        selectedBookSlug.value = savedState?.bookSlug ?? selectedBookSlug.value;
-        selectedChapterNumber.value = savedState?.chapterNumber ?? selectedChapterNumber.value;
+        selectedBookSlug.value = urlState.bookSlug ?? savedState?.bookSlug ?? selectedBookSlug.value;
+        selectedChapterNumber.value = urlState.chapterNumber ?? savedState?.chapterNumber ?? selectedChapterNumber.value;
+        highlightedVerseNumbers.value = urlState.verses ?? [];
         readerTabs.value = savedState?.tabs?.length
             ? savedState.tabs
             : [createReaderTab({
@@ -821,7 +947,7 @@ onMounted(async () => {
         if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
             selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
         }
-        await loadChapter();
+        await loadChapter(highlightedVerseNumbers.value[0] ?? null);
         syncActiveTabFromSelection();
         persistReaderState();
     } catch (error) {
@@ -856,6 +982,13 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     placeholder="Поиск или ссылка"
                     @focus="showSearchResults = searchResults.length > 0 || searchError !== null"
                 />
+                <select v-model="searchScope" aria-label="Фильтр поиска">
+                    <option value="canonical">Канон</option>
+                    <option value="old">Ветхий Завет</option>
+                    <option value="new">Новый Завет</option>
+                    <option value="psalms">Псалтирь</option>
+                    <option value="apocrypha">Апокрифы</option>
+                </select>
                 <div v-if="showSearchResults" class="search-results">
                     <p v-if="isSearchLoading">Ищу...</p>
                     <p v-else-if="searchError">{{ searchError }}</p>
@@ -867,7 +1000,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             type="button"
                             @click="openSearchResult(result)"
                         >
-                            <strong>{{ result.osis_ref ?? `${result.book.osis_code ?? result.book.slug}.${result.chapter_number}.${result.verse_number}` }}</strong>
+                            <strong>{{ searchResultReference(result) }}</strong>
                             <span>
                                 <template
                                     v-for="(segment, index) in result.snippet_segments ?? [{ text: result.snippet, match: false }]"
@@ -884,16 +1017,16 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
 
             <div class="profile">
                 <div class="profile-text">
-                    <strong>Андрей Бутенко</strong>
-                    <span>andrey@example.com</span>
+                    <strong>Войти</strong>
+                    <span>Личный кабинет</span>
                 </div>
-                <div class="avatar">АБ</div>
+                <div class="avatar">В</div>
             </div>
         </header>
 
         <section class="workspace-title">
-            <span class="muted-icon">Группа</span>
-            <strong>Группа 121, анализ текста</strong>
+            <span class="muted-icon">Чтение</span>
+            <strong>{{ currentTitle }}</strong>
             <button type="button" aria-label="Меню">...</button>
         </section>
 
@@ -950,9 +1083,9 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             :key="translation.code"
                             :value="translation.code"
                         >
-                            {{ translation.short_name ?? translation.name }}
+                            {{ translationLabel(translation) }}
                         </option>
-                        <option v-if="translations.length === 0" value="L1_RST">RST</option>
+                        <option v-if="translations.length === 0" value="L1_RST">Синодальный перевод</option>
                     </select>
                     <select
                         v-model="selectedBookSlug"
@@ -999,11 +1132,18 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             :key="translation.code"
                             :value="translation.code"
                         >
-                            + {{ translation.short_name ?? translation.name }}
+                            + {{ translationLabel(translation) }}
                         </option>
                     </select>
                     <div class="reader-actions">
-                        <button type="button" aria-label="Strong">S#</button>
+                        <button
+                            type="button"
+                            aria-label="Strong"
+                            :class="{ active: showStrongNumbers }"
+                            @click="showStrongNumbers = !showStrongNumbers"
+                        >
+                            S#
+                        </button>
                         <button type="button" aria-label="Печать">P</button>
                         <button type="button" aria-label="Закрыть">X</button>
                     </div>
@@ -1019,7 +1159,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     <p
                         v-for="verse in currentVerses"
                         :key="verse.id ?? verse.number"
-                        :class="{ selected: verse.id === selectedVerse?.id }"
+                        :class="{ selected: verse.id === selectedVerse?.id, highlighted: highlightedVerseNumbers.includes(verse.number) }"
                         @contextmenu="openVerseMenu($event, verse)"
                     >
                         <button
@@ -1031,10 +1171,24 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         </button>
                         <span @click="selectVerse(verse)">{{ verse.text }}</span>
                         <small
+                            v-if="showStrongNumbers && verse.id === selectedVerse?.id && strongTokens.length > 0"
+                            class="inline-strong"
+                        >
+                            <button
+                                v-for="token in strongTokens"
+                                :key="token.id"
+                                type="button"
+                                @click="selectStrongToken(token)"
+                            >
+                                {{ token.surface_text ?? token.entry.transliteration ?? token.entry.word ?? 'слово' }}
+                                <strong>{{ token.strong_number }}</strong>
+                            </button>
+                        </small>
+                        <small
                             v-if="compareVerseByNumber.get(verse.number)"
                             class="compare-verse"
                         >
-                            <strong>{{ compareTranslation?.short_name ?? compareTranslation?.name }}</strong>
+                            <strong>{{ shortTranslationLabel(compareTranslation) }}</strong>
                             {{ compareVerseByNumber.get(verse.number)?.text }}
                         </small>
                     </p>
@@ -1083,15 +1237,16 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </header>
 
                 <div class="analysis-tabs">
-                    <button type="button" class="active">Strong</button>
-                    <button type="button">Ссылки</button>
+                    <button type="button" :class="{ active: activeStudyTab === 'strong' }" @click="activeStudyTab = 'strong'">Strong</button>
+                    <button type="button" :class="{ active: activeStudyTab === 'references' }" @click="activeStudyTab = 'references'">Параллельные места</button>
+                    <button type="button" :class="{ active: activeStudyTab === 'notes' }" @click="activeStudyTab = 'notes'">Заметки</button>
                 </div>
 
                 <section class="note">
                     <div class="note-meta">
                         <div class="avatar small">{{ selectedLanguage.slice(0, 2).toUpperCase() }}</div>
-                        <strong>{{ selectedVerse?.osis_ref ?? currentTitle }}</strong>
-                        <span>{{ currentTranslation?.short_name ?? currentTranslation?.code ?? 'RST' }}</span>
+                        <strong>{{ selectedVerseReference }}</strong>
+                        <span>{{ shortTranslationLabel(currentTranslation) }}</span>
                     </div>
                     <p v-if="isLoading">Загружаю языки и канон из API.</p>
                     <p v-else-if="apiError">API: {{ apiError }}</p>
@@ -1102,37 +1257,44 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     </p>
                 </section>
 
-                <section class="events">
+                <section v-if="activeStudyTab === 'strong'" class="events">
                     <h3>Strong</h3>
                     <div class="study-list">
-                        <a
+                        <button
                             v-for="token in strongTokens"
                             :key="token.id"
-                            :href="`/api/strong/${token.strong_number}`"
-                            target="_blank"
-                            rel="noreferrer"
+                            type="button"
+                            @click="selectStrongToken(token)"
                         >
                             <strong>{{ token.strong_number }}</strong>
                             <span>{{ token.surface_text ?? token.entry.transliteration ?? token.entry.word ?? '' }}</span>
-                        </a>
+                        </button>
                         <p v-if="!isStudyLoading && strongTokens.length === 0">Нет Strong-разметки.</p>
                     </div>
+                    <article v-if="selectedStrongEntry" class="strong-entry">
+                        <h3>{{ selectedStrongEntry.number }} · {{ selectedStrongEntry.word ?? selectedStrongEntry.transliteration }}</h3>
+                        <p v-if="selectedStrongEntry.transliteration">Транслитерация: {{ selectedStrongEntry.transliteration }}</p>
+                        <p v-if="selectedStrongEntry.pronunciation">Произношение: {{ selectedStrongEntry.pronunciation }}</p>
+                        <p>{{ selectedStrongEntry.content ?? selectedStrongEntry.raw_content }}</p>
+                    </article>
+                </section>
 
-                    <h3>Перекрёстные ссылки</h3>
+                <section v-if="activeStudyTab === 'references'" class="events">
+                    <h3>Параллельные места</h3>
                     <div class="reference-list">
                         <button
                             v-for="reference in visibleCrossReferences"
                             :key="reference.id"
                             type="button"
                         >
-                            <strong>{{ reference.target.osis_ref }}</strong>
+                            <strong>{{ crossReferenceLabel(reference) }}</strong>
                             <span>{{ reference.target.text ?? reference.type }}</span>
                         </button>
                         <p v-if="!isStudyLoading && crossReferences.length === 0">Нет ссылок.</p>
                     </div>
                 </section>
 
-                <form class="comment-form" @submit.prevent="submitVerseNote">
+                <form v-if="activeStudyTab === 'notes'" class="comment-form" @submit.prevent="submitVerseNote">
                     <div class="note-list">
                         <p v-if="isNotesLoading">Загружаю заметки...</p>
                         <p v-else-if="noteError">API: {{ noteError }}</p>

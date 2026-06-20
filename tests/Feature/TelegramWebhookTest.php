@@ -80,7 +80,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
     }
 
     public function test_telegram_search_command_accepts_verse_reference(): void
@@ -94,7 +94,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
     }
 
     public function test_telegram_search_command_waits_for_next_message_when_query_is_missing(): void
@@ -119,7 +119,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
     }
 
     public function test_telegram_settings_command_returns_inline_choices(): void
@@ -135,7 +135,7 @@ class TelegramWebhookTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.0.0.callback_data', 'settings:translation:L1_RST')
-            ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.1.0.callback_data', 'settings:scope:all');
+            ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.1.0.callback_data', 'settings:search_scope:canonical');
     }
 
     public function test_telegram_random_command_excludes_deuterocanonical_books(): void

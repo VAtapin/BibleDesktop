@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\BibleReferenceFormatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,11 +107,21 @@ class StudyDataController extends Controller
 
         $references = DB::table('cross_references')
             ->join('verses as target_verses', 'target_verses.id', '=', 'cross_references.target_verse_id')
+            ->join('canonical_books', 'canonical_books.id', '=', 'target_verses.canonical_book_id')
             ->leftJoin('verse_texts', function ($join) use ($translationId): void {
                 $join->on('verse_texts.verse_id', '=', 'target_verses.id');
 
                 if ($translationId) {
                     $join->where('verse_texts.translation_id', '=', $translationId);
+                } else {
+                    $join->whereRaw('1 = 0');
+                }
+            })
+            ->leftJoin('module_books', function ($join) use ($translationId): void {
+                $join->on('module_books.canonical_book_id', '=', 'canonical_books.id');
+
+                if ($translationId) {
+                    $join->where('module_books.translation_id', '=', $translationId);
                 } else {
                     $join->whereRaw('1 = 0');
                 }
@@ -126,6 +137,9 @@ class StudyDataController extends Controller
                 'target_verses.osis_ref as target_osis_ref',
                 'target_verses.chapter_number',
                 'target_verses.verse_number',
+                'canonical_books.osis_code',
+                'module_books.name as book_name',
+                'module_books.short_name as book_short_name',
                 'verse_texts.text',
             ])
             ->map(fn ($reference) => [
@@ -136,6 +150,14 @@ class StudyDataController extends Controller
                 'target' => [
                     'verse_id' => $reference->target_verse_id,
                     'osis_ref' => $reference->target_osis_ref,
+                    'reference' => BibleReferenceFormatter::format(
+                        $reference->book_name,
+                        $reference->osis_code,
+                        (int) $reference->chapter_number,
+                        (int) $reference->verse_number,
+                    ),
+                    'book_name' => $reference->book_name,
+                    'book_short_name' => $reference->book_short_name,
                     'chapter_number' => $reference->chapter_number,
                     'verse_number' => $reference->verse_number,
                     'text' => $reference->text,

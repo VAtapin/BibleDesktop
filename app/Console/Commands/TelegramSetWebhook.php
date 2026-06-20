@@ -34,6 +34,23 @@ class TelegramSetWebhook extends Command
             return self::FAILURE;
         }
 
+        $menuResponse = $client->send('setMyCommands', [
+            'commands' => [
+                ['command' => 'start', 'description' => 'Начать работу с ботом'],
+                ['command' => 'help', 'description' => 'Список команд'],
+                ['command' => 'search', 'description' => 'Поиск по Библии'],
+                ['command' => 'random', 'description' => 'Случайный стих'],
+                ['command' => 'today', 'description' => 'Церковный календарь на сегодня'],
+                ['command' => 'gospel', 'description' => 'Евангелие дня'],
+                ['command' => 'apostle', 'description' => 'Апостол дня'],
+                ['command' => 'settings', 'description' => 'Язык, перевод и фильтры'],
+            ],
+        ]);
+
+        if (($menuResponse['ok'] ?? false) !== true) {
+            $this->warn((string) ($menuResponse['description'] ?? 'Telegram menu was not updated.'));
+        }
+
         $this->components->info((string) ($response['description'] ?? 'Telegram webhook registered.'));
 
         return self::SUCCESS;

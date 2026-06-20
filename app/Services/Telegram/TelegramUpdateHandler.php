@@ -4,6 +4,7 @@ namespace App\Services\Telegram;
 
 use App\Services\Bible\VerseSearchService;
 use App\Services\Calendar\OrthodoxCalendarService;
+use App\Support\BibleReferenceFormatter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -15,6 +16,14 @@ class TelegramUpdateHandler
         'old' => 'Ветхий Завет',
         'new' => 'Новый Завет',
         'psalms' => 'Псалтирь',
+    ];
+
+    private const SEARCH_SCOPES = [
+        'canonical' => 'Канонические книги',
+        'old' => 'Ветхий Завет',
+        'new' => 'Новый Завет',
+        'psalms' => 'Псалтирь',
+        'apocrypha' => 'Апокрифы',
     ];
 
     public function __construct(
@@ -62,9 +71,13 @@ class TelegramUpdateHandler
 
         if ($command === '' && (bool) ($settings['awaiting_search'] ?? false)) {
             $settings['awaiting_search'] = false;
+            $settings['last_search_query'] = $text;
+            $settings['last_search_offset'] = 5;
             $this->saveSettings($telegramId, $settings);
 
-            return [$this->messageAction($chatId, $this->searchText($text, $settings))];
+            return [$this->messageAction($chatId, $this->searchText($text, $settings), [
+                'reply_markup' => $this->searchMoreKeyboard(),
+            ])];
         }
 
         $action = match ($command) {
@@ -97,6 +110,7 @@ class TelegramUpdateHandler
         $settings = $this->settingsFor($telegramId, $callback['from'] ?? []);
         $data = (string) ($callback['data'] ?? '');
         $notice = 'Настройки обновлены.';
+        $actions = [];
 
         if (str_starts_with($data, 'settings:translation:')) {
             $code = mb_substr($data, mb_strlen('settings:translation:'));
@@ -110,19 +124,50 @@ class TelegramUpdateHandler
             if (isset(self::SCOPES[$scope])) {
                 $settings['random_scope'] = $scope;
             }
+        } elseif (str_starts_with($data, 'settings:search_scope:')) {
+            $scope = mb_substr($data, mb_strlen('settings:search_scope:'));
+
+            if (isset(self::SEARCH_SCOPES[$scope])) {
+                $settings['search_scope'] = $scope;
+            }
+        } elseif ($data === 'search:more') {
+            $query = (string) ($settings['last_search_query'] ?? '');
+            $offset = (int) ($settings['last_search_offset'] ?? 0);
+
+            if ($query !== '') {
+                $text = $this->searchText($query, $settings, $offset);
+                $settings['last_search_offset'] = $offset + 5;
+                $this->saveSettings($telegramId, $settings);
+
+                $actions[] = [
+                    'method' => 'answerCallbackQuery',
+                    'payload' => [
+                        'callback_query_id' => $callback['id'] ?? '',
+                        'text' => 'Ещё результаты',
+                    ],
+                ];
+
+                if ($chatId) {
+                    $actions[] = $this->messageAction($chatId, $text, [
+                        'reply_markup' => $this->searchMoreKeyboard(),
+                    ]);
+                }
+
+                return $actions;
+            }
         } else {
             $notice = 'Неизвестная настройка.';
         }
 
         $this->saveSettings($telegramId, $settings);
 
-        $actions = [[
+        $actions[] = [
             'method' => 'answerCallbackQuery',
             'payload' => [
                 'callback_query_id' => $callback['id'] ?? '',
                 'text' => $notice,
             ],
-        ]];
+        ];
 
         if ($chatId) {
             $actions[] = $this->messageAction($chatId, $this->settingsText($settings), [
@@ -140,7 +185,7 @@ class TelegramUpdateHandler
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - язык и раздел для случайного стиха";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - язык, перевод и фильтры";
     }
 
     /**
@@ -154,6 +199,7 @@ class TelegramUpdateHandler
 
         $verse = DB::table('verse_texts')
             ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
+            ->join('module_books', 'module_books.id', '=', 'verse_texts.module_book_id')
             ->join('verses', 'verses.id', '=', 'verse_texts.verse_id')
             ->join('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('translations.code', $translationCode)
@@ -164,6 +210,10 @@ class TelegramUpdateHandler
             ->inRandomOrder()
             ->first([
                 'verses.osis_ref',
+                'canonical_books.osis_code',
+                'verses.chapter_number',
+                'verses.verse_number',
+                'module_books.name as book_name',
                 'verse_texts.text',
             ]);
 
@@ -171,7 +221,14 @@ class TelegramUpdateHandler
             return 'Стихи для выбранного языка и раздела ещё не импортированы.';
         }
 
-        return trim("{$verse->osis_ref}\n{$verse->text}");
+        $reference = BibleReferenceFormatter::format(
+            $verse->book_name,
+            $verse->osis_code,
+            (int) $verse->chapter_number,
+            (int) $verse->verse_number,
+        );
+
+        return trim("{$reference}\n{$verse->text}");
     }
 
     /**
@@ -189,13 +246,19 @@ class TelegramUpdateHandler
             return $this->messageAction($chatId, 'Напишите запрос следующим сообщением. Например: сотворил');
         }
 
-        return $this->messageAction($chatId, $this->searchText($query, $settings));
+        $settings['last_search_query'] = $query;
+        $settings['last_search_offset'] = 5;
+        $this->saveSettings($telegramId, $settings);
+
+        return $this->messageAction($chatId, $this->searchText($query, $settings), [
+            'reply_markup' => $this->searchMoreKeyboard(),
+        ]);
     }
 
     /**
      * @param array<string, mixed> $settings
      */
-    private function searchText(string $query, array $settings): string
+    private function searchText(string $query, array $settings, int $offset = 0): string
     {
         $query = trim($query);
 
@@ -204,8 +267,12 @@ class TelegramUpdateHandler
         }
 
         $translationCode = (string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST'));
+        $searchScope = (string) ($settings['search_scope'] ?? 'canonical');
         $results = $this->verseSearch->search($query, $translationCode, 5, [
-            'canonical_only' => true,
+            'canonical_only' => $searchScope !== 'apocrypha',
+            'deuterocanonical_only' => $searchScope === 'apocrypha',
+            'scope' => in_array($searchScope, ['old', 'new', 'psalms'], true) ? $searchScope : 'all',
+            'offset' => $offset,
         ])['results'];
 
         if ($results->isEmpty()) {
@@ -213,8 +280,31 @@ class TelegramUpdateHandler
         }
 
         return $results
-            ->map(fn (array $row) => "{$row['osis_ref']} {$row['text']}")
+            ->map(fn (array $row) => "{$row['reference']} {$row['text']}")
             ->implode("\n\n");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function searchMoreKeyboard(): array
+    {
+        return [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => 'Показать ещё',
+                        'callback_data' => 'search:more',
+                    ],
+                ],
+                [
+                    [
+                        'text' => 'Фильтры поиска',
+                        'callback_data' => 'settings:search_scope:canonical',
+                    ],
+                ],
+            ],
+        ];
     }
 
     private function calendarText(): string
@@ -230,7 +320,9 @@ class TelegramUpdateHandler
             ->map(fn (array $event) => '- '.$event['name'])
             ->implode("\n");
 
-        return "Календарь на {$day['date']}\n{$events}";
+        $readings = $this->readingsSummary($day);
+
+        return trim("Календарь на {$day['date']}\n{$events}\n\n{$readings}");
     }
 
     private function fastingText(): string
@@ -273,6 +365,48 @@ class TelegramUpdateHandler
     }
 
     /**
+     * @param array{readings: \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>} $day
+     */
+    private function readingsSummary(array $day): string
+    {
+        $readings = $day['readings'];
+
+        if ($readings->isEmpty()) {
+            return '';
+        }
+
+        $apostle = $readings
+            ->filter(fn (array $reading): bool => $reading['type'] === 'apostle')
+            ->take(2)
+            ->map(fn (array $reading): string => $reading['passage_ref'])
+            ->implode('; ');
+        $gospel = $readings
+            ->filter(fn (array $reading): bool => $reading['type'] === 'gospel')
+            ->take(2)
+            ->map(fn (array $reading): string => $reading['passage_ref'])
+            ->implode('; ');
+        $psalms = $readings
+            ->filter(fn (array $reading): bool => $reading['type'] === 'psalm')
+            ->take(4)
+            ->map(fn (array $reading): string => $reading['passage_ref'])
+            ->implode('; ');
+
+        $lines = [];
+
+        if ($apostle !== '' || $gospel !== '') {
+            $lines[] = 'Евангелие и Апостол:';
+            $lines[] = trim('Ап.: '.$apostle.' Ев.: '.$gospel);
+        }
+
+        if ($psalms !== '') {
+            $lines[] = 'Псалтирь:';
+            $lines[] = $psalms;
+        }
+
+        return implode("\n", array_filter($lines));
+    }
+
+    /**
      * @param array<string, mixed> $settings
      */
     private function settingsText(array $settings): string
@@ -280,8 +414,10 @@ class TelegramUpdateHandler
         $translation = $this->translationLabel((string) ($settings['translation_code'] ?? config('telegram.default_translation', 'L1_RST')));
         $scope = (string) ($settings['random_scope'] ?? 'all');
         $scopeLabel = self::SCOPES[$scope] ?? self::SCOPES['all'];
+        $searchScope = (string) ($settings['search_scope'] ?? 'canonical');
+        $searchScopeLabel = self::SEARCH_SCOPES[$searchScope] ?? self::SEARCH_SCOPES['canonical'];
 
-        return "Настройки\nПеревод: {$translation}\nСлучайный стих: {$scopeLabel}\n\nВыберите нужный вариант кнопками ниже.";
+        return "Настройки\nПеревод: {$translation}\nПоиск: {$searchScopeLabel}\nСлучайный стих: {$scopeLabel}\n\nВыберите нужный вариант кнопками ниже.";
     }
 
     /**
@@ -327,8 +463,19 @@ class TelegramUpdateHandler
             ->values()
             ->all();
 
+        $selectedSearchScope = (string) ($settings['search_scope'] ?? 'canonical');
+        $searchScopeButtons = collect(self::SEARCH_SCOPES)
+            ->map(fn (string $label, string $scope): array => [
+                'text' => ($scope === $selectedSearchScope ? '✓ Поиск: ' : 'Поиск: ').$label,
+                'callback_data' => 'settings:search_scope:'.$scope,
+            ])
+            ->chunk(1)
+            ->map(fn ($row) => $row->values()->all())
+            ->values()
+            ->all();
+
         return [
-            'inline_keyboard' => array_merge($translationButtons, $scopeButtons),
+            'inline_keyboard' => array_merge($translationButtons, $searchScopeButtons, $scopeButtons),
         ];
     }
 
@@ -410,8 +557,11 @@ class TelegramUpdateHandler
     {
         return [
             'translation_code' => (string) config('telegram.default_translation', 'L1_RST'),
+            'search_scope' => 'canonical',
             'random_scope' => 'all',
             'awaiting_search' => false,
+            'last_search_query' => '',
+            'last_search_offset' => 0,
         ];
     }
 

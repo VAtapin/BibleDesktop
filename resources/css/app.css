@@ -114,6 +114,14 @@ button {
     color: #46515f;
 }
 
+.search select {
+    min-width: 118px;
+    border: 1px solid #d7dee7;
+    background: #ffffff;
+    color: #607086;
+    padding: 5px 8px;
+}
+
 .search-results {
     position: absolute;
     z-index: 20;
@@ -342,6 +350,11 @@ button {
     color: #8b96a5;
 }
 
+.reader-actions button.active {
+    color: #2f6f9f;
+    font-weight: 700;
+}
+
 .chapter {
     position: relative;
     overflow: auto;
@@ -361,6 +374,12 @@ button {
     background: #f4f8fc;
 }
 
+.chapter p.highlighted {
+    outline: 2px solid #e6be55;
+    outline-offset: 2px;
+    background: #fff8df;
+}
+
 .chapter p span {
     cursor: pointer;
 }
@@ -376,6 +395,27 @@ button {
 .compare-verse strong {
     color: #557496;
     margin-right: 6px;
+}
+
+.inline-strong {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 5px;
+}
+
+.inline-strong button {
+    border: 1px solid #d9e1ea;
+    background: #f8fafc;
+    color: #657386;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
+.inline-strong strong {
+    margin-left: 4px;
+    color: #3d6d9d;
 }
 
 .verse-number {
@@ -542,7 +582,7 @@ button {
     margin-bottom: 16px;
 }
 
-.study-list a,
+.study-list button,
 .reference-list button {
     display: grid;
     grid-template-columns: 84px minmax(0, 1fr);
@@ -554,7 +594,6 @@ button {
     color: #596579;
     padding: 7px 9px;
     text-align: left;
-    text-decoration: none;
 }
 
 .study-list strong,
@@ -567,6 +606,21 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.strong-entry {
+    border: 1px solid #dfe6ee;
+    background: #ffffff;
+    padding: 10px 12px;
+}
+
+.strong-entry h3 {
+    color: #557496;
+}
+
+.strong-entry p {
+    margin: 6px 0 0;
+    line-height: 1.45;
 }
 
 .comment-form {
