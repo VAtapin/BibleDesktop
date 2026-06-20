@@ -299,9 +299,21 @@ function shortTranslationLabel(translation: TranslationDto | null | undefined): 
         return 'Перевод';
     }
 
-    return translation.short_name && translation.short_name.length > 3
-        ? translation.short_name
-        : translation.name || translation.short_name || translation.code;
+    const label = translation.short_name || translation.name || translation.code;
+
+    if (label.length <= 12) {
+        return label;
+    }
+
+    const abbreviation = label
+        .replace(/[()]/g, ' ')
+        .split(/[.\s]+/u)
+        .filter((word) => word.length > 0 && !['с', 'и', 'в', 'на', 'по'].includes(word.toLocaleLowerCase('ru-RU')))
+        .map((word) => word[0]?.toLocaleUpperCase('ru-RU') ?? '')
+        .join('')
+        .slice(0, 5);
+
+    return abbreviation || label.slice(0, 12);
 }
 
 function bookDisplayName(book: ReaderBookDto | null | undefined): string {
