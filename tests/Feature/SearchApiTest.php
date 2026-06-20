@@ -96,6 +96,28 @@ class SearchApiTest extends TestCase
             'updated_at' => $now,
         ]);
 
+        DB::table('verses')->insert([
+            'canonical_book_id' => $bookId,
+            'canonical_chapter_id' => $chapterId,
+            'chapter_number' => 1,
+            'verse_number' => 2,
+            'osis_ref' => 'Gen.1.2',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $secondVerseId = DB::table('verses')->where('osis_ref', 'Gen.1.2')->value('id');
+
+        DB::table('verse_texts')->insert([
+            'verse_id' => $secondVerseId,
+            'translation_id' => $translationId,
+            'module_book_id' => $moduleBookId,
+            'module_chapter_id' => $moduleChapterId,
+            'text' => 'Мария слушала слово.',
+            'text_plain' => 'Мария слушала слово.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         $this->getJson('/api/search/verses?q=%D1%81%D0%BE%D1%82%D0%B2%D0%BE%D1%80%D0%B8%D0%BB&translation=L1_RST')
             ->assertOk()
             ->assertJsonPath('data.query', 'сотворил')
@@ -114,5 +136,10 @@ class SearchApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.mode', 'reference')
             ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.1');
+
+        $this->getJson('/api/search/verses?q=%D0%9C%D0%B8%D1%80%D0%B8&translation=L1_RST&match=fuzzy')
+            ->assertOk()
+            ->assertJsonPath('data.match', 'fuzzy')
+            ->assertJsonPath('data.results.0.osis_ref', 'Gen.1.2');
     }
 }

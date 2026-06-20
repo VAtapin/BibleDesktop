@@ -172,7 +172,19 @@ type ReaderState = {
     tabs?: ReaderTab[];
 };
 
+type BookmarkItem = {
+    id: string;
+    reference: string;
+    translationCode: string;
+    bookSlug: string;
+    chapterNumber: number;
+    verseNumber: number;
+    text: string;
+    createdAt: string;
+};
+
 const readerStateKey = 'bible-desktop-reader-state';
+const bookmarkStateKey = 'bible-desktop-bookmarks';
 const maxReaderTabs = 8;
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
@@ -201,6 +213,14 @@ const isSearchLoading = ref(false);
 const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
 const searchScope = ref('canonical');
+const activeLeftPanel = ref<'search' | 'bookmarks' | null>(null);
+const advancedSearchQuery = ref('');
+const advancedSearchScope = ref('canonical');
+const advancedSearchMatch = ref<'all_words' | 'phrase' | 'partial' | 'fuzzy'>('all_words');
+const advancedSearchResults = ref<SearchResultDto[]>([]);
+const isAdvancedSearchLoading = ref(false);
+const advancedSearchError = ref<string | null>(null);
+const bookmarks = ref<BookmarkItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
@@ -249,7 +269,13 @@ const compareVerses = ref<Verse[]>([]);
 const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
 
-const tools = ['M', 'B', 'R', 'P', 'S#'];
+const tools = [
+    { id: 'search', label: 'S', title: 'Расширенный поиск' },
+    { id: 'bookmarks', label: 'B', title: 'Закладки' },
+    { id: 'references', label: 'R', title: 'Справочник' },
+    { id: 'print', label: 'P', title: 'Печать' },
+    { id: 'strong', label: 'S#', title: 'Strong' },
+] as const;
 
 const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Русский');
 const currentTranslation = computed(() => {
@@ -460,6 +486,35 @@ function readReaderState(): ReaderState | null {
     }
 }
 
+function readBookmarks(): BookmarkItem[] {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+
+    try {
+        const value = window.localStorage.getItem(bookmarkStateKey);
+        const parsed = value ? JSON.parse(value) : [];
+
+        return Array.isArray(parsed) ? parsed.filter((item): item is BookmarkItem => {
+            return item
+                && typeof item.id === 'string'
+                && typeof item.bookSlug === 'string'
+                && typeof item.chapterNumber === 'number'
+                && typeof item.verseNumber === 'number';
+        }) : [];
+    } catch {
+        return [];
+    }
+}
+
+function persistBookmarks(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(bookmarkStateKey, JSON.stringify(bookmarks.value));
+}
+
 function readUrlState(): Partial<ReaderState> & { verses?: number[] } {
     if (typeof window === 'undefined') {
         return {};
@@ -492,6 +547,26 @@ function persistReaderState(): void {
         activeTabId: activeTabId.value,
         tabs: readerTabs.value,
     }));
+}
+
+function toggleLeftPanel(panel: 'search' | 'bookmarks'): void {
+    activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel;
+}
+
+function handleToolClick(toolId: string): void {
+    if (toolId === 'search') {
+        toggleLeftPanel('search');
+        return;
+    }
+
+    if (toolId === 'bookmarks') {
+        toggleLeftPanel('bookmarks');
+        return;
+    }
+
+    if (toolId === 'strong') {
+        showStrongNumbers.value = !showStrongNumbers.value;
+    }
 }
 
 async function loadJson<T>(url: string): Promise<T> {
@@ -667,6 +742,51 @@ async function addReaderTab(): Promise<void> {
     readerTabs.value.push(tab);
     activeTabId.value = tab.id;
     persistReaderState();
+}
+
+function addBookmark(): void {
+    const verse = selectedVerse.value;
+
+    if (!verse?.id) {
+        showVerseActionMessage('Выберите стих');
+        return;
+    }
+
+    const bookmark: BookmarkItem = {
+        id: `${selectedTranslationCode.value}:${selectedBookSlug.value}:${selectedChapterNumber.value}:${verse.number}`,
+        reference: verseReference(verse),
+        translationCode: selectedTranslationCode.value,
+        bookSlug: selectedBookSlug.value,
+        chapterNumber: selectedChapterNumber.value,
+        verseNumber: verse.number,
+        text: verse.text,
+        createdAt: new Date().toISOString(),
+    };
+
+    bookmarks.value = [
+        bookmark,
+        ...bookmarks.value.filter((item) => item.id !== bookmark.id),
+    ].slice(0, 100);
+    persistBookmarks();
+    activeLeftPanel.value = 'bookmarks';
+    showVerseActionMessage('Закладка добавлена');
+}
+
+async function openBookmark(bookmark: BookmarkItem): Promise<void> {
+    selectedTranslationCode.value = bookmark.translationCode;
+    selectedBookSlug.value = bookmark.bookSlug;
+    selectedChapterNumber.value = bookmark.chapterNumber;
+    highlightedVerseNumbers.value = [bookmark.verseNumber];
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter(bookmark.verseNumber);
+    syncActiveTabFromSelection();
+    persistReaderState();
+}
+
+function removeBookmark(bookmark: BookmarkItem): void {
+    bookmarks.value = bookmarks.value.filter((item) => item.id !== bookmark.id);
+    persistBookmarks();
 }
 
 async function switchReaderTab(tabId: string): Promise<void> {
@@ -957,6 +1077,44 @@ async function runSearch(): Promise<void> {
     }
 }
 
+async function runAdvancedSearch(): Promise<void> {
+    const query = advancedSearchQuery.value.trim();
+
+    if (query.length < 2) {
+        advancedSearchResults.value = [];
+        advancedSearchError.value = 'Введите минимум 2 символа';
+
+        return;
+    }
+
+    isAdvancedSearchLoading.value = true;
+    advancedSearchError.value = null;
+
+    try {
+        const params = new URLSearchParams({
+            q: query,
+            translation: selectedTranslationCode.value,
+            limit: '30',
+            match: advancedSearchMatch.value,
+            scope: advancedSearchScope.value === 'apocrypha' ? 'all' : advancedSearchScope.value,
+        });
+
+        if (advancedSearchScope.value === 'apocrypha') {
+            params.set('apocrypha', '1');
+        } else {
+            params.set('canonical', '1');
+        }
+
+        const response = await loadJson<ApiResponse<{ results: SearchResultDto[] }>>(`/api/search/verses?${params.toString()}`);
+        advancedSearchResults.value = response.data.results;
+    } catch (error) {
+        advancedSearchResults.value = [];
+        advancedSearchError.value = error instanceof Error ? error.message : 'Не удалось выполнить поиск';
+    } finally {
+        isAdvancedSearchLoading.value = false;
+    }
+}
+
 async function openSearchResult(result: SearchResultDto): Promise<void> {
     selectedBookSlug.value = result.book.slug;
     selectedChapterNumber.value = result.chapter_number;
@@ -967,6 +1125,10 @@ async function openSearchResult(result: SearchResultDto): Promise<void> {
     await loadChapter(result.verse_number);
     syncActiveTabFromSelection();
     persistReaderState();
+}
+
+async function openAdvancedSearchResult(result: SearchResultDto): Promise<void> {
+    await openSearchResult(result);
 }
 
 async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
@@ -1004,6 +1166,7 @@ onMounted(async () => {
     try {
         const savedState = readReaderState();
         const urlState = readUrlState();
+        bookmarks.value = readBookmarks();
         const [languagesResponse, translationsResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
             loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
@@ -1092,25 +1255,31 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 <div v-if="showSearchResults" class="search-results">
                     <p v-if="isSearchLoading">Ищу...</p>
                     <p v-else-if="searchError">{{ searchError }}</p>
-                    <p v-else-if="searchResults.length === 0">Ничего не найдено.</p>
                     <template v-else>
-                        <button
-                            v-for="result in searchResults"
-                            :key="result.verse_text_id"
-                            type="button"
-                            @click="openSearchResult(result)"
-                        >
-                            <strong>{{ searchResultReference(result) }}</strong>
-                            <span>
-                                <template
-                                    v-for="(segment, index) in result.snippet_segments ?? [{ text: result.snippet, match: false }]"
-                                    :key="`${result.verse_text_id}-${index}`"
-                                >
-                                    <mark v-if="segment.match">{{ segment.text }}</mark>
-                                    <template v-else>{{ segment.text }}</template>
-                                </template>
-                            </span>
+                        <button type="button" class="advanced-search-open" @click="activeLeftPanel = 'search'; advancedSearchQuery = searchQuery; showSearchResults = false">
+                            <strong>Расширенный поиск</strong>
+                            <span>Фильтры, точность, часть слова, опечатки</span>
                         </button>
+                        <p v-if="searchResults.length === 0">Ничего не найдено.</p>
+                        <template v-else>
+                            <button
+                                v-for="result in searchResults"
+                                :key="result.verse_text_id"
+                                type="button"
+                                @click="openSearchResult(result)"
+                            >
+                                <strong>{{ searchResultReference(result) }}</strong>
+                                <span>
+                                    <template
+                                        v-for="(segment, index) in result.snippet_segments ?? [{ text: result.snippet, match: false }]"
+                                        :key="`${result.verse_text_id}-${index}`"
+                                    >
+                                        <mark v-if="segment.match">{{ segment.text }}</mark>
+                                        <template v-else>{{ segment.text }}</template>
+                                    </template>
+                                </span>
+                            </button>
+                        </template>
                     </template>
                 </div>
             </form>
@@ -1165,14 +1334,77 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
             </button>
         </nav>
 
-        <main class="reader-layout">
+        <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null }">
             <aside class="tool-rail" aria-label="Инструменты">
-                <button v-for="tool in tools" :key="tool" type="button">{{ tool }}</button>
+                <button
+                    v-for="tool in tools"
+                    :key="tool.id"
+                    type="button"
+                    :title="tool.title"
+                    :class="{ active: activeLeftPanel === tool.id || (tool.id === 'strong' && showStrongNumbers) }"
+                    @click="handleToolClick(tool.id)"
+                >
+                    {{ tool.label }}
+                </button>
+            </aside>
+
+            <aside v-if="activeLeftPanel" class="left-panel">
+                <header>
+                    <h2>{{ activeLeftPanel === 'search' ? 'Расширенный поиск' : 'Закладки' }}</h2>
+                    <button type="button" aria-label="Закрыть" @click="activeLeftPanel = null">X</button>
+                </header>
+
+                <form v-if="activeLeftPanel === 'search'" class="advanced-search-panel" @submit.prevent="runAdvancedSearch">
+                    <input v-model="advancedSearchQuery" type="search" placeholder="Введите слово или фразу" />
+                    <select v-model="advancedSearchMatch">
+                        <option value="all_words">Все слова</option>
+                        <option value="phrase">Точная фраза</option>
+                        <option value="partial">Часть слова</option>
+                        <option value="fuzzy">С опечатками</option>
+                    </select>
+                    <select v-model="advancedSearchScope">
+                        <option value="canonical">Канон</option>
+                        <option value="old">Ветхий Завет</option>
+                        <option value="new">Новый Завет</option>
+                        <option value="psalms">Псалтирь</option>
+                        <option value="apocrypha">Апокрифы</option>
+                    </select>
+                    <button type="submit" :disabled="isAdvancedSearchLoading">
+                        {{ isAdvancedSearchLoading ? 'Ищу...' : 'Найти' }}
+                    </button>
+                    <p v-if="advancedSearchError">{{ advancedSearchError }}</p>
+                    <div class="advanced-search-results">
+                        <button
+                            v-for="result in advancedSearchResults"
+                            :key="result.verse_text_id"
+                            type="button"
+                            @click="openAdvancedSearchResult(result)"
+                        >
+                            <strong>{{ searchResultReference(result) }}</strong>
+                            <span>{{ result.snippet || result.text }}</span>
+                        </button>
+                        <p v-if="!isAdvancedSearchLoading && !advancedSearchError && advancedSearchResults.length === 0">Результатов пока нет.</p>
+                    </div>
+                </form>
+
+                <section v-else class="bookmark-panel">
+                    <button type="button" class="bookmark-add" @click="addBookmark">Добавить выбранный стих</button>
+                    <div class="bookmark-list">
+                        <article v-for="bookmark in bookmarks" :key="bookmark.id">
+                            <button type="button" @click="openBookmark(bookmark)">
+                                <strong>{{ bookmark.reference }}</strong>
+                                <span>{{ bookmark.text }}</span>
+                            </button>
+                            <button type="button" aria-label="Удалить" @click="removeBookmark(bookmark)">X</button>
+                        </article>
+                        <p v-if="bookmarks.length === 0">Закладок пока нет.</p>
+                    </div>
+                </section>
             </aside>
 
             <section class="reader-panel">
                 <div class="reader-toolbar">
-                    <button type="button" class="bookmark" aria-label="Закладка">+</button>
+                    <button type="button" class="bookmark" aria-label="Закладка" @click="addBookmark">+</button>
                     <select
                         v-model="selectedTranslationCode"
                         aria-label="Перевод"

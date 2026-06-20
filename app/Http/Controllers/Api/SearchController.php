@@ -17,10 +17,13 @@ class SearchController extends Controller
         $translationCode = trim((string) $request->query('translation', ''));
         $limit = min(50, max(1, (int) $request->query('limit', 20)));
         $scope = (string) $request->query('scope', 'all');
+        $match = (string) $request->query('match', 'all_words');
+        $match = in_array($match, ['all_words', 'phrase', 'partial', 'fuzzy'], true) ? $match : 'all_words';
         $result = $this->search->search($query, $translationCode, $limit, [
             'canonical_only' => $request->boolean('canonical'),
             'deuterocanonical_only' => $request->boolean('apocrypha'),
             'scope' => in_array($scope, ['all', 'old', 'new', 'psalms'], true) ? $scope : 'all',
+            'match' => $match,
             'offset' => max(0, (int) $request->query('offset', 0)),
         ]);
 
@@ -30,6 +33,7 @@ class SearchController extends Controller
                 'mode' => $result['mode'],
                 'translation_code' => $translationCode ?: null,
                 'scope' => $scope,
+                'match' => $match,
                 'results' => $result['results'],
             ],
         ]);

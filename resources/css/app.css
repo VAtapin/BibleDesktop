@@ -156,6 +156,10 @@ button {
     text-align: left;
 }
 
+.search-results .advanced-search-open {
+    background: #edf5fb;
+}
+
 .search-results strong {
     color: #557496;
 }
@@ -284,6 +288,10 @@ button {
     padding: 8px;
 }
 
+.reader-layout.has-left-panel {
+    grid-template-columns: 42px minmax(280px, 340px) minmax(420px, 1fr) minmax(300px, 360px);
+}
+
 .tool-rail {
     display: grid;
     align-content: start;
@@ -298,11 +306,120 @@ button {
     color: #6b7788;
 }
 
+.tool-rail button.active {
+    border-color: #7fa4c8;
+    background: #edf5fb;
+    color: #2f6f9f;
+    font-weight: 700;
+}
+
 .reader-panel,
+.left-panel,
 .analysis-panel {
     min-height: 0;
     border: 1px solid #cfd7e1;
     background: #ffffff;
+}
+
+.left-panel {
+    display: grid;
+    grid-template-rows: 42px minmax(0, 1fr);
+}
+
+.left-panel header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom: 1px solid #e0e5eb;
+}
+
+.left-panel h2 {
+    margin: 0;
+    color: #557496;
+    font-size: 15px;
+}
+
+.left-panel header button {
+    border: 0;
+    background: transparent;
+    color: #8b96a5;
+}
+
+.advanced-search-panel,
+.bookmark-panel {
+    overflow: auto;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 12px;
+}
+
+.advanced-search-panel input,
+.advanced-search-panel select {
+    width: 100%;
+    border: 1px solid #d7dee7;
+    background: #ffffff;
+    color: #46515f;
+    padding: 8px 10px;
+}
+
+.advanced-search-panel > button,
+.bookmark-add {
+    border: 1px solid #6f96bd;
+    background: #edf5fb;
+    color: #2f6f9f;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.advanced-search-results,
+.bookmark-list {
+    display: grid;
+    gap: 8px;
+}
+
+.advanced-search-results button,
+.bookmark-list article {
+    border: 1px solid #e0e5eb;
+    background: #f8fafc;
+}
+
+.advanced-search-results button,
+.bookmark-list article > button:first-child {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #596579;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.advanced-search-results strong,
+.bookmark-list strong {
+    color: #557496;
+    font-size: 12px;
+}
+
+.advanced-search-results span,
+.bookmark-list span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bookmark-list article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px;
+}
+
+.bookmark-list article > button:last-child {
+    border: 0;
+    border-left: 1px solid #e0e5eb;
+    background: transparent;
+    color: #9aa4b1;
 }
 
 .reader-panel {

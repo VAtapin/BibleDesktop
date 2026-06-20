@@ -17,6 +17,8 @@ class VerseSearchService
         $translationCode = trim($translationCode);
         $limit = min(50, max(1, $limit));
         $filters['offset'] = max(0, (int) ($filters['offset'] ?? 0));
+        $match = $filters['match'] ?? 'all_words';
+        $filters['match'] = in_array($match, ['all_words', 'phrase', 'partial', 'fuzzy'], true) ? $match : 'all_words';
 
         if (mb_strlen($query) < 2) {
             return [
@@ -42,14 +44,28 @@ class VerseSearchService
 
     private function textResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
     {
+        if (($filters['match'] ?? 'all_words') === 'fuzzy') {
+            return $this->fuzzyTextResults($query, $translationCode, $limit, $filters);
+        }
+
         if (DB::connection()->getDriverName() === 'pgsql') {
             return $this->postgresTextResults($query, $translationCode, $limit, $filters);
         }
 
-        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%';
+        $tokens = $this->queryTokens($query);
+        $builder = $this->baseQuery($translationCode, $filters);
 
-        return $this->baseQuery($translationCode, $filters)
-            ->where('verse_texts.text_plain', 'like', $like)
+        if (($filters['match'] ?? 'all_words') === 'phrase') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%';
+            $builder->where('verse_texts.text_plain', 'like', $like);
+        } else {
+            foreach ($tokens as $token) {
+                $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $token).'%';
+                $builder->where('verse_texts.text_plain', 'like', $like);
+            }
+        }
+
+        return $builder
             ->orderBy('translations.code')
             ->orderBy('canonical_books.canonical_order')
             ->orderBy('verses.chapter_number')
@@ -62,6 +78,26 @@ class VerseSearchService
 
     private function postgresTextResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
     {
+        if (in_array(($filters['match'] ?? 'all_words'), ['phrase', 'partial'], true)) {
+            $tokens = ($filters['match'] ?? 'all_words') === 'phrase' ? [$query] : $this->queryTokens($query);
+            $builder = $this->baseQuery($translationCode, $filters)
+                ->select($this->resultColumns());
+
+            foreach ($tokens as $token) {
+                $builder->where('verse_texts.text_plain', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $token).'%');
+            }
+
+            return $builder
+                ->orderBy('translations.code')
+                ->orderBy('canonical_books.canonical_order')
+                ->orderBy('verses.chapter_number')
+                ->orderBy('verses.verse_number')
+                ->offset((int) ($filters['offset'] ?? 0))
+                ->limit($limit)
+                ->get()
+                ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
+        }
+
         $headlineSql = "ts_headline('simple', verse_texts.text_plain, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
         $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text_plain, '')), plainto_tsquery('simple', ?))";
 
@@ -79,6 +115,39 @@ class VerseSearchService
             ->limit($limit)
             ->get()
             ->map(fn ($row) => $this->mapResult($row, (string) $row->snippet, $query, true));
+    }
+
+    private function fuzzyTextResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
+    {
+        $queryTokens = $this->queryTokens($query);
+
+        if ($queryTokens === []) {
+            return collect();
+        }
+
+        return $this->baseQuery($translationCode, $filters)
+            ->orderBy('translations.code')
+            ->orderBy('canonical_books.canonical_order')
+            ->orderBy('verses.chapter_number')
+            ->orderBy('verses.verse_number')
+            ->get($this->resultColumns())
+            ->map(function ($row) use ($query, $queryTokens): ?array {
+                $score = $this->fuzzyScore((string) $row->text_plain, $queryTokens);
+
+                if ($score === null) {
+                    return null;
+                }
+
+                return [
+                    'score' => $score,
+                    'row' => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query),
+                ];
+            })
+            ->filter()
+            ->sortBy('score')
+            ->slice((int) ($filters['offset'] ?? 0), $limit)
+            ->values()
+            ->map(fn (array $item) => $item['row']);
     }
 
     /**
@@ -364,6 +433,59 @@ class VerseSearchService
         $tokens = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return array_values(array_unique(array_filter($tokens, fn (string $token): bool => mb_strlen($token) >= 2)));
+    }
+
+    /**
+     * @param list<string> $queryTokens
+     */
+    private function fuzzyScore(string $text, array $queryTokens): ?int
+    {
+        $textTokens = $this->queryTokens(str_replace('ё', 'е', $text));
+        $score = 0;
+
+        foreach ($queryTokens as $queryToken) {
+            $best = null;
+
+            foreach ($textTokens as $textToken) {
+                $distance = $this->mbLevenshtein($queryToken, $textToken);
+                $threshold = mb_strlen($queryToken) <= 5 ? 2 : max(2, (int) floor(mb_strlen($queryToken) * 0.3));
+
+                if ($distance <= $threshold || str_contains($textToken, $queryToken)) {
+                    $best = min($best ?? $distance, $distance);
+                }
+            }
+
+            if ($best === null) {
+                return null;
+            }
+
+            $score += $best;
+        }
+
+        return $score;
+    }
+
+    private function mbLevenshtein(string $a, string $b): int
+    {
+        $aChars = preg_split('//u', $a, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $bChars = preg_split('//u', $b, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $previous = range(0, count($bChars));
+
+        foreach ($aChars as $i => $aChar) {
+            $current = [$i + 1];
+
+            foreach ($bChars as $j => $bChar) {
+                $current[$j + 1] = min(
+                    $current[$j] + 1,
+                    $previous[$j + 1] + 1,
+                    $previous[$j] + ($aChar === $bChar ? 0 : 1),
+                );
+            }
+
+            $previous = $current;
+        }
+
+        return $previous[count($bChars)] ?? count($aChars);
     }
 
     /**
