@@ -97,6 +97,62 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
     }
 
+    public function test_telegram_search_command_waits_for_next_message_when_query_is_missing(): void
+    {
+        $this->createSearchFixture();
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'chat' => ['id' => 123],
+                'text' => '/search',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', 'Напишите запрос следующим сообщением. Например: сотворил');
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'chat' => ['id' => 123],
+                'text' => 'сотворил',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Gen.1.1 В начале сотворил Бог небо и землю.");
+    }
+
+    public function test_telegram_settings_command_returns_inline_choices(): void
+    {
+        $this->createSearchFixture();
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'chat' => ['id' => 123],
+                'text' => '/settings',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.0.0.callback_data', 'settings:translation:L1_RST')
+            ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.1.0.callback_data', 'settings:scope:all');
+    }
+
+    public function test_telegram_random_command_excludes_deuterocanonical_books(): void
+    {
+        $this->createDeuterocanonicalOnlyFixture();
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'chat' => ['id' => 123],
+                'text' => '/random',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', 'Стихи для выбранного языка и раздела ещё не импортированы.');
+    }
+
     public function test_telegram_today_command_returns_calendar_events(): void
     {
         DB::table('calendar_events')->insert([
@@ -258,6 +314,92 @@ class TelegramWebhookTest extends TestCase
             'module_chapter_id' => $moduleChapterId,
             'text' => 'В начале сотворил Бог небо и землю.',
             'text_plain' => 'В начале сотворил Бог небо и землю.',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function createDeuterocanonicalOnlyFixture(): void
+    {
+        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+
+        $now = now();
+        $languageId = DB::table('languages')->where('code', 'ru')->value('id');
+        $canonId = DB::table('canons')->where('code', 'orthodox')->value('id');
+        $bookId = DB::table('canonical_books')->where('slug', 'baruch')->value('id');
+        $chapterId = DB::table('canonical_chapters')
+            ->where('canonical_book_id', $bookId)
+            ->where('number', 3)
+            ->value('id');
+
+        DB::table('modules')->insert([
+            'language_id' => $languageId,
+            'type' => 'bible',
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'is_active' => true,
+            'is_public' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleId = DB::table('modules')->where('code', 'L1_RST')->value('id');
+
+        DB::table('translations')->insert([
+            'module_id' => $moduleId,
+            'language_id' => $languageId,
+            'canon_id' => $canonId,
+            'code' => 'L1_RST',
+            'name' => 'Russian Synodal Test',
+            'short_name' => 'RST',
+            'has_apocrypha' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $translationId = DB::table('translations')->where('code', 'L1_RST')->value('id');
+
+        DB::table('module_books')->insert([
+            'module_id' => $moduleId,
+            'translation_id' => $translationId,
+            'canonical_book_id' => $bookId,
+            'slug' => 'baruch',
+            'name' => 'Варух',
+            'short_name' => 'Вар.',
+            'book_order' => 70,
+            'chapters_count' => 5,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleBookId = DB::table('module_books')->where('slug', 'baruch')->value('id');
+
+        DB::table('module_chapters')->insert([
+            'module_book_id' => $moduleBookId,
+            'canonical_chapter_id' => $chapterId,
+            'chapter_number' => 3,
+            'verses_count' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleChapterId = DB::table('module_chapters')->where('module_book_id', $moduleBookId)->value('id');
+
+        DB::table('verses')->insert([
+            'canonical_book_id' => $bookId,
+            'canonical_chapter_id' => $chapterId,
+            'chapter_number' => 3,
+            'verse_number' => 32,
+            'osis_ref' => 'Bar.3.32',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $verseId = DB::table('verses')->where('osis_ref', 'Bar.3.32')->value('id');
+
+        DB::table('verse_texts')->insert([
+            'verse_id' => $verseId,
+            'translation_id' => $translationId,
+            'module_book_id' => $moduleBookId,
+            'module_chapter_id' => $moduleChapterId,
+            'text' => 'Но Знающий все знает ее.',
+            'text_plain' => 'Но Знающий все знает ее.',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

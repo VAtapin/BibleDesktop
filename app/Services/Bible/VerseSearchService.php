@@ -10,7 +10,7 @@ class VerseSearchService
     /**
      * @return array{mode: string, results: \Illuminate\Support\Collection<int, array<string, mixed>>}
      */
-    public function search(string $query, string $translationCode = '', int $limit = 20): array
+    public function search(string $query, string $translationCode = '', int $limit = 20, array $filters = []): array
     {
         $query = trim($query);
         $translationCode = trim($translationCode);
@@ -28,25 +28,25 @@ class VerseSearchService
         if ($reference) {
             return [
                 'mode' => 'reference',
-                'results' => $this->referenceResults($reference, $translationCode, $limit),
+                'results' => $this->referenceResults($reference, $translationCode, $limit, $filters),
             ];
         }
 
         return [
             'mode' => 'text',
-            'results' => $this->textResults($query, $translationCode, $limit),
+            'results' => $this->textResults($query, $translationCode, $limit, $filters),
         ];
     }
 
-    private function textResults(string $query, string $translationCode, int $limit): Collection
+    private function textResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
     {
         if (DB::connection()->getDriverName() === 'pgsql') {
-            return $this->postgresTextResults($query, $translationCode, $limit);
+            return $this->postgresTextResults($query, $translationCode, $limit, $filters);
         }
 
         $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%';
 
-        return $this->baseQuery($translationCode)
+        return $this->baseQuery($translationCode, $filters)
             ->where('verse_texts.text_plain', 'like', $like)
             ->orderBy('translations.code')
             ->orderBy('canonical_books.canonical_order')
@@ -57,12 +57,12 @@ class VerseSearchService
             ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
     }
 
-    private function postgresTextResults(string $query, string $translationCode, int $limit): Collection
+    private function postgresTextResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
     {
         $headlineSql = "ts_headline('simple', verse_texts.text_plain, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
         $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text_plain, '')), plainto_tsquery('simple', ?))";
 
-        return $this->baseQuery($translationCode)
+        return $this->baseQuery($translationCode, $filters)
             ->select($this->resultColumns())
             ->selectRaw("{$headlineSql} as snippet", [$query])
             ->selectRaw("{$rankSql} as rank", [$query])
@@ -80,9 +80,9 @@ class VerseSearchService
     /**
      * @param array{book_slug: string, chapter: int, verse: int} $reference
      */
-    private function referenceResults(array $reference, string $translationCode, int $limit): Collection
+    private function referenceResults(array $reference, string $translationCode, int $limit, array $filters = []): Collection
     {
-        return $this->baseQuery($translationCode)
+        return $this->baseQuery($translationCode, $filters)
             ->where('canonical_books.slug', $reference['book_slug'])
             ->where('verses.chapter_number', $reference['chapter'])
             ->where('verses.verse_number', $reference['verse'])
@@ -92,7 +92,7 @@ class VerseSearchService
             ->map(fn ($row) => $this->mapResult($row, mb_substr((string) $row->text_plain, 0, 160), ''));
     }
 
-    private function baseQuery(string $translationCode): \Illuminate\Database\Query\Builder
+    private function baseQuery(string $translationCode, array $filters = []): \Illuminate\Database\Query\Builder
     {
         return DB::table('verse_texts')
             ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
@@ -100,6 +100,10 @@ class VerseSearchService
             ->join('verses', 'verses.id', '=', 'verse_texts.verse_id')
             ->join('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('modules.type', 'bible')
+            ->when((bool) ($filters['canonical_only'] ?? false), fn ($builder) => $builder->where('canonical_books.is_deuterocanonical', false))
+            ->when(($filters['scope'] ?? 'all') === 'old', fn ($builder) => $builder->where('canonical_books.testament', 'old'))
+            ->when(($filters['scope'] ?? 'all') === 'new', fn ($builder) => $builder->where('canonical_books.testament', 'new'))
+            ->when(($filters['scope'] ?? 'all') === 'psalms', fn ($builder) => $builder->where('canonical_books.slug', 'psalms'))
             ->when($translationCode !== '', fn ($builder) => $builder->where('translations.code', $translationCode));
     }
 
