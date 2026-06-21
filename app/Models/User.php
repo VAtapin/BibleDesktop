@@ -16,11 +16,13 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -57,5 +59,18 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Allow only configured administrators to enter the Filament panel.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        $emails = collect(explode(',', (string) env('ADMIN_EMAILS', 'admin@bible-desktop.com')))
+            ->map(fn (string $email): string => mb_strtolower(trim($email)))
+            ->filter()
+            ->all();
+
+        return in_array(mb_strtolower($this->email), $emails, true);
     }
 }
