@@ -22,6 +22,14 @@ Route::get('/', function () {
     return view('app', ['footerPages' => FooterPages::links()]);
 });
 
+Route::get('/embed', function () {
+    return view('app', [
+        'embed' => true,
+        'embedSource' => request()->query('source'),
+        'footerPages' => FooterPages::links(),
+    ]);
+})->name('embed');
+
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');
 
 Route::middleware('guest')->group(function (): void {

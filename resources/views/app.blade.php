@@ -12,6 +12,10 @@
             'login_url' => route('login'),
             'register_url' => route('register'),
         ],
+        'embed' => [
+            'enabled' => (bool) ($embed ?? false),
+            'source' => $embedSource ?? null,
+        ],
         'footer_pages' => $footerPages ?? [],
     ];
 @endphp
@@ -30,7 +34,7 @@
         </script>
         @vite(['resources/js/app.ts'])
     </head>
-    <body>
+    <body @class(['embed-page' => $embed ?? false])>
         <div id="app"></div>
     </body>
 </html>

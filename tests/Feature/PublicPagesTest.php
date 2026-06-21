@@ -50,4 +50,11 @@ class PublicPagesTest extends TestCase
         $this->get('/storage/module-covers/test.png')
             ->assertOk();
     }
+
+    public function test_embed_route_renders_reader_in_embed_mode(): void
+    {
+        $this->get('/embed?source=telegram')
+            ->assertOk()
+            ->assertSee('"embed":{"enabled":true,"source":"telegram"}', false);
+    }
 }

@@ -64,6 +64,19 @@ svg {
     background: #eef2f5;
 }
 
+.app-shell.embed-shell {
+    grid-template-rows: 56px 40px 42px minmax(0, 1fr);
+    min-height: 100dvh;
+}
+
+.app-shell.embed-shell > .footerbar {
+    display: none;
+}
+
+.embed-page {
+    background: #eef2f5;
+}
+
 .topbar,
 .workspace-title,
 .tabs,

@@ -39,7 +39,8 @@ class TelegramWebhookTest extends TestCase
             ->assertOk()
             ->assertJsonPath('ok', true)
             ->assertJsonPath('actions.0.method', 'sendMessage')
-            ->assertJsonPath('actions.0.payload.chat_id', 123);
+            ->assertJsonPath('actions.0.payload.chat_id', 123)
+            ->assertJsonPath('actions.0.payload.reply_markup.keyboard.0.0.web_app.url', 'http://localhost/embed?source=telegram');
     }
 
     public function test_telegram_webhook_rejects_invalid_secret(): void

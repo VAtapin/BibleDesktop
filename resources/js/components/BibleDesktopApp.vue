@@ -245,6 +245,10 @@ declare global {
                 login_url: string;
                 register_url: string;
             };
+            embed: {
+                enabled: boolean;
+                source: string | null;
+            };
             footer_pages: FooterPageLink[];
         };
     }
@@ -261,10 +265,15 @@ const appConfig = window.BibleDesktop ?? {
         login_url: '/login',
         register_url: '/register',
     },
+    embed: {
+        enabled: false,
+        source: null,
+    },
     footer_pages: [],
 };
 const currentUser = ref<AppUser | null>(appConfig.user);
 const footerPages = ref<FooterPageLink[]>(appConfig.footer_pages ?? []);
+const isEmbed = computed(() => appConfig.embed?.enabled === true);
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
 const books = ref<ReaderBookDto[]>([]);
@@ -1868,7 +1877,7 @@ watch(activeStudyTab, (tab) => {
 </script>
 
 <template>
-    <div class="app-shell">
+    <div class="app-shell" :class="{ 'embed-shell': isEmbed }">
         <header class="topbar">
             <a class="brand" href="/" aria-label="Bible Desktop - на главную">
                 <img class="brand-mark" :src="'/brand/bible-desktop-mark.png'" alt="" />
