@@ -547,6 +547,10 @@ button {
     text-decoration: underline;
 }
 
+.words-of-jesus {
+    color: #9b1c1c;
+}
+
 .verse-number {
     border: 0;
     background: transparent;
@@ -1059,10 +1063,18 @@ button {
     }
 
     .left-panel {
-        max-height: 48dvh;
+        position: fixed;
+        z-index: 82;
+        right: 8px;
+        bottom: calc(64px + env(safe-area-inset-bottom));
+        left: 8px;
+        display: grid;
+        grid-template-rows: 44px minmax(0, 1fr);
+        max-height: min(68dvh, 560px);
         min-height: 0;
         border-radius: 8px;
         overflow: hidden;
+        box-shadow: 0 18px 48px rgb(36 52 72 / 28%);
     }
 
     .left-panel header {

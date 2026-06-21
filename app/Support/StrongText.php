@@ -25,9 +25,12 @@ class StrongText
     public static function cleanModuleText(string $value): string
     {
         $text = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/<\s*font\b[^>]*color\s*=\s*["\']?darkred["\']?[^>]*>/iu', '[[BD_RED_OPEN]]', $text) ?? $text;
+        $text = preg_replace('/<\s*\/\s*font\s*>/iu', '[[BD_RED_CLOSE]]', $text) ?? $text;
         $text = preg_replace('/<\s*(?:br|pb)\b[^>]*\/?\s*>/iu', ' ', $text) ?? $text;
         $text = preg_replace('/<\s*s\b[^>]*>\s*([GH]?\d{1,5})\s*<\s*\/\s*s\s*>/iu', ' $1 ', $text) ?? $text;
         $text = strip_tags($text);
+        $text = str_replace(['[[BD_RED_OPEN]]', '[[BD_RED_CLOSE]]'], ['<font color="darkred">', '</font>'], $text);
         $text = preg_replace('/^\s*\d{1,3}\s+(?=\p{L})/u', '', $text) ?? $text;
         $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
         $text = preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
@@ -63,6 +66,7 @@ class StrongText
     public static function textWithoutNumbers(string $text): string
     {
         $text = preg_replace('/\s*'.self::numberPatternBody().'/u', '', $text) ?? $text;
+        $text = strip_tags($text);
         $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
 
         return preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);

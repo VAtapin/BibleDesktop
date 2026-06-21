@@ -78,7 +78,7 @@ INI);
         $zip->addFromString('Bible_Russian_RST/01_genesis.htm', <<<'HTML'
 <h4>1</h4>
 <p><sup>1</sup> В G1722 начале G746 сотворил Бог небо и землю.
-<p><sup>2</sup> Земля же была безвидна и пуста.
+<p><sup>2</sup> <font COLOR="darkred">Земля же была безвидна</font> и пуста.
 HTML);
         $zip->close();
 
@@ -107,6 +107,10 @@ HTML);
         $this->assertDatabaseHas('verse_texts', [
             'text' => 'В G1722 начале G746 сотворил Бог небо и землю.',
             'has_strong_markup' => true,
+        ]);
+        $this->assertDatabaseHas('verse_texts', [
+            'text' => '<font color="darkred">Земля же была безвидна</font> и пуста.',
+            'has_strong_markup' => false,
         ]);
     }
 

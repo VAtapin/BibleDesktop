@@ -51,6 +51,7 @@ type VerseTextPart = {
     text: string;
     strongNumber: string | null;
     strongToken: StrongTokenDto | null;
+    isRed: boolean;
 };
 
 type ChapterDto = {
@@ -317,20 +318,22 @@ function bookDisplayName(book: ReaderBookDto | null | undefined): string {
 
 function verseTextParts(verse: Verse): VerseTextPart[] {
     const text = verse.text ?? '';
-    const pattern = verse.has_strong_markup ? /\b(?:[GH]\d{1,5}|\d{3,5})\b/giu : null;
+    const pattern = /(<\s*font\b[^>]*color\s*=\s*["']?darkred["']?[^>]*>|<\s*\/\s*font\s*>|\b(?:[GH]\d{1,5}|\d{3,5})\b)/giu;
     const parts: VerseTextPart[] = [];
 
-    if (!pattern) {
+    if (!verse.has_strong_markup && !hasRedLetterMarkup(text)) {
         return [{
             key: `${verse.id ?? verse.number}-text`,
-            text,
+            text: cleanDisplayChunk(text),
             strongNumber: null,
             strongToken: null,
+            isRed: false,
         }];
     }
 
     let cursor = 0;
     let index = 0;
+    let isRed = false;
 
     for (const match of text.matchAll(pattern)) {
         const matchIndex = match.index ?? 0;
@@ -338,31 +341,64 @@ function verseTextParts(verse: Verse): VerseTextPart[] {
         if (matchIndex > cursor) {
             parts.push({
                 key: `${verse.id ?? verse.number}-text-${index++}`,
-                text: text.slice(cursor, matchIndex),
+                text: cleanDisplayChunk(text.slice(cursor, matchIndex)),
                 strongNumber: null,
                 strongToken: null,
+                isRed,
             });
+        }
+
+        const token = match[0];
+
+        if (isRedLetterOpenTag(token)) {
+            isRed = true;
+            cursor = matchIndex + token.length;
+            continue;
+        }
+
+        if (isRedLetterCloseTag(token)) {
+            isRed = false;
+            cursor = matchIndex + token.length;
+            continue;
         }
 
         parts.push({
             key: `${verse.id ?? verse.number}-strong-${index++}`,
             text: '',
-            strongNumber: match[0],
-            strongToken: verse.strong_tokens?.find((token) => token.strong_number === match[0]) ?? null,
+            strongNumber: token,
+            strongToken: verse.strong_tokens?.find((candidate) => candidate.strong_number === token) ?? null,
+            isRed,
         });
-        cursor = matchIndex + match[0].length;
+        cursor = matchIndex + token.length;
     }
 
     if (cursor < text.length) {
         parts.push({
             key: `${verse.id ?? verse.number}-text-${index}`,
-            text: text.slice(cursor),
+            text: cleanDisplayChunk(text.slice(cursor)),
             strongNumber: null,
             strongToken: null,
+            isRed,
         });
     }
 
     return parts;
+}
+
+function hasRedLetterMarkup(text: string): boolean {
+    return /<\s*font\b[^>]*color\s*=\s*["']?darkred["']?[^>]*>/iu.test(text);
+}
+
+function isRedLetterOpenTag(text: string): boolean {
+    return /^<\s*font\b[^>]*color\s*=\s*["']?darkred["']?[^>]*>$/iu.test(text);
+}
+
+function isRedLetterCloseTag(text: string): boolean {
+    return /^<\s*\/\s*font\s*>$/iu.test(text);
+}
+
+function cleanDisplayChunk(text: string): string {
+    return text.replace(/<[^>]+>/gu, '');
 }
 
 function displayVerseText(verse: Verse | undefined | null): string {
@@ -370,9 +406,9 @@ function displayVerseText(verse: Verse | undefined | null): string {
         return '';
     }
 
-    return verse.has_strong_markup
-        ? verse.text.replace(/\s*\b(?:[GH]\d{1,5}|\d{3,5})\b/giu, '').replace(/\s+([,.;:!?])/gu, '$1').replace(/\s{2,}/gu, ' ').trim()
-        : verse.text;
+    return cleanDisplayChunk(
+        verse.text.replace(/\s*\b(?:[GH]\d{1,5}|\d{3,5})\b/giu, ''),
+    ).replace(/\s+([,.;:!?])/gu, '$1').replace(/\s{2,}/gu, ' ').trim();
 }
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
@@ -545,6 +581,9 @@ function persistReaderState(): void {
 
 function toggleLeftPanel(panel: 'search' | 'bookmarks'): void {
     activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel;
+    if (activeLeftPanel.value !== null) {
+        isStudyPanelOpen.value = false;
+    }
 }
 
 function handleToolClick(toolId: string): void {
@@ -561,6 +600,7 @@ function handleToolClick(toolId: string): void {
     if (toolId === 'references') {
         activeStudyTab.value = 'references';
         isStudyPanelOpen.value = true;
+        activeLeftPanel.value = null;
         document.querySelector('.analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
     }
@@ -889,6 +929,7 @@ async function loadStudyData(verse: Verse): Promise<void> {
 async function selectStrongNumber(strongNumber: string, verse: Verse | null = selectedVerse.value): Promise<void> {
     activeStudyTab.value = 'strong';
     isStudyPanelOpen.value = true;
+    activeLeftPanel.value = null;
     studyError.value = null;
 
     try {
@@ -1173,6 +1214,8 @@ async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
     selectedBookSlug.value = bookSlug;
     selectedChapterNumber.value = reference.target.chapter_number;
     highlightedVerseNumbers.value = [reference.target.verse_number];
+    isStudyPanelOpen.value = false;
+    activeLeftPanel.value = null;
 
     await loadBooksForSelectedTranslation();
     await loadChapter(reference.target.verse_number);
@@ -1524,11 +1567,12 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                                 v-for="part in verseTextParts(verse)"
                                 :key="part.key"
                             >
-                                <span>{{ part.text }}</span>
+                                <span :class="{ 'words-of-jesus': part.isRed }">{{ part.text }}</span>
                                 <button
                                     v-if="showStrongNumbers && part.strongNumber"
                                     type="button"
                                     class="strong-inline-number"
+                                    :class="{ 'words-of-jesus': part.isRed }"
                                     @click.stop="selectInlineStrongNumber(verse, part.strongNumber, part.strongToken)"
                                 >
                                     {{ part.strongNumber }}
