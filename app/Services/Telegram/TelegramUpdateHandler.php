@@ -103,9 +103,7 @@ class TelegramUpdateHandler
         }
 
         $action = match ($command) {
-            '/start' => $this->messageAction($chatId, $this->startText(), [
-                'reply_markup' => $this->startKeyboard(),
-            ]),
+            '/start' => $this->messageAction($chatId, $this->startText()),
             '/help' => $this->messageAction($chatId, $this->helpText()),
             '/search' => $this->searchAction($chatId, $telegramId, $text, $settings),
             '/ask', '/contact', '/message' => $this->contactAction($chatId, $telegramId, $text, $settings, $message),
@@ -206,24 +204,6 @@ class TelegramUpdateHandler
     private function startText(): string
     {
         return "Bible Desktop\n\nКоманды: /random, /search, /today, /settings, /ask, /help";
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function startKeyboard(): array
-    {
-        return [
-            'keyboard' => [
-                [
-                    [
-                        'text' => 'Открыть Bible Desktop',
-                        'web_app' => ['url' => $this->telegramWebAppUrl()],
-                    ],
-                ],
-            ],
-            'resize_keyboard' => true,
-        ];
     }
 
     private function helpText(): string
@@ -751,11 +731,6 @@ class TelegramUpdateHandler
             'ps', 'psalms', 'псалом', 'псалмы', 'псалтирь' => 'psalms',
             default => null,
         };
-    }
-
-    private function telegramWebAppUrl(): string
-    {
-        return (string) (config('telegram.web_app_url') ?: url('/embed?source=telegram'));
     }
 
     /**

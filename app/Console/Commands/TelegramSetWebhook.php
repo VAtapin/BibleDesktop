@@ -64,19 +64,6 @@ class TelegramSetWebhook extends Command
             $this->warn((string) ($menuResponse['description'] ?? 'Telegram menu was not updated.'));
         }
 
-        $webAppUrl = (string) (config('telegram.web_app_url') ?: url('/embed?source=telegram'));
-        $menuButtonResponse = $client->send('setChatMenuButton', [
-            'menu_button' => [
-                'type' => 'web_app',
-                'text' => 'Bible Desktop',
-                'web_app' => ['url' => $webAppUrl],
-            ],
-        ]);
-
-        if (($menuButtonResponse['ok'] ?? false) !== true) {
-            $this->warn((string) ($menuButtonResponse['description'] ?? 'Telegram WebApp menu button was not updated.'));
-        }
-
         $this->components->info((string) ($response['description'] ?? 'Telegram webhook registered.'));
 
         return self::SUCCESS;
