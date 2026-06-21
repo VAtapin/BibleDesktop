@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
@@ -170,7 +182,7 @@ class ImportLegacySupplementalTexts extends Command
     }
 
     /**
-     * @param array<string, true> $types
+     * @param  array<string, true>  $types
      * @return array<string, object>
      */
     private function chapterOverrides(array $types): array
@@ -196,7 +208,7 @@ class ImportLegacySupplementalTexts extends Command
     }
 
     /**
-     * @param array<string, object> $chapterOverrides
+     * @param  array<string, object>  $chapterOverrides
      */
     private function chapterOverride(array $chapterOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber): ?object
     {
@@ -206,7 +218,7 @@ class ImportLegacySupplementalTexts extends Command
     }
 
     /**
-     * @param list<array<string, mixed>> $rows
+     * @param  list<array<string, mixed>>  $rows
      */
     private function upsertRows(array $rows): int
     {

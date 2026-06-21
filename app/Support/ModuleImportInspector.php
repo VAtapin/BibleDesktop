@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Support;
 
 use PDO;
@@ -77,10 +89,6 @@ class ModuleImportInspector
                 $errors[] = 'В bibleqt.ini не найдены книги.';
             }
 
-            if ($missing !== []) {
-                $errors[] = 'Не найдены файлы книг: '.implode(', ', array_slice($missing, 0, 8));
-            }
-
             return $this->result($path, 'zip', $errors === [], $errors, [
                 'format' => 'BibleQuote ZIP',
                 'name' => $meta['BibleName'] ?? $meta['ModuleName'] ?? pathinfo($path, PATHINFO_FILENAME),
@@ -90,6 +98,7 @@ class ModuleImportInspector
                 'verses' => null,
                 'has_strong' => ($meta['StrongNumbers'] ?? 'N') === 'Y',
                 'encoding' => $meta['DefaultEncoding'] ?? 'UTF-8',
+                'warnings' => $missing === [] ? [] : ['Не найдены файлы книг: '.implode(', ', array_slice($missing, 0, 8))],
             ]);
         } finally {
             $zip->close();

@@ -1,10 +1,23 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Services\Telegram;
 
 use App\Services\Bible\VerseSearchService;
 use App\Services\Calendar\OrthodoxCalendarService;
 use App\Support\BibleReferenceFormatter;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -32,7 +45,7 @@ class TelegramUpdateHandler
     ) {}
 
     /**
-     * @param array<string, mixed> $update
+     * @param  array<string, mixed>  $update
      * @return array<int, array{method: string, payload: array<string, mixed>}>
      */
     public function handle(array $update): array
@@ -53,7 +66,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $message
+     * @param  array<string, mixed>  $message
      * @return array<int, array{method: string, payload: array<string, mixed>}>
      */
     private function handleMessage(array $message): array
@@ -99,7 +112,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $callback
+     * @param  array<string, mixed>  $callback
      * @return array<int, array{method: string, payload: array<string, mixed>}>
      */
     private function handleCallback(array $callback): array
@@ -189,7 +202,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      */
     private function randomVerseText(array $settings, ?string $scopeOverride = null): string
     {
@@ -232,7 +245,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      * @return array{method: string, payload: array<string, mixed>}
      */
     private function searchAction(int|string $chatId, string $telegramId, string $text, array $settings): array
@@ -256,7 +269,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      */
     private function searchText(string $query, array $settings, int $offset = 0): string
     {
@@ -365,7 +378,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array{readings: \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>} $day
+     * @param  array{readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>}  $day
      */
     private function readingsSummary(array $day): string
     {
@@ -407,7 +420,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      */
     private function settingsText(array $settings): string
     {
@@ -421,7 +434,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      * @return array<string, mixed>
      */
     private function settingsKeyboard(array $settings): array
@@ -503,7 +516,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      */
     private function selectedTranslationCode(array $settings): string
     {
@@ -536,7 +549,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $from
+     * @param  array<string, mixed>  $from
      * @return array<string, mixed>
      */
     private function settingsFor(string $telegramId, mixed $from = []): array
@@ -571,7 +584,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $settings
+     * @param  array<string, mixed>  $settings
      */
     private function saveSettings(string $telegramId, array $settings): void
     {
@@ -599,7 +612,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $message
+     * @param  array<string, mixed>  $message
      */
     private function chatId(array $message): int|string|null
     {
@@ -609,7 +622,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function telegramUserId(array $payload, int|string|null $fallback): string
     {
@@ -645,7 +658,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $extra
+     * @param  array<string, mixed>  $extra
      * @return array{method: string, payload: array<string, mixed>}
      */
     private function messageAction(int|string $chatId, string $text, array $extra = []): array
@@ -660,7 +673,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param array<string, mixed> $from
+     * @param  array<string, mixed>  $from
      */
     private function telegramName(array $from, string $telegramId): string
     {

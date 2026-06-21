@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
@@ -106,29 +118,13 @@ class ChapterApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $entryId = DB::table('strong_entries')->where('number', 'H7225')->value('id');
-
         DB::table('verse_texts')->insert([
             'verse_id' => $verseId,
             'translation_id' => $translationId,
             'module_book_id' => $moduleBookId,
             'module_chapter_id' => $moduleChapterId,
-            'text' => 'В начале сотворил Бог небо и землю.',
-            'text_plain' => 'В начале сотворил Бог небо и землю.',
-            'text_raw' => '1 В начале H7225 сотворил H1254 Бог H0430 небо H8064 и землю H0776.',
+            'text' => 'В начале H7225 сотворил H1254 Бог H0430 небо H8064 и землю H0776.',
             'has_strong_markup' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-        $verseTextId = DB::table('verse_texts')->where('verse_id', $verseId)->value('id');
-
-        DB::table('verse_strong_tokens')->insert([
-            'verse_text_id' => $verseTextId,
-            'verse_id' => $verseId,
-            'strong_entry_id' => $entryId,
-            'strong_number' => 'H7225',
-            'token_order' => 1,
-            'surface_text' => 'начале',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -140,9 +136,9 @@ class ChapterApiTest extends TestCase
             ->assertJsonPath('data.chapter.number', 1)
             ->assertJsonPath('data.verses.0.number', 1)
             ->assertJsonPath('data.verses.0.osis_ref', 'Gen.1.1')
-            ->assertJsonPath('data.verses.0.text', 'В начале сотворил Бог небо и землю.')
+            ->assertJsonPath('data.verses.0.text', 'В начале H7225 сотворил H1254 Бог H0430 небо H8064 и землю H0776.')
             ->assertJsonPath('data.verses.0.has_strong_markup', true)
             ->assertJsonPath('data.verses.0.strong_tokens.0.strong_number', 'H7225')
-            ->assertJsonPath('data.verses.0.strong_tokens.0.surface_text', 'начале');
+            ->assertJsonPath('data.verses.0.strong_tokens.0.surface_text', null);
     }
 }

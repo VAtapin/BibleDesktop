@@ -1,10 +1,23 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Feature;
 
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class TelegramWebhookTest extends TestCase
@@ -80,7 +93,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', 'Бытие 1:1 В начале сотворил Бог небо и землю.');
     }
 
     public function test_telegram_search_command_accepts_verse_reference(): void
@@ -94,7 +107,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', 'Бытие 1:1 В начале сотворил Бог небо и землю.');
     }
 
     public function test_telegram_search_command_waits_for_next_message_when_query_is_missing(): void
@@ -119,7 +132,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1 В начале сотворил Бог небо и землю.");
+            ->assertJsonPath('actions.0.payload.text', 'Бытие 1:1 В начале сотворил Бог небо и землю.');
     }
 
     public function test_telegram_settings_command_returns_inline_choices(): void
@@ -172,7 +185,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Календарь на ".now()->toDateString()."\n- Святое Богоявление");
+            ->assertJsonPath('actions.0.payload.text', 'Календарь на '.now()->toDateString()."\n- Святое Богоявление");
     }
 
     public function test_telegram_fasting_command_returns_fasting_events(): void
@@ -194,7 +207,7 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Пост на ".now()->toDateString()."\n- Великий пост");
+            ->assertJsonPath('actions.0.payload.text', 'Пост на '.now()->toDateString()."\n- Великий пост");
     }
 
     public function test_telegram_gospel_command_reports_missing_reading(): void
@@ -230,12 +243,12 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', "Евангелие на ".now()->toDateString()."\n- Евангелие дня: John.1.1-17");
+            ->assertJsonPath('actions.0.payload.text', 'Евангелие на '.now()->toDateString()."\n- Евангелие дня: John.1.1-17");
     }
 
     private function createSearchFixture(): void
     {
-        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
 
         $now = now();
         $languageId = DB::table('languages')->where('code', 'ru')->value('id');
@@ -313,7 +326,6 @@ class TelegramWebhookTest extends TestCase
             'module_book_id' => $moduleBookId,
             'module_chapter_id' => $moduleChapterId,
             'text' => 'В начале сотворил Бог небо и землю.',
-            'text_plain' => 'В начале сотворил Бог небо и землю.',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -321,7 +333,7 @@ class TelegramWebhookTest extends TestCase
 
     private function createDeuterocanonicalOnlyFixture(): void
     {
-        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
 
         $now = now();
         $languageId = DB::table('languages')->where('code', 'ru')->value('id');
@@ -399,7 +411,6 @@ class TelegramWebhookTest extends TestCase
             'module_book_id' => $moduleBookId,
             'module_chapter_id' => $moduleChapterId,
             'text' => 'Но Знающий все знает ее.',
-            'text_plain' => 'Но Знающий все знает ее.',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

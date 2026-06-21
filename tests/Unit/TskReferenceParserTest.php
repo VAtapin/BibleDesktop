@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Unit;
 
 use App\Support\TskReferenceParser;
@@ -9,7 +21,7 @@ class TskReferenceParserTest extends TestCase
 {
     public function test_it_parses_tsk_references_and_ranges(): void
     {
-        $result = (new TskReferenceParser())->parseList('1Ch 16:26; Joh 1:1-3; 1 Pet 1:2');
+        $result = (new TskReferenceParser)->parseList('1Ch 16:26; Joh 1:1-3; 1 Pet 1:2');
 
         $this->assertSame(0, $result['skipped']);
         $this->assertSame([
@@ -39,7 +51,7 @@ class TskReferenceParserTest extends TestCase
 
     public function test_it_skips_unknown_or_ambiguous_references(): void
     {
-        $result = (new TskReferenceParser())->parseList('Joh 1:3; 141 141:3; Nope 1:1');
+        $result = (new TskReferenceParser)->parseList('Joh 1:3; 141 141:3; Nope 1:1');
 
         $this->assertSame(2, $result['skipped']);
         $this->assertCount(1, $result['references']);

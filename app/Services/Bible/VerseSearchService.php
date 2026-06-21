@@ -1,15 +1,29 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Services\Bible;
 
 use App\Support\BibleReferenceFormatter;
+use App\Support\StrongText;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class VerseSearchService
 {
     /**
-     * @return array{mode: string, results: \Illuminate\Support\Collection<int, array<string, mixed>>}
+     * @return array{mode: string, results: Collection<int, array<string, mixed>>}
      */
     public function search(string $query, string $translationCode = '', int $limit = 20, array $filters = []): array
     {
@@ -57,11 +71,11 @@ class VerseSearchService
 
         if (($filters['match'] ?? 'all_words') === 'phrase') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query).'%';
-            $builder->where('verse_texts.text_plain', 'like', $like);
+            $builder->where('verse_texts.text', 'like', $like);
         } else {
             foreach ($tokens as $token) {
                 $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $token).'%';
-                $builder->where('verse_texts.text_plain', 'like', $like);
+                $builder->where('verse_texts.text', 'like', $like);
             }
         }
 
@@ -73,7 +87,7 @@ class VerseSearchService
             ->offset((int) ($filters['offset'] ?? 0))
             ->limit($limit)
             ->get($this->resultColumns())
-            ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
+            ->map(fn ($row) => $this->mapResult($row, $this->snippet($this->readableText($row), $query), $query));
     }
 
     private function postgresTextResults(string $query, string $translationCode, int $limit, array $filters = []): Collection
@@ -84,7 +98,7 @@ class VerseSearchService
                 ->select($this->resultColumns());
 
             foreach ($tokens as $token) {
-                $builder->where('verse_texts.text_plain', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $token).'%');
+                $builder->where('verse_texts.text', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $token).'%');
             }
 
             return $builder
@@ -95,17 +109,17 @@ class VerseSearchService
                 ->offset((int) ($filters['offset'] ?? 0))
                 ->limit($limit)
                 ->get()
-                ->map(fn ($row) => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query));
+                ->map(fn ($row) => $this->mapResult($row, $this->snippet($this->readableText($row), $query), $query));
         }
 
-        $headlineSql = "ts_headline('simple', verse_texts.text_plain, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
-        $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text_plain, '')), plainto_tsquery('simple', ?))";
+        $headlineSql = "ts_headline('simple', verse_texts.text, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
+        $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text, '')), plainto_tsquery('simple', ?))";
 
         return $this->baseQuery($translationCode, $filters)
             ->select($this->resultColumns())
             ->selectRaw("{$headlineSql} as snippet", [$query])
             ->selectRaw("{$rankSql} as rank", [$query])
-            ->whereRaw("to_tsvector('simple', coalesce(verse_texts.text_plain, '')) @@ plainto_tsquery('simple', ?)", [$query])
+            ->whereRaw("to_tsvector('simple', coalesce(verse_texts.text, '')) @@ plainto_tsquery('simple', ?)", [$query])
             ->orderByDesc('rank')
             ->orderBy('translations.code')
             ->orderBy('canonical_books.canonical_order')
@@ -132,7 +146,7 @@ class VerseSearchService
             ->orderBy('verses.verse_number')
             ->get($this->resultColumns())
             ->map(function ($row) use ($query, $queryTokens): ?array {
-                $score = $this->fuzzyScore((string) $row->text_plain, $queryTokens);
+                $score = $this->fuzzyScore($this->readableText($row), $queryTokens);
 
                 if ($score === null) {
                     return null;
@@ -140,7 +154,7 @@ class VerseSearchService
 
                 return [
                     'score' => $score,
-                    'row' => $this->mapResult($row, $this->snippet((string) $row->text_plain, $query), $query),
+                    'row' => $this->mapResult($row, $this->snippet($this->readableText($row), $query), $query),
                 ];
             })
             ->filter()
@@ -151,7 +165,7 @@ class VerseSearchService
     }
 
     /**
-     * @param array{book_slug: string, chapter: int, verse: int} $reference
+     * @param  array{book_slug: string, chapter: int, verse: int}  $reference
      */
     private function referenceResults(array $reference, string $translationCode, int $limit, array $filters = []): Collection
     {
@@ -163,10 +177,10 @@ class VerseSearchService
             ->offset((int) ($filters['offset'] ?? 0))
             ->limit($limit)
             ->get($this->resultColumns())
-            ->map(fn ($row) => $this->mapResult($row, mb_substr((string) $row->text_plain, 0, 160), ''));
+            ->map(fn ($row) => $this->mapResult($row, mb_substr($this->readableText($row), 0, 160), ''));
     }
 
-    private function baseQuery(string $translationCode, array $filters = []): \Illuminate\Database\Query\Builder
+    private function baseQuery(string $translationCode, array $filters = []): Builder
     {
         return DB::table('verse_texts')
             ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
@@ -191,7 +205,6 @@ class VerseSearchService
         return [
             'verse_texts.id as verse_text_id',
             'verse_texts.text',
-            'verse_texts.text_plain',
             'translations.code as translation_code',
             'translations.short_name as translation_short_name',
             'verses.id as verse_id',
@@ -210,6 +223,7 @@ class VerseSearchService
      */
     private function mapResult(object $row, string $snippet, string $query, bool $snippetHasMarkers = false): array
     {
+        $snippet = StrongText::textWithoutNumbers($snippet);
         $snippetData = $snippetHasMarkers
             ? $this->segmentsFromMarkedSnippet($snippet)
             : $this->highlightSnippet($snippet, $query);
@@ -240,6 +254,11 @@ class VerseSearchService
             'snippet' => $snippetData['text'],
             'snippet_segments' => $snippetData['segments'],
         ];
+    }
+
+    private function readableText(object $row): string
+    {
+        return StrongText::textWithoutNumbers((string) $row->text);
     }
 
     /**
@@ -404,11 +423,13 @@ class VerseSearchService
         foreach (is_array($parts) ? $parts : [$snippet] as $part) {
             if ($part === '<<bd>>') {
                 $isMatch = true;
+
                 continue;
             }
 
             if ($part === '<</bd>>') {
                 $isMatch = false;
+
                 continue;
             }
 
@@ -436,7 +457,7 @@ class VerseSearchService
     }
 
     /**
-     * @param list<string> $queryTokens
+     * @param  list<string>  $queryTokens
      */
     private function fuzzyScore(string $text, array $queryTokens): ?int
     {
@@ -489,7 +510,7 @@ class VerseSearchService
     }
 
     /**
-     * @param list<string> $tokens
+     * @param  list<string>  $tokens
      */
     private function isTokenMatch(string $part, array $tokens): bool
     {

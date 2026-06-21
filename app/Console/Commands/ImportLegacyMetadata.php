@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
@@ -57,7 +69,7 @@ class ImportLegacyMetadata extends Command
     }
 
     /**
-     * @param array<string, int> $languageIds
+     * @param  array<string, int>  $languageIds
      * @return array{imported: int, skipped: int, by_id: array<int, array{module_id: int, translation_id: int}>}
      */
     private function importLibraries(LegacySqlDump $reader, array $languageIds, int $canonId): array
@@ -71,11 +83,13 @@ class ImportLegacyMetadata extends Command
         foreach ($reader->rows('library') as $row) {
             if (($row['bible'] ?? '') !== 'Y') {
                 $skipped++;
+
                 continue;
             }
 
             if (($row['oldTestament'] ?? '') !== 'Y' && ($row['newTestament'] ?? '') !== 'Y' && ($row['apocrypha'] ?? '') !== 'Y') {
                 $skipped++;
+
                 continue;
             }
 
@@ -83,6 +97,7 @@ class ImportLegacyMetadata extends Command
 
             if (! $languageCode || ! isset($languageIds[$languageCode])) {
                 $skipped++;
+
                 continue;
             }
 
@@ -134,6 +149,7 @@ class ImportLegacyMetadata extends Command
                 );
 
                 $imported++;
+
                 continue;
             }
 
@@ -188,7 +204,7 @@ class ImportLegacyMetadata extends Command
     }
 
     /**
-     * @param list<int> $importedLegacyIds
+     * @param  list<int>  $importedLegacyIds
      */
     private function deleteStaleLegacyLibraries(array $importedLegacyIds): void
     {
@@ -214,8 +230,8 @@ class ImportLegacyMetadata extends Command
     }
 
     /**
-     * @param array{by_id: array<int, array{module_id: int, translation_id: int}>} $libraries
-     * @param array<string, int> $canonicalBooks
+     * @param  array{by_id: array<int, array{module_id: int, translation_id: int}>}  $libraries
+     * @param  array<string, int>  $canonicalBooks
      * @return array{imported: int, skipped: int, by_id: array<int, array{module_book_id: int, canonical_book_id: int|null, slug: string}>}
      */
     private function importBooks(LegacySqlDump $reader, array $libraries, array $canonicalBooks): array
@@ -230,6 +246,7 @@ class ImportLegacyMetadata extends Command
 
             if (! isset($libraries['by_id'][$legacyBibleId])) {
                 $skipped++;
+
                 continue;
             }
 
@@ -290,8 +307,8 @@ class ImportLegacyMetadata extends Command
     }
 
     /**
-     * @param array{by_id: array<int, array{module_id: int, translation_id: int}>} $libraries
-     * @param array{by_id: array<int, array{module_book_id: int, canonical_book_id: int|null, slug: string}>} $books
+     * @param  array{by_id: array<int, array{module_id: int, translation_id: int}>}  $libraries
+     * @param  array{by_id: array<int, array{module_book_id: int, canonical_book_id: int|null, slug: string}>}  $books
      * @return array{imported: int, skipped: int}
      */
     private function importChapters(LegacySqlDump $reader, array $libraries, array $books): array
@@ -320,6 +337,7 @@ class ImportLegacyMetadata extends Command
 
             if (! isset($libraries['by_id'][$legacyBibleId], $books['by_id'][$legacyBookId])) {
                 $skipped++;
+
                 continue;
             }
 
@@ -457,8 +475,8 @@ class ImportLegacyMetadata extends Command
     }
 
     /**
-     * @param array<string, object> $chapterOverrides
-     * @param array<string, int> $canonicalChapterSlugLookup
+     * @param  array<string, object>  $chapterOverrides
+     * @param  array<string, int>  $canonicalChapterSlugLookup
      */
     private function canonicalChapterIdFromOverride(
         array $chapterOverrides,

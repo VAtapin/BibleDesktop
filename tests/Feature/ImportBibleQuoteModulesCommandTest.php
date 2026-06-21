@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
@@ -93,19 +105,8 @@ HTML);
             'chapters_count' => 1,
         ]);
         $this->assertDatabaseHas('verse_texts', [
-            'text_plain' => 'В начале сотворил Бог небо и землю.',
+            'text' => 'В G1722 начале G746 сотворил Бог небо и землю.',
             'has_strong_markup' => true,
-        ]);
-        $this->assertDatabaseHas('verse_texts', [
-            'text' => 'В <S>G1722</S> начале <S>G746</S> сотворил Бог небо и землю.',
-        ]);
-        $this->assertDatabaseHas('verse_strong_tokens', [
-            'strong_number' => 'G1722',
-            'surface_text' => 'В',
-        ]);
-        $this->assertDatabaseHas('verse_strong_tokens', [
-            'strong_number' => 'G746',
-            'surface_text' => 'начале',
         ]);
     }
 
@@ -145,13 +146,8 @@ HTML);
             'has_strong' => true,
         ]);
         $this->assertDatabaseHas('verse_texts', [
-            'text' => 'In the beginning<S>7225</S> God<S>430</S> created<S>1254</S>.',
-            'text_plain' => 'In the beginning God created.',
+            'text' => 'In the beginning 7225 God 430 created 1254.',
             'has_strong_markup' => true,
-        ]);
-        $this->assertDatabaseHas('verse_strong_tokens', [
-            'strong_number' => '7225',
-            'surface_text' => 'beginning',
         ]);
     }
 }

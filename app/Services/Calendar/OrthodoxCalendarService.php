@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Services\Calendar;
 
 use Carbon\CarbonImmutable;
@@ -12,9 +24,9 @@ class OrthodoxCalendarService
      * @return array{
      *     date: string,
      *     pascha_date: string,
-     *     events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
-     *     fasting_events: \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
-     *     readings: \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
+     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
+     *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
      * }
      */
     public function day(string $date): array
@@ -53,7 +65,7 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
+     * @return Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
      */
     private function eventsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
@@ -73,7 +85,7 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
+     * @return Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
      */
     private function readingsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {

@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
@@ -91,7 +103,6 @@ class SearchApiTest extends TestCase
             'module_book_id' => $moduleBookId,
             'module_chapter_id' => $moduleChapterId,
             'text' => 'В начале сотворил Бог небо и землю.',
-            'text_plain' => 'В начале сотворил Бог небо и землю.',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -113,7 +124,6 @@ class SearchApiTest extends TestCase
             'module_book_id' => $moduleBookId,
             'module_chapter_id' => $moduleChapterId,
             'text' => 'Мария слушала слово.',
-            'text_plain' => 'Мария слушала слово.',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -30,21 +41,6 @@ return new class extends Migration
             $table->text('raw_content')->nullable();
             $table->json('metadata_json')->nullable();
             $table->timestamps();
-        });
-
-        Schema::create('verse_strong_tokens', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('verse_text_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('verse_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('strong_entry_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('strong_number', 16)->index();
-            $table->unsignedSmallInteger('token_order')->default(0);
-            $table->string('surface_text', 120)->nullable();
-            $table->string('grammar_code', 40)->nullable();
-            $table->timestamps();
-
-            $table->index(['verse_text_id', 'token_order']);
-            $table->index('strong_entry_id');
         });
 
         Schema::create('cross_references', function (Blueprint $table) {
@@ -85,7 +81,6 @@ return new class extends Migration
         Schema::dropIfExists('reference_group_items');
         Schema::dropIfExists('reference_groups');
         Schema::dropIfExists('cross_references');
-        Schema::dropIfExists('verse_strong_tokens');
         Schema::dropIfExists('strong_entries');
         Schema::dropIfExists('strong_lexicons');
     }

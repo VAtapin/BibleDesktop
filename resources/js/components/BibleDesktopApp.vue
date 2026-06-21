@@ -226,46 +226,13 @@ const highlightedVerseNumbers = ref<number[]>([]);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
 const activeStudyTab = ref<'strong' | 'references' | 'notes'>('strong');
+const isStudyPanelOpen = ref(false);
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
 let verseActionMessageTimer: number | undefined;
 
-const demoVerses: Verse[] = [
-    {
-        number: 1,
-        text: 'Откровение Иисуса Христа, которое дал Ему Бог, чтобы показать рабам Своим, чему надлежит быть вскоре.',
-    },
-    {
-        number: 2,
-        text: 'Который свидетельствовал слово Божие и свидетельство Иисуса Христа и что он видел.',
-    },
-    {
-        number: 3,
-        text: 'Блажен читающий и слушающие слова пророчества сего и соблюдающие написанное в нем; ибо время близко.',
-    },
-    {
-        number: 4,
-        text: 'Иоанн семи церквам, находящимся в Асии: благодать вам и мир от Того, Который есть и был и грядет.',
-    },
-    {
-        number: 5,
-        text: 'И от Иисуса Христа, Который есть свидетель верный, первенец из мертвых и владыка царей земных.',
-    },
-    {
-        number: 6,
-        text: 'И соделавшему нас царями и священниками Богу и Отцу Своему, слава и держава во веки веков, аминь.',
-    },
-    {
-        number: 7,
-        text: 'Се, грядет с облаками, и узрит Его всякое око, и те, которые пронзили Его.',
-    },
-    {
-        number: 8,
-        text: 'Я есмь Альфа и Омега, начало и конец, говорит Господь, Который есть и был и грядет.',
-    },
-];
-const currentVerses = ref<Verse[]>(demoVerses);
+const currentVerses = ref<Verse[]>([]);
 const compareVerses = ref<Verse[]>([]);
 const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
@@ -348,70 +315,64 @@ function bookDisplayName(book: ReaderBookDto | null | undefined): string {
     return book?.name || book?.short_name || book?.slug || 'Библия';
 }
 
-function normalizeStrongSurface(value: string | null | undefined): string {
-    return (value ?? '')
-        .toLocaleLowerCase('ru-RU')
-        .replace(/ё/g, 'е')
-        .replace(/[^\p{L}\p{N}]+/gu, '');
-}
-
-function stripReaderMarkup(value: string): string {
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = value
-        .replace(/<br\s*\/?>/giu, ' ')
-        .replace(/<pb\s*\/?>/giu, '')
-        .replace(/<\/?\s*(?:J|FI|FO|FR)\b[^>]*>/giu, '');
-
-    return textarea.value.replace(/<[^>]+>/gu, '');
-}
-
 function verseTextParts(verse: Verse): VerseTextPart[] {
-    const strongTokens = verse.strong_tokens ?? [];
-    const chunks = verse.text.split(/(<S>\s*[GH]?\d{1,5}\s*<\/S>)/giu);
-    let strongIndex = 0;
-    let textIndex = 0;
+    const text = verse.text ?? '';
+    const pattern = verse.has_strong_markup ? /\b(?:[GH]\d{1,5}|\d{3,5})\b/giu : null;
     const parts: VerseTextPart[] = [];
 
-    for (const chunk of chunks) {
-        if (chunk === '') {
-            continue;
-        }
+    if (!pattern) {
+        return [{
+            key: `${verse.id ?? verse.number}-text`,
+            text,
+            strongNumber: null,
+            strongToken: null,
+        }];
+    }
 
-        const strongMatch = chunk.match(/^<S>\s*([GH]?\d{1,5})\s*<\/S>$/iu);
+    let cursor = 0;
+    let index = 0;
 
-        if (strongMatch) {
-            const strongNumber = strongMatch[1];
-            let token = strongTokens[strongIndex] ?? null;
+    for (const match of text.matchAll(pattern)) {
+        const matchIndex = match.index ?? 0;
 
-            if (token && token.strong_number !== strongNumber) {
-                token = strongTokens.find((candidate, index) => index >= strongIndex && candidate.strong_number === strongNumber) ?? token;
-            }
-
-            if (token) {
-                strongIndex = Math.max(strongIndex + 1, strongTokens.indexOf(token) + 1);
-            }
-
+        if (matchIndex > cursor) {
             parts.push({
-                key: `${verse.id ?? verse.number}-strong-${parts.length}`,
-                text: '',
-                strongNumber,
-                strongToken: token,
-            });
-
-            continue;
-        }
-
-        for (const text of stripReaderMarkup(chunk).match(/[\p{L}\p{N}]+|[^\p{L}\p{N}]+/gu) ?? [stripReaderMarkup(chunk)]) {
-            parts.push({
-                key: `${verse.id ?? verse.number}-text-${textIndex++}`,
-                text,
+                key: `${verse.id ?? verse.number}-text-${index++}`,
+                text: text.slice(cursor, matchIndex),
                 strongNumber: null,
                 strongToken: null,
             });
         }
+
+        parts.push({
+            key: `${verse.id ?? verse.number}-strong-${index++}`,
+            text: '',
+            strongNumber: match[0],
+            strongToken: verse.strong_tokens?.find((token) => token.strong_number === match[0]) ?? null,
+        });
+        cursor = matchIndex + match[0].length;
+    }
+
+    if (cursor < text.length) {
+        parts.push({
+            key: `${verse.id ?? verse.number}-text-${index}`,
+            text: text.slice(cursor),
+            strongNumber: null,
+            strongToken: null,
+        });
     }
 
     return parts;
+}
+
+function displayVerseText(verse: Verse | undefined | null): string {
+    if (!verse) {
+        return '';
+    }
+
+    return verse.has_strong_markup
+        ? verse.text.replace(/\s*\b(?:[GH]\d{1,5}|\d{3,5})\b/giu, '').replace(/\s+([,.;:!?])/gu, '$1').replace(/\s{2,}/gu, ' ').trim()
+        : verse.text;
 }
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
@@ -599,6 +560,7 @@ function handleToolClick(toolId: string): void {
 
     if (toolId === 'references') {
         activeStudyTab.value = 'references';
+        isStudyPanelOpen.value = true;
         document.querySelector('.analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
     }
@@ -669,7 +631,7 @@ async function loadChapter(targetVerseNumber: number | null = null): Promise<voi
         await loadCompareChapter();
         apiError.value = null;
     } catch (error) {
-        currentVerses.value = demoVerses;
+        currentVerses.value = [];
         compareVerses.value = [];
         selectedVerse.value = null;
         strongTokens.value = [];
@@ -901,13 +863,15 @@ async function loadStudyData(verse: Verse): Promise<void> {
 
     try {
         const [strongResponse, referencesResponse] = await Promise.all([
-            loadJson<ApiResponse<{ tokens: StrongTokenDto[] }>>(`/api/verses/${verse.id}/strong-tokens`),
+            loadJson<ApiResponse<{ tokens: StrongTokenDto[] }>>(
+                `/api/verses/${verse.id}/strong-tokens?translation=${selectedTranslationCode.value}`,
+            ),
             loadJson<ApiResponse<{ references: CrossReferenceDto[] }>>(
                 `/api/verses/${verse.id}/cross-references?translation=${selectedTranslationCode.value}`,
             ),
         ]);
 
-        strongTokens.value = strongResponse.data.tokens;
+        strongTokens.value = verse.strong_tokens?.length ? verse.strong_tokens : strongResponse.data.tokens;
         selectedStrongEntry.value = null;
         crossReferences.value = referencesResponse.data.references;
         await loadVerseNotes(verse.id);
@@ -924,6 +888,7 @@ async function loadStudyData(verse: Verse): Promise<void> {
 
 async function selectStrongNumber(strongNumber: string, verse: Verse | null = selectedVerse.value): Promise<void> {
     activeStudyTab.value = 'strong';
+    isStudyPanelOpen.value = true;
     studyError.value = null;
 
     try {
@@ -1575,7 +1540,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             class="compare-verse"
                         >
                             <strong>{{ shortTranslationLabel(compareTranslation) }}</strong>
-                            {{ compareVerseByNumber.get(verse.number)?.text }}
+                            {{ displayVerseText(compareVerseByNumber.get(verse.number)) }}
                         </small>
                     </p>
                     <p v-if="isCompareLoading" class="reader-status">
@@ -1616,10 +1581,10 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </div>
             </section>
 
-            <aside class="analysis-panel">
+            <aside class="analysis-panel" :class="{ 'is-open': isStudyPanelOpen }">
                 <header>
                     <h2>Справочник</h2>
-                    <button type="button" aria-label="Обновить">R</button>
+                    <button type="button" class="analysis-close" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">X</button>
                 </header>
 
                 <div class="analysis-tabs">

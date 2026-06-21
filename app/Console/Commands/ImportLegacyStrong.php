@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
@@ -64,6 +76,7 @@ class ImportLegacyStrong extends Command
 
             if (! $lexiconId) {
                 $skippedEntries++;
+
                 continue;
             }
 
@@ -103,7 +116,7 @@ class ImportLegacyStrong extends Command
     }
 
     /**
-     * @param list<array<string, mixed>> $rows
+     * @param  list<array<string, mixed>>  $rows
      */
     private function upsertEntries(array $rows): void
     {

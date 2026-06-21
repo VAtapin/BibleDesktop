@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -14,8 +26,6 @@ class VerseText extends Model
         'module_chapter_id',
         'legacy_verse_id',
         'text',
-        'text_plain',
-        'text_raw',
         'has_strong_markup',
         'metadata_json',
     ];

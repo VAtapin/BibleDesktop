@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Support;
 
 use Generator;
@@ -71,7 +83,7 @@ class LegacySqlDump
         }
 
         return array_map(
-            fn (string $column) => trim($column, " `"),
+            fn (string $column) => trim($column, ' `'),
             explode(',', $matches[1]),
         );
     }
@@ -119,6 +131,7 @@ class LegacySqlDump
                 if ($char === '\\') {
                     $i++;
                     $token .= $this->unescapeChar($body[$i] ?? '');
+
                     continue;
                 }
 
@@ -126,14 +139,17 @@ class LegacySqlDump
                     if (($body[$i + 1] ?? '') === "'") {
                         $token .= "'";
                         $i++;
+
                         continue;
                     }
 
                     $inString = false;
+
                     continue;
                 }
 
                 $token .= $char;
+
                 continue;
             }
 
@@ -150,6 +166,7 @@ class LegacySqlDump
 
             if ($char === ',') {
                 $push();
+
                 continue;
             }
 

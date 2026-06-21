@@ -1,8 +1,21 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\StrongText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -56,42 +69,8 @@ class ChapterController extends Controller
                 'osis_ref' => $verse->osis_ref,
                 'text' => $verse->text,
                 'has_strong_markup' => (bool) $verse->has_strong_markup,
-                'strong_tokens' => [],
+                'strong_tokens' => StrongText::tokenDtos((string) $verse->text),
             ]);
-
-        $tokensByVerse = DB::table('verse_strong_tokens')
-            ->leftJoin('strong_entries', 'strong_entries.id', '=', 'verse_strong_tokens.strong_entry_id')
-            ->whereIn('verse_strong_tokens.verse_id', $verses->pluck('id')->all())
-            ->orderBy('verse_strong_tokens.token_order')
-            ->get([
-                'verse_strong_tokens.id',
-                'verse_strong_tokens.verse_id',
-                'verse_strong_tokens.strong_number',
-                'verse_strong_tokens.token_order',
-                'verse_strong_tokens.surface_text',
-                'verse_strong_tokens.grammar_code',
-                'strong_entries.word',
-                'strong_entries.transliteration',
-            ])
-            ->groupBy('verse_id')
-            ->map(fn ($tokens) => $tokens->map(fn ($token) => [
-                'id' => (int) $token->id,
-                'strong_number' => $token->strong_number,
-                'token_order' => (int) $token->token_order,
-                'surface_text' => $token->surface_text,
-                'grammar_code' => $token->grammar_code,
-                'entry' => [
-                    'word' => $token->word,
-                    'transliteration' => $token->transliteration,
-                ],
-            ])->values());
-
-        $verses = $verses
-            ->map(function (array $verse) use ($tokensByVerse): array {
-                $verse['strong_tokens'] = $tokensByVerse[$verse['id']] ?? collect();
-
-                return $verse;
-            });
 
         return response()->json([
             'data' => [

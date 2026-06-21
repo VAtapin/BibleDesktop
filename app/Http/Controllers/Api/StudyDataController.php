@@ -1,9 +1,22 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\BibleReferenceFormatter;
+use App\Support\StrongText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,7 +104,7 @@ class StudyDataController extends Controller
         };
     }
 
-    public function verseStrongTokens(int $verse): JsonResponse
+    public function verseStrongTokens(Request $request, int $verse): JsonResponse
     {
         $sourceVerse = DB::table('verses')->where('id', $verse)->first(['id', 'osis_ref']);
 
@@ -99,30 +112,16 @@ class StudyDataController extends Controller
             abort(404, 'Verse not found.');
         }
 
-        $tokens = DB::table('verse_strong_tokens')
-            ->leftJoin('strong_entries', 'strong_entries.id', '=', 'verse_strong_tokens.strong_entry_id')
-            ->where('verse_strong_tokens.verse_id', $verse)
-            ->orderBy('verse_strong_tokens.token_order')
-            ->get([
-                'verse_strong_tokens.id',
-                'verse_strong_tokens.strong_number',
-                'verse_strong_tokens.token_order',
-                'verse_strong_tokens.surface_text',
-                'verse_strong_tokens.grammar_code',
-                'strong_entries.word',
-                'strong_entries.transliteration',
-            ])
-            ->map(fn ($token) => [
-                'id' => $token->id,
-                'strong_number' => $token->strong_number,
-                'token_order' => $token->token_order,
-                'surface_text' => $token->surface_text,
-                'grammar_code' => $token->grammar_code,
-                'entry' => [
-                    'word' => $token->word,
-                    'transliteration' => $token->transliteration,
-                ],
-            ]);
+        $translationCode = trim((string) $request->query('translation'));
+        $text = DB::table('verse_texts')
+            ->join('translations', 'translations.id', '=', 'verse_texts.translation_id')
+            ->where('verse_texts.verse_id', $verse)
+            ->when($translationCode !== '', fn ($builder) => $builder->where('translations.code', $translationCode))
+            ->where('verse_texts.has_strong_markup', true)
+            ->orderBy('translations.is_default', 'desc')
+            ->value('verse_texts.text');
+
+        $tokens = StrongText::tokenDtos((string) $text);
 
         return response()->json([
             'data' => [

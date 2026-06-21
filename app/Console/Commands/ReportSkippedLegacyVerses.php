@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
@@ -201,7 +213,7 @@ class ReportSkippedLegacyVerses extends Command
     }
 
     /**
-     * @param array<string, object> $chapterOverrides
+     * @param  array<string, object>  $chapterOverrides
      */
     private function chapterOverride(array $chapterOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber): ?object
     {
@@ -238,7 +250,7 @@ class ReportSkippedLegacyVerses extends Command
     }
 
     /**
-     * @param array<string, true> $verseOverrides
+     * @param  array<string, true>  $verseOverrides
      */
     private function verseOverride(array $verseOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber, int $legacyVerseNumber): bool
     {

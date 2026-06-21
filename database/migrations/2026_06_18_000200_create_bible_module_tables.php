@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -86,8 +97,6 @@ return new class extends Migration
             $table->foreignId('module_chapter_id')->constrained()->cascadeOnDelete();
             $table->unsignedBigInteger('legacy_verse_id')->nullable()->index();
             $table->text('text');
-            $table->text('text_plain');
-            $table->text('text_raw')->nullable();
             $table->boolean('has_strong_markup')->default(false);
             $table->json('metadata_json')->nullable();
             $table->timestamps();

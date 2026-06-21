@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
@@ -36,19 +48,6 @@ class StudyDataApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $entryId = DB::table('strong_entries')->where('number', 'H7225')->value('id');
-
-        DB::table('verse_strong_tokens')->insert([
-            'verse_text_id' => $ids['source_verse_text_id'],
-            'verse_id' => $ids['source_verse_id'],
-            'strong_entry_id' => $entryId,
-            'strong_number' => 'H7225',
-            'token_order' => 1,
-            'surface_text' => 'начале',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
         DB::table('cross_references')->insert([
             'source_verse_id' => $ids['source_verse_id'],
             'target_verse_id' => $ids['target_verse_id'],
@@ -73,7 +72,7 @@ class StudyDataApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.verse.osis_ref', 'Gen.1.1')
             ->assertJsonPath('data.tokens.0.strong_number', 'H7225')
-            ->assertJsonPath('data.tokens.0.entry.transliteration', 'rêshı̂yth');
+            ->assertJsonPath('data.tokens.0.entry.transliteration', null);
 
         $this->getJson("/api/verses/{$ids['source_verse_id']}/cross-references?translation=L1_RST")
             ->assertOk()
@@ -208,9 +207,7 @@ class StudyDataApiTest extends TestCase
                 'translation_id' => $translationId,
                 'module_book_id' => $genesisModuleBookId,
                 'module_chapter_id' => $genesisModuleChapterId,
-                'text' => 'В начале сотворил Бог небо и землю.',
-                'text_plain' => 'В начале сотворил Бог небо и землю.',
-                'text_raw' => '1 В начале H7225 сотворил Бог небо и землю.',
+                'text' => 'В начале H7225 сотворил Бог небо и землю.',
                 'has_strong_markup' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -221,8 +218,6 @@ class StudyDataApiTest extends TestCase
                 'module_book_id' => $johnModuleBookId,
                 'module_chapter_id' => $johnModuleChapterId,
                 'text' => 'В начале было Слово.',
-                'text_plain' => 'В начале было Слово.',
-                'text_raw' => '1 В начале было Слово.',
                 'has_strong_markup' => false,
                 'created_at' => $now,
                 'updated_at' => $now,

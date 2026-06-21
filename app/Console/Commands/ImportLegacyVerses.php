@@ -1,9 +1,23 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
+use App\Support\StrongText;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ImportLegacyVerses extends Command
@@ -100,6 +114,7 @@ class ImportLegacyVerses extends Command
 
             if (! $sourceRow) {
                 $skipped++;
+
                 continue;
             }
 
@@ -192,6 +207,7 @@ class ImportLegacyVerses extends Command
 
             if (! $sourceRow) {
                 $skipped++;
+
                 continue;
             }
 
@@ -230,7 +246,7 @@ class ImportLegacyVerses extends Command
     }
 
     /**
-     * @param list<array<string, mixed>> $sourceRows
+     * @param  list<array<string, mixed>>  $sourceRows
      * @return array{imported: int, skipped: int, already_imported: int}
      */
     private function importVerseChunkSkippingExisting(array $sourceRows, int $translationId, int $chunkSize, bool $missingOnly): array
@@ -269,7 +285,7 @@ class ImportLegacyVerses extends Command
     }
 
     /**
-     * @param list<array<string, mixed>> $sourceRows
+     * @param  list<array<string, mixed>>  $sourceRows
      * @return array{imported: int, skipped: int}
      */
     private function importVerseChunk(array $sourceRows, int $translationId, int $chunkSize): array
@@ -309,10 +325,11 @@ class ImportLegacyVerses extends Command
 
             if (! $verseId) {
                 $skipped++;
+
                 continue;
             }
 
-            $normalized = $this->normalizeVerseText((string) $row['raw_text']);
+            $text = StrongText::cleanModuleText((string) $row['raw_text']);
 
             $verseTextRows[] = [
                 'verse_id' => $verseId,
@@ -320,10 +337,8 @@ class ImportLegacyVerses extends Command
                 'module_book_id' => $row['module_book_id'],
                 'module_chapter_id' => $row['module_chapter_id'],
                 'legacy_verse_id' => $row['legacy_id'],
-                'text' => $normalized['text'],
-                'text_plain' => $normalized['plain'],
-                'text_raw' => $row['raw_text'],
-                'has_strong_markup' => $normalized['has_strong'],
+                'text' => $text,
+                'has_strong_markup' => StrongText::hasStrongNumbers($text),
                 'metadata_json' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -342,7 +357,7 @@ class ImportLegacyVerses extends Command
         DB::table('verse_texts')->upsert(
             $verseTextRows,
             ['translation_id', 'verse_id'],
-            ['module_book_id', 'module_chapter_id', 'legacy_verse_id', 'text', 'text_plain', 'text_raw', 'has_strong_markup', 'metadata_json', 'updated_at'],
+            ['module_book_id', 'module_chapter_id', 'legacy_verse_id', 'text', 'has_strong_markup', 'metadata_json', 'updated_at'],
         );
 
         $verseTextIds = DB::table('verse_texts')
@@ -358,6 +373,7 @@ class ImportLegacyVerses extends Command
 
             if (! $verseTextId) {
                 $skipped++;
+
                 continue;
             }
 
@@ -389,11 +405,11 @@ class ImportLegacyVerses extends Command
     }
 
     /**
-     * @param array<string, mixed> $row
-     * @param \Illuminate\Support\Collection<int, object> $bookMap
-     * @param \Illuminate\Support\Collection<int, object> $chapterMap
-     * @param array<int, string|null> $osisCodes
-     * @param array<string, array{canonical_book_id: int, canonical_chapter_id: int, chapter_number: int, verse_number: int, osis_code: string|null}> $verseOverrides
+     * @param  array<string, mixed>  $row
+     * @param  Collection<int, object>  $bookMap
+     * @param  Collection<int, object>  $chapterMap
+     * @param  array<int, string|null>  $osisCodes
+     * @param  array<string, array{canonical_book_id: int, canonical_chapter_id: int, chapter_number: int, verse_number: int, osis_code: string|null}>  $verseOverrides
      * @return array<string, mixed>|null
      */
     private function legacyVerseSourceRow(array $row, int $libraryId, $bookMap, $chapterMap, array $osisCodes, array $verseOverrides): ?array
@@ -516,7 +532,7 @@ class ImportLegacyVerses extends Command
     }
 
     /**
-     * @param array<string, array{canonical_book_id: int, canonical_chapter_id: int, chapter_number: int, verse_number: int, osis_code: string|null}> $verseOverrides
+     * @param  array<string, array{canonical_book_id: int, canonical_chapter_id: int, chapter_number: int, verse_number: int, osis_code: string|null}>  $verseOverrides
      * @return array{canonical_book_id: int, canonical_chapter_id: int, chapter_number: int, verse_number: int, osis_code: string|null}|null
      */
     private function verseOverride(array $verseOverrides, int $legacyBibleId, string $legacyBookSlug, int $legacyChapterNumber, int $legacyVerseNumber): ?array
@@ -525,25 +541,4 @@ class ImportLegacyVerses extends Command
             ?? $verseOverrides["*:{$legacyBookSlug}:{$legacyChapterNumber}:{$legacyVerseNumber}"]
             ?? null;
     }
-
-    /**
-     * @return array{text: string, plain: string, has_strong: bool}
-     */
-    private function normalizeVerseText(string $rawText): array
-    {
-        $text = preg_replace('/^\s*\d+\s*/u', '', $rawText) ?? $rawText;
-        $hasStrong = preg_match('/\b[HG]\d{3,5}\b/u', $text) === 1;
-        $text = preg_replace('/\s*\b[HG]\d{3,5}\b/u', '', $text) ?? $text;
-        $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
-        $text = preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
-        $plain = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $plain = preg_replace('/\s{2,}/u', ' ', trim($plain)) ?? trim($plain);
-
-        return [
-            'text' => $text,
-            'plain' => $plain,
-            'has_strong' => $hasStrong,
-        ];
-    }
-
 }

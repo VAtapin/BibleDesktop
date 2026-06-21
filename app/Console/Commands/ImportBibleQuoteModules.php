@@ -1,7 +1,20 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
+use App\Support\StrongText;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -256,10 +269,12 @@ class ImportBibleQuoteModules extends Command
             $missingEntries = $this->missingZipBookEntries($zip, dirname($iniPath), $books);
 
             if ($missingEntries !== []) {
-                return [
-                    'skipped' => true,
-                    'reason' => sprintf('missing book files: %s', implode(', ', array_slice($missingEntries, 0, 5))),
-                ];
+                $this->warn(sprintf('Missing book files in %s: %s', basename($path), implode(', ', array_slice($missingEntries, 0, 8))));
+                $books = $this->availableZipBooks($zip, dirname($iniPath), $books);
+            }
+
+            if ($books === []) {
+                return ['skipped' => true, 'reason' => 'all mapped book files are missing'];
             }
 
             $result = DB::transaction(function () use ($path, $ini, $books, $zip, $iniPath): array {
@@ -369,6 +384,18 @@ class ImportBibleQuoteModules extends Command
         }
 
         return $missing;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $books
+     * @return list<array<string, mixed>>
+     */
+    private function availableZipBooks(ZipArchive $zip, string $baseDir, array $books): array
+    {
+        return array_values(array_filter(
+            $books,
+            fn (array $book): bool => $this->findZipEntry($zip, trim($baseDir.'/'.$book['path_name'], '/')) !== null,
+        ));
     }
 
     private function findZipEntry(ZipArchive $zip, string $path): ?string
@@ -1036,17 +1063,15 @@ class ImportBibleQuoteModules extends Command
                 continue;
             }
 
-            $normalized = $this->normalizeVerseText((string) $row['raw_text']);
+            $text = StrongText::cleanModuleText((string) $row['raw_text']);
             $rows[] = [
                 'verse_id' => $verseId,
                 'translation_id' => $translation['id'],
                 'module_book_id' => $row['module_book_id'],
                 'module_chapter_id' => $row['module_chapter_id'],
                 'legacy_verse_id' => null,
-                'text' => $normalized['text'],
-                'text_plain' => $normalized['plain'],
-                'text_raw' => $row['raw_text'],
-                'has_strong_markup' => $normalized['has_strong'],
+                'text' => $text,
+                'has_strong_markup' => StrongText::hasStrongNumbers($text),
                 'metadata_json' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -1056,122 +1081,9 @@ class ImportBibleQuoteModules extends Command
         DB::table('verse_texts')->upsert(
             $rows,
             ['translation_id', 'verse_id'],
-            ['module_book_id', 'module_chapter_id', 'legacy_verse_id', 'text', 'text_plain', 'text_raw', 'has_strong_markup', 'metadata_json', 'updated_at'],
+            ['module_book_id', 'module_chapter_id', 'legacy_verse_id', 'text', 'has_strong_markup', 'metadata_json', 'updated_at'],
         );
 
-        $this->replaceStrongTokens($translation['id'], $rows);
-
         return count($rows);
-    }
-
-    /**
-     * @return array{text: string, plain: string, has_strong: bool}
-     */
-    private function normalizeVerseText(string $rawText): array
-    {
-        $text = $this->normalizeReaderHtml($rawText);
-        $hasStrong = preg_match('/<S\b[^>]*>\s*[GH]?\d{1,5}\s*<\/S>|\b[HG]\d{1,5}\b/iu', $text) === 1;
-        $plainSource = preg_replace('/<S\b[^>]*>\s*[GH]?\d{1,5}\s*<\/S>/iu', '', $text) ?? $text;
-        $plainSource = preg_replace('/\s*\b[HG]\d{1,5}\b/u', '', $plainSource) ?? $plainSource;
-        $plain = html_entity_decode(strip_tags($plainSource), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $plain = preg_replace('/\s{2,}/u', ' ', trim($plain)) ?? trim($plain);
-
-        return [
-            'text' => $text,
-            'plain' => $plain,
-            'has_strong' => $hasStrong,
-        ];
-    }
-
-    private function normalizeReaderHtml(string $rawText): string
-    {
-        $text = html_entity_decode($rawText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = preg_replace('/<\s*br\s*\/?\s*>/iu', ' ', $text) ?? $text;
-        $text = preg_replace('/<\s*pb\s*\/?\s*>/iu', '', $text) ?? $text;
-        $text = preg_replace('/<\/?\s*(?:J|FI|FO|FR)\b[^>]*>/iu', '', $text) ?? $text;
-        $text = preg_replace('/<\s*s\b[^>]*>\s*([GH]?\d{1,5})\s*<\s*\/\s*s\s*>/iu', '<S>$1</S>', $text) ?? $text;
-        $text = preg_replace('/(?<![>\p{L}\p{N}])([GH]\d{1,5})(?![\p{L}\p{N}<])/u', '<S>$1</S>', $text) ?? $text;
-        $text = strip_tags($text, '<S><i><b><em><strong>');
-        $text = preg_replace('/\s+([,.;:!?])/u', '$1', $text) ?? $text;
-        $text = preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
-
-        return $text;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $rows
-     */
-    private function replaceStrongTokens(int $translationId, array $rows): void
-    {
-        $strongRows = array_values(array_filter($rows, fn (array $row): bool => (bool) $row['has_strong_markup']));
-
-        if ($strongRows === []) {
-            return;
-        }
-
-        $verseIds = array_column($strongRows, 'verse_id');
-        $verseTexts = DB::table('verse_texts')
-            ->where('translation_id', $translationId)
-            ->whereIn('verse_id', $verseIds)
-            ->get(['id', 'verse_id', 'text_raw'])
-            ->keyBy('verse_id');
-        $strongEntryIds = DB::table('strong_entries')->pluck('id', 'number')->all();
-        $insertRows = [];
-        $now = now();
-
-        DB::table('verse_strong_tokens')
-            ->whereIn('verse_text_id', $verseTexts->pluck('id')->all())
-            ->delete();
-
-        foreach ($verseTexts as $verseText) {
-            $order = 0;
-
-            foreach ($this->extractStrongTokens((string) $verseText->text_raw) as $token) {
-                $insertRows[] = [
-                    'verse_text_id' => (int) $verseText->id,
-                    'verse_id' => (int) $verseText->verse_id,
-                    'strong_entry_id' => $strongEntryIds[$token['number']] ?? null,
-                    'strong_number' => $token['number'],
-                    'token_order' => ++$order,
-                    'surface_text' => $token['surface'],
-                    'grammar_code' => null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-        }
-
-        foreach (array_chunk($insertRows, 1000) as $chunk) {
-            DB::table('verse_strong_tokens')->insert($chunk);
-        }
-    }
-
-    /**
-     * @return list<array{number: string, surface: string|null}>
-     */
-    private function extractStrongTokens(string $rawText): array
-    {
-        $tokens = [];
-        $surface = null;
-        $text = $this->normalizeReaderHtml($rawText);
-        $parts = preg_split('/(<S>\s*[GH]?\d{1,5}\s*<\/S>)|\s+/iu', trim($text), -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE) ?: [];
-
-        foreach ($parts as $part) {
-            if (preg_match_all('/(?:<S>\s*)?([GH]?\d{1,5})(?:\s*<\/S>)?/iu', $part, $matches) && preg_match('/<S\b|^[HG]\d{1,5}$/iu', trim($part))) {
-                foreach ($matches[0] as $number) {
-                    $tokens[] = ['number' => strip_tags($number), 'surface' => $surface];
-                }
-
-                continue;
-            }
-
-            $cleanSurface = trim(strip_tags($part), " \t\n\r\0\x0B.,;:!?()[]{}\"'");
-
-            if ($cleanSurface !== '' && ! preg_match('/^\d+$/u', $cleanSurface)) {
-                $surface = $cleanSurface;
-            }
-        }
-
-        return $tokens;
     }
 }

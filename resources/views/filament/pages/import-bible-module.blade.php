@@ -69,6 +69,17 @@
                     </ul>
                 </div>
             @endif
+
+            @if (! empty($report['warnings']))
+                <div class="mt-4 rounded-lg border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700 dark:border-warning-900 dark:bg-warning-950 dark:text-warning-300">
+                    <strong>Предупреждения:</strong>
+                    <ul class="mt-2 list-disc pl-5">
+                        @foreach ($report['warnings'] as $warning)
+                            <li>{{ $warning }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </x-filament::section>
     @endif
 

@@ -1,12 +1,23 @@
 <?php
 
-use App\Http\Controllers\Api\ReferenceDataController;
-use App\Http\Controllers\Api\ChapterController;
-use App\Http\Controllers\Api\StudyDataController;
-use App\Http\Controllers\Api\TelegramWebhookController;
-use App\Http\Controllers\Api\SearchController;
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
 use App\Http\Controllers\Api\CalendarController;
+use App\Http\Controllers\Api\ChapterController;
+use App\Http\Controllers\Api\ReferenceDataController;
+use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\StudyDataController;
 use App\Http\Controllers\Api\SupplementalTextController;
+use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\VerseNoteController;
 use Illuminate\Support\Facades\Route;
 

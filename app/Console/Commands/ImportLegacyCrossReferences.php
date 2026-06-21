@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use App\Support\LegacySqlDump;
@@ -105,10 +117,10 @@ class ImportLegacyCrossReferences extends Command
     }
 
     /**
-     * @param list<array<string, mixed>> $rows
-     * @param array<string, int> $bookIds
-     * @param array<string, int> $verseIds
-     * @param array<string, bool> $seen
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, int>  $bookIds
+     * @param  array<string, int>  $verseIds
+     * @param  array<string, bool>  $seen
      * @return array{scanned: int, inserted: int, skipped_sources: int, skipped_references: int, skipped_targets: int}
      */
     private function importQuoteChunk(array $rows, TskReferenceParser $parser, array $bookIds, array $verseIds, array &$seen): array
@@ -130,6 +142,7 @@ class ImportLegacyCrossReferences extends Command
 
             if (! $sourceVerseId) {
                 $skippedSources++;
+
                 continue;
             }
 
@@ -141,6 +154,7 @@ class ImportLegacyCrossReferences extends Command
 
                 if (! $targetBookId) {
                     $skippedTargets++;
+
                     continue;
                 }
 
@@ -149,6 +163,7 @@ class ImportLegacyCrossReferences extends Command
 
                     if (! $targetVerseId) {
                         $skippedTargets++;
+
                         continue;
                     }
 

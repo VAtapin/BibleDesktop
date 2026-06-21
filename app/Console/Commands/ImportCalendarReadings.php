@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -123,7 +135,7 @@ class ImportCalendarReadings extends Command
     }
 
     /**
-     * @param array<int, string|null> $values
+     * @param  array<int, string|null>  $values
      */
     private function isBlankRow(array $values): bool
     {
@@ -137,7 +149,7 @@ class ImportCalendarReadings extends Command
     }
 
     /**
-     * @param array<string, string|null> $row
+     * @param  array<string, string|null>  $row
      * @return array{date_rule_type: string, month: int|null, day: int|null, offset: int|null, reading_type: string, title: string|null, passage_ref: string, sort_order: int}
      */
     private function normalizeRow(array $row, int $line): array
