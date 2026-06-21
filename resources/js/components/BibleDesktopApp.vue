@@ -29,6 +29,17 @@ type TranslationDto = {
         name: string;
     };
     canon_code: string | null;
+    module: {
+        code: string;
+        name: string;
+        short_name: string | null;
+        description: string | null;
+        version: string | null;
+        cover_url: string | null;
+    };
+    has_old_testament: boolean;
+    has_new_testament: boolean;
+    has_apocrypha: boolean;
     has_strong: boolean;
     is_default: boolean;
 };
@@ -487,14 +498,25 @@ function bookDisplayName(book: ReaderBookDto | null | undefined): string {
     return book?.name || book?.short_name || book?.slug || 'Библия';
 }
 
-function bookInfo(book: ReaderBookDto): string {
-    const testament = book.canonical_book?.testament === 'new'
-        ? 'Новый Завет'
-        : book.canonical_book?.testament === 'old'
-            ? 'Ветхий Завет'
-            : 'Дополнительные книги';
+function moduleCardTitle(translation: TranslationDto): string {
+    return translation.module?.name || translation.name || translationLabel(translation);
+}
 
-    return `${testament}. Глав: ${book.chapters_count}.`;
+function moduleCardDescription(translation: TranslationDto): string {
+    const description = translation.module?.description?.trim();
+
+    if (description) {
+        return description;
+    }
+
+    const parts = [
+        translation.language.name,
+        translation.has_strong ? 'Strong' : null,
+        translation.has_apocrypha ? 'с апокрифами' : 'канон',
+        translation.module?.version ? `версия ${translation.module.version}` : null,
+    ].filter(Boolean);
+
+    return parts.join(' · ');
 }
 
 function verseTextParts(verse: Verse): VerseTextPart[] {
@@ -1230,11 +1252,20 @@ function clearHistory(): void {
     persistHistory();
 }
 
-async function openLibraryBook(book: ReaderBookDto): Promise<void> {
-    selectedBookSlug.value = book.slug;
+async function openLibraryTranslation(translation: TranslationDto): Promise<void> {
+    if (translation.code === selectedTranslationCode.value) {
+        activeLeftPanel.value = null;
+        return;
+    }
+
+    selectedTranslationCode.value = translation.code;
     selectedChapterNumber.value = 1;
     highlightedVerseNumbers.value = [];
 
+    await loadBooksForSelectedTranslation();
+    selectedBookSlug.value = books.value.find((book) => book.slug === selectedBookSlug.value)?.slug
+        ?? books.value[0]?.slug
+        ?? 'genesis';
     await loadChapter();
     syncActiveTabFromSelection();
     persistReaderState();
@@ -2049,19 +2080,27 @@ watch(activeStudyTab, (tab) => {
                 </form>
 
                 <section v-else-if="activeLeftPanel === 'library'" class="library-panel">
-                    <div class="book-card-list">
+                    <div class="module-card-list">
                         <button
-                            v-for="book in books"
-                            :key="book.slug"
+                            v-for="translation in translations"
+                            :key="translation.code"
                             type="button"
-                            :class="{ active: book.slug === selectedBookSlug }"
-                            @click="openLibraryBook(book)"
+                            :class="{ active: translation.code === selectedTranslationCode }"
+                            @click="openLibraryTranslation(translation)"
                         >
-                            <strong>{{ book.name }}</strong>
-                            <span>{{ book.short_name || book.slug }}</span>
-                            <small>{{ bookInfo(book) }}</small>
+                            <img
+                                v-if="translation.module?.cover_url"
+                                :src="translation.module.cover_url"
+                                alt=""
+                            />
+                            <span v-else class="module-cover-fallback">{{ shortTranslationLabel(translation) }}</span>
+                            <span class="module-card-body">
+                                <strong>{{ moduleCardTitle(translation) }}</strong>
+                                <small>{{ translation.language.name }} · {{ translation.has_strong ? 'Strong' : 'без Strong' }}</small>
+                                <span>{{ moduleCardDescription(translation) }}</span>
+                            </span>
                         </button>
-                        <p v-if="books.length === 0">Книги пока не загружены.</p>
+                        <p v-if="translations.length === 0">Библии пока не загружены.</p>
                     </div>
                 </section>
 

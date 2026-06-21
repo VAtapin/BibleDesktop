@@ -420,7 +420,7 @@ svg {
 .advanced-search-results,
 .bookmark-list,
 .history-list,
-.book-card-list {
+.module-card-list {
     display: grid;
     gap: 8px;
     min-height: 0;
@@ -435,7 +435,7 @@ svg {
 .advanced-search-results button,
 .bookmark-list article,
 .history-list button,
-.book-card-list button {
+.module-card-list button {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
 }
@@ -443,7 +443,7 @@ svg {
 .advanced-search-results button,
 .bookmark-list article > button:first-child,
 .history-list button,
-.book-card-list button {
+.module-card-list button {
     display: grid;
     gap: 4px;
     width: 100%;
@@ -457,7 +457,7 @@ svg {
 .advanced-search-results strong,
 .bookmark-list strong,
 .history-list strong,
-.book-card-list strong {
+.module-card-list strong {
     color: #557496;
     font-size: 12px;
 }
@@ -465,19 +465,57 @@ svg {
 .advanced-search-results span,
 .bookmark-list span,
 .history-list span,
-.book-card-list span,
-.book-card-list small {
+.module-card-list span,
+.module-card-list small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.book-card-list button.active {
+.module-card-list button {
+    grid-template-columns: 58px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+}
+
+.module-card-list button.active {
     border-color: #7fa4c8;
     background: #edf5fb;
 }
 
-.book-card-list small {
+.module-card-list img,
+.module-cover-fallback {
+    width: 58px;
+    height: 78px;
+    object-fit: cover;
+    border: 1px solid #d8e0ea;
+    background: #163a5d;
+}
+
+.module-cover-fallback {
+    display: grid;
+    place-items: center;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.module-card-body {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+
+.module-card-body span {
+    display: -webkit-box;
+    overflow: hidden;
+    line-height: 1.35;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.module-card-list small {
     color: #7a8797;
     font-size: 12px;
 }
@@ -1441,8 +1479,8 @@ svg {
     .advanced-search-results span,
     .bookmark-list span,
     .history-list span,
-    .book-card-list span,
-    .book-card-list small {
+    .module-card-list span,
+    .module-card-list small {
         white-space: normal;
     }
 

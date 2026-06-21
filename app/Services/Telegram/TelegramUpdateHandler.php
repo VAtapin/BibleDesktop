@@ -93,10 +93,19 @@ class TelegramUpdateHandler
             ])];
         }
 
+        if ($command === '' && (bool) ($settings['awaiting_contact'] ?? false)) {
+            $settings['awaiting_contact'] = false;
+            $this->saveSettings($telegramId, $settings);
+            $this->storeTelegramMessage($telegramId, $chatId, $message, $text);
+
+            return [$this->messageAction($chatId, 'Сообщение принято. Администратор сможет ответить вам здесь.')];
+        }
+
         $action = match ($command) {
             '/start' => $this->messageAction($chatId, $this->startText()),
             '/help' => $this->messageAction($chatId, $this->helpText()),
             '/search' => $this->searchAction($chatId, $telegramId, $text, $settings),
+            '/ask', '/contact', '/message' => $this->contactAction($chatId, $telegramId, $text, $settings, $message),
             '/today', '/calendar' => $this->messageAction($chatId, $this->calendarText()),
             '/gospel' => $this->messageAction($chatId, $this->readingText('gospel', 'Евангелие')),
             '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол')),
@@ -193,12 +202,12 @@ class TelegramUpdateHandler
 
     private function startText(): string
     {
-        return "Bible Desktop\n\nКоманды: /random, /search, /today, /settings, /help";
+        return "Bible Desktop\n\nКоманды: /random, /search, /today, /settings, /ask, /help";
     }
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - язык, перевод и фильтры";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
     }
 
     /**
@@ -266,6 +275,27 @@ class TelegramUpdateHandler
         return $this->messageAction($chatId, $this->searchText($query, $settings), [
             'reply_markup' => $this->searchMoreKeyboard(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @param  array<string, mixed>  $message
+     * @return array{method: string, payload: array<string, mixed>}
+     */
+    private function contactAction(int|string $chatId, string $telegramId, string $text, array $settings, array $message): array
+    {
+        $query = trim((string) preg_replace('/^\/(?:ask|contact|message)(?:@\w+)?/iu', '', $text));
+
+        if (mb_strlen($query) < 2) {
+            $settings['awaiting_contact'] = true;
+            $this->saveSettings($telegramId, $settings);
+
+            return $this->messageAction($chatId, 'Напишите ваш вопрос или сообщение следующим текстом.');
+        }
+
+        $this->storeTelegramMessage($telegramId, $chatId, $message, $query);
+
+        return $this->messageAction($chatId, 'Сообщение принято. Администратор сможет ответить вам здесь.');
     }
 
     /**
@@ -606,9 +636,41 @@ class TelegramUpdateHandler
             'search_scope' => 'canonical',
             'random_scope' => 'all',
             'awaiting_search' => false,
+            'awaiting_contact' => false,
             'last_search_query' => '',
             'last_search_offset' => 0,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    private function storeTelegramMessage(string $telegramId, int|string $chatId, array $message, string $body): void
+    {
+        $body = trim($body);
+
+        if ($body === '') {
+            return;
+        }
+
+        $user = DB::table('users')->where('telegram_id', $telegramId)->first(['id', 'telegram_username']);
+        $from = is_array($message['from'] ?? null) ? $message['from'] : [];
+
+        DB::table('telegram_messages')->insert([
+            'user_id' => $user?->id,
+            'telegram_id' => $telegramId,
+            'telegram_username' => $user?->telegram_username ?: ($from['username'] ?? null),
+            'chat_id' => (string) $chatId,
+            'direction' => 'inbound',
+            'status' => 'new',
+            'body' => $body,
+            'metadata_json' => json_encode([
+                'message_id' => $message['message_id'] ?? null,
+                'from' => $from,
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**

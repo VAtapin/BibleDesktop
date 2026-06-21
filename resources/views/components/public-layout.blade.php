@@ -6,7 +6,7 @@
         <title>{{ $title ?? config('app.name', 'Bible Desktop') }}</title>
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/brand/favicon-32.png" type="image/png">
-        @vite(['resources/css/app.css'])
+        @vite(['resources/js/app.ts'])
     </head>
     <body class="public-page">
         <main class="public-shell">

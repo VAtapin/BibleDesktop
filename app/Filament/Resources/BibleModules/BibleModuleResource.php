@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -74,6 +75,17 @@ class BibleModuleResource extends Resource
                     ->maxLength(40),
                 Textarea::make('description')
                     ->columnSpanFull(),
+                FileUpload::make('cover_path')
+                    ->label('Cover')
+                    ->image()
+                    ->disk('public')
+                    ->directory('module-covers')
+                    ->visibility('public')
+                    ->imageResizeMode('cover')
+                    ->imageCropAspectRatio('3:4')
+                    ->imageResizeTargetWidth('480')
+                    ->imageResizeTargetHeight('640')
+                    ->maxSize(4096),
                 TextInput::make('sort_order')
                     ->numeric()
                     ->required()

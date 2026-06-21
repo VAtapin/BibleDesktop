@@ -29,6 +29,7 @@ class BibleModule extends Model
         'name',
         'short_name',
         'description',
+        'cover_path',
         'version',
         'metadata_json',
         'is_active',

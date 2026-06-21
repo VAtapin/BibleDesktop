@@ -19,6 +19,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -36,6 +37,11 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'language_id',
+        'telegram_id',
+        'telegram_username',
+        'avatar_url',
+        'settings_json',
     ];
 
     /**
@@ -58,7 +64,13 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'settings_json' => 'array',
         ];
+    }
+
+    public function language(): BelongsTo
+    {
+        return $this->belongsTo(Language::class);
     }
 
     /**

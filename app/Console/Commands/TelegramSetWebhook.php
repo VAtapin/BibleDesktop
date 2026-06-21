@@ -56,6 +56,7 @@ class TelegramSetWebhook extends Command
                 ['command' => 'gospel', 'description' => 'Евангелие дня'],
                 ['command' => 'apostle', 'description' => 'Апостол дня'],
                 ['command' => 'settings', 'description' => 'Язык, перевод и фильтры'],
+                ['command' => 'ask', 'description' => 'Написать администратору'],
             ],
         ]);
 

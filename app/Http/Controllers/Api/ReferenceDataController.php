@@ -19,6 +19,7 @@ use App\Models\Canon;
 use App\Models\Language;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ReferenceDataController extends Controller
 {
@@ -56,6 +57,11 @@ class ReferenceDataController extends Controller
                 'languages.native_name as language_name',
                 'canons.code as canon_code',
                 'modules.code as module_code',
+                'modules.name as module_name',
+                'modules.short_name as module_short_name',
+                'modules.description as module_description',
+                'modules.version as module_version',
+                'modules.cover_path as module_cover_path',
             ])
             ->map(fn ($translation) => [
                 'code' => $translation->code,
@@ -67,6 +73,14 @@ class ReferenceDataController extends Controller
                 ],
                 'canon_code' => $translation->canon_code,
                 'module_code' => $translation->module_code,
+                'module' => [
+                    'code' => $translation->module_code,
+                    'name' => $translation->module_name,
+                    'short_name' => $translation->module_short_name,
+                    'description' => $translation->module_description,
+                    'version' => $translation->module_version,
+                    'cover_url' => $translation->module_cover_path ? Storage::disk('public')->url($translation->module_cover_path) : null,
+                ],
                 'has_old_testament' => (bool) $translation->has_old_testament,
                 'has_new_testament' => (bool) $translation->has_new_testament,
                 'has_apocrypha' => (bool) $translation->has_apocrypha,
