@@ -132,6 +132,33 @@ type NoteDto = {
     updated_at: string;
 };
 
+type StudyDataCacheItem = {
+    strongTokens: StrongTokenDto[];
+    crossReferences: CrossReferenceDto[];
+};
+
+type AppUser = {
+    id: number;
+    name: string;
+    email: string;
+    dashboard_url: string;
+    logout_url: string;
+};
+
+type FooterPageLink = {
+    title: string;
+    url: string;
+};
+
+type SocialPostDto = {
+    id: number;
+    author: string;
+    body: string;
+    visibility: string;
+    reference: string | null;
+    created_at: string;
+};
+
 type SearchResultDto = {
     verse_text_id: number;
     verse_id: number;
@@ -199,10 +226,34 @@ type LeftPanelId = 'library' | 'bookmarks' | 'history' | 'search';
 type ToolId = LeftPanelId | 'strong' | 'print';
 type IconName = 'book-open' | 'bookmark' | 'clock' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
 
+declare global {
+    interface Window {
+        BibleDesktop?: {
+            user: AppUser | null;
+            auth: {
+                login_url: string;
+                register_url: string;
+            };
+            footer_pages: FooterPageLink[];
+        };
+    }
+}
+
 const readerStateKey = 'bible-desktop-reader-state';
 const bookmarkStateKey = 'bible-desktop-bookmarks';
 const historyStateKey = 'bible-desktop-view-history';
+const localNotesStateKey = 'bible-desktop-local-notes';
 const maxReaderTabs = 8;
+const appConfig = window.BibleDesktop ?? {
+    user: null,
+    auth: {
+        login_url: '/login',
+        register_url: '/register',
+    },
+    footer_pages: [],
+};
+const currentUser = ref<AppUser | null>(appConfig.user);
+const footerPages = ref<FooterPageLink[]>(appConfig.footer_pages ?? []);
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
 const books = ref<ReaderBookDto[]>([]);
@@ -215,6 +266,7 @@ const compareTranslationCode = ref('');
 const selectedBookSlug = ref('genesis');
 const selectedChapterNumber = ref(1);
 const selectedVerse = ref<Verse | null>(null);
+const studyReturnVerseNumber = ref<number | null>(null);
 const strongTokens = ref<StrongTokenDto[]>([]);
 const selectedStrongEntry = ref<StrongEntryDto | null>(null);
 const crossReferences = ref<CrossReferenceDto[]>([]);
@@ -243,8 +295,12 @@ const highlightedVerseNumbers = ref<number[]>([]);
 const selectionAnchorVerseNumber = ref<number | null>(null);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
-const activeStudyTab = ref<'strong' | 'references' | 'notes'>('strong');
+const activeStudyTab = ref<'strong' | 'references' | 'notes' | 'feed'>('strong');
 const isStudyPanelOpen = ref(false);
+const socialPosts = ref<SocialPostDto[]>([]);
+const socialPostBody = ref('');
+const isSocialFeedLoading = ref(false);
+const socialFeedError = ref<string | null>(null);
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
@@ -257,6 +313,7 @@ const compareVerses = ref<Verse[]>([]);
 const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
 const chapterCache = new Map<string, ChapterDto>();
+const studyDataCache = new Map<string, StudyDataCacheItem>();
 
 const tools = [
     { id: 'library', icon: 'book-open', title: 'Библиотека' },
@@ -563,6 +620,18 @@ function scrollStudyPanelIntoView(): void {
     });
 }
 
+function scrollSelectedVerseIntoView(): void {
+    const verseNumber = studyReturnVerseNumber.value ?? selectedVerse.value?.number ?? null;
+
+    if (verseNumber === null) {
+        return;
+    }
+
+    document
+        .querySelector(`[data-verse-number="${verseNumber}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function strongTooltipPosition(event: MouseEvent | FocusEvent): { x: number; y: number } {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const rect = target?.getBoundingClientRect();
@@ -771,6 +840,31 @@ function persistHistory(): void {
     window.localStorage.setItem(historyStateKey, JSON.stringify(viewHistory.value));
 }
 
+function readLocalNotes(): Record<string, NoteDto[]> {
+    if (typeof window === 'undefined') {
+        return {};
+    }
+
+    try {
+        const value = window.localStorage.getItem(localNotesStateKey);
+        const parsed = value ? JSON.parse(value) : {};
+
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed as Record<string, NoteDto[]>
+            : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeLocalNotes(notes: Record<string, NoteDto[]>): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(localNotesStateKey, JSON.stringify(notes));
+}
+
 function readUrlState(): Partial<ReaderState> & { verses?: number[] } {
     if (typeof window === 'undefined') {
         return {};
@@ -834,6 +928,7 @@ function printPage(): void {
 
 async function loadJson<T>(url: string): Promise<T> {
     const response = await fetch(url, {
+        credentials: 'same-origin',
         headers: {
             Accept: 'application/json',
         },
@@ -859,12 +954,22 @@ function applyChapterData(chapter: ChapterDto, targetVerseNumber: number | null)
         : currentVerses.value.find((verse) => verse.number === preferredVerseNumber) ?? currentVerses.value[0] ?? null;
 }
 
+function resetVerseSelection(): void {
+    highlightedVerseNumbers.value = [];
+    selectionAnchorVerseNumber.value = null;
+    selectedVerse.value = null;
+    studyReturnVerseNumber.value = null;
+}
+
 async function postJson<T>(url: string, payload: Record<string, unknown>): Promise<T> {
+    const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
     const response = await fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
         },
         body: JSON.stringify(payload),
     });
@@ -981,6 +1086,7 @@ async function changeTranslation(): Promise<void> {
     }
 
     selectedChapterNumber.value = 1;
+    resetVerseSelection();
     await loadBooksForSelectedTranslation();
     await loadChapter();
     syncActiveTabFromSelection();
@@ -989,12 +1095,18 @@ async function changeTranslation(): Promise<void> {
 
 function changeBook(): void {
     selectedChapterNumber.value = 1;
+    resetVerseSelection();
     void loadChapter();
 }
 
 function changeCompareTranslation(): void {
     void loadCompareChapter();
     persistReaderState();
+}
+
+function changeChapter(): void {
+    resetVerseSelection();
+    void loadChapter();
 }
 
 function goChapter(delta: number): void {
@@ -1006,6 +1118,7 @@ function goChapter(delta: number): void {
     }
 
     selectedChapterNumber.value = nextChapter;
+    resetVerseSelection();
     void loadChapter();
 }
 
@@ -1052,6 +1165,15 @@ function addBookmark(): void {
     ].slice(0, 100);
     persistBookmarks();
     activeLeftPanel.value = 'bookmarks';
+    if (currentUser.value) {
+        void postJson('/reader/bookmarks', {
+            verse_id: verse.id,
+            title: bookmark.reference,
+            description: bookmark.text,
+        }).catch(() => {
+            showVerseActionMessage('Закладка сохранена локально, но не синхронизирована');
+        });
+    }
     showVerseActionMessage('Закладка добавлена');
 }
 
@@ -1181,6 +1303,16 @@ async function loadStudyData(verse: Verse): Promise<void> {
         return;
     }
 
+    const cacheKey = `${selectedTranslationCode.value}:${verse.id}`;
+    const cachedStudyData = studyDataCache.get(cacheKey);
+
+    if (cachedStudyData) {
+        strongTokens.value = cachedStudyData.strongTokens;
+        crossReferences.value = cachedStudyData.crossReferences;
+        await loadVerseNotes(verse.id);
+        return;
+    }
+
     isStudyLoading.value = true;
     studyError.value = null;
 
@@ -1197,6 +1329,10 @@ async function loadStudyData(verse: Verse): Promise<void> {
         strongTokens.value = verse.strong_tokens?.length ? verse.strong_tokens : strongResponse.data.tokens;
         selectedStrongEntry.value = null;
         crossReferences.value = referencesResponse.data.references;
+        studyDataCache.set(cacheKey, {
+            strongTokens: strongTokens.value,
+            crossReferences: crossReferences.value,
+        });
         await loadVerseNotes(verse.id);
     } catch (error) {
         strongTokens.value = [];
@@ -1210,6 +1346,7 @@ async function loadStudyData(verse: Verse): Promise<void> {
 }
 
 async function selectStrongNumber(strongNumber: string, verse: Verse | null = selectedVerse.value): Promise<void> {
+    studyReturnVerseNumber.value = verse?.number ?? selectedVerse.value?.number ?? null;
     activeStudyTab.value = 'strong';
     isStudyPanelOpen.value = true;
     activeLeftPanel.value = null;
@@ -1241,6 +1378,7 @@ async function selectInlineStrongNumber(verse: Verse, strongNumber: string, toke
 
     selectedVerse.value = verse;
     highlightedVerseNumbers.value = [verse.number];
+    studyReturnVerseNumber.value = verse.number;
     activeStudyTab.value = 'strong';
 
     if (verse.id && verse.id !== previousVerseId) {
@@ -1255,7 +1393,12 @@ async function loadVerseNotes(verseId: number): Promise<void> {
     noteError.value = null;
 
     try {
-        const response = await loadJson<ApiResponse<{ notes: NoteDto[] }>>(`/api/verses/${verseId}/notes`);
+        if (!currentUser.value) {
+            verseNotes.value = readLocalNotes()[String(verseId)] ?? [];
+            return;
+        }
+
+        const response = await loadJson<ApiResponse<{ notes: NoteDto[] }>>(`/reader/verses/${verseId}/notes`);
         verseNotes.value = response.data.notes;
     } catch (error) {
         verseNotes.value = [];
@@ -1276,13 +1419,76 @@ async function submitVerseNote(): Promise<void> {
     noteError.value = null;
 
     try {
-        await postJson<ApiResponse<{ note: NoteDto }>>(`/api/verses/${selectedVerse.value.id}/notes`, { body });
+        if (!currentUser.value) {
+            const notes = readLocalNotes();
+            const now = new Date().toISOString();
+            const verseId = String(selectedVerse.value.id);
+            notes[verseId] = [
+                {
+                    id: Date.now(),
+                    body,
+                    visibility: 'local',
+                    created_at: now,
+                    updated_at: now,
+                },
+                ...(notes[verseId] ?? []),
+            ].slice(0, 100);
+            writeLocalNotes(notes);
+        } else {
+            await postJson<ApiResponse<{ note: NoteDto }>>(`/reader/verses/${selectedVerse.value.id}/notes`, { body });
+        }
+
         noteBody.value = '';
         await loadVerseNotes(selectedVerse.value.id);
     } catch (error) {
         noteError.value = error instanceof Error ? error.message : 'Не удалось сохранить заметку';
     } finally {
         isNotesLoading.value = false;
+    }
+}
+
+async function loadSocialFeed(): Promise<void> {
+    if (!currentUser.value) {
+        socialPosts.value = [];
+        return;
+    }
+
+    isSocialFeedLoading.value = true;
+    socialFeedError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<{ posts: SocialPostDto[] }>>('/reader/feed');
+        socialPosts.value = response.data.posts;
+    } catch (error) {
+        socialPosts.value = [];
+        socialFeedError.value = error instanceof Error ? error.message : 'Не удалось загрузить ленту';
+    } finally {
+        isSocialFeedLoading.value = false;
+    }
+}
+
+async function submitSocialPost(): Promise<void> {
+    const body = socialPostBody.value.trim();
+
+    if (!currentUser.value || body.length === 0) {
+        return;
+    }
+
+    isSocialFeedLoading.value = true;
+    socialFeedError.value = null;
+
+    try {
+        await postJson('/reader/feed', {
+            body,
+            verse_id: selectedVerse.value?.id ?? null,
+            visibility: 'followers',
+        });
+        socialPostBody.value = '';
+        await loadSocialFeed();
+    } catch (error) {
+        socialFeedError.value = error instanceof Error ? error.message : 'Не удалось опубликовать';
+    } finally {
+        isSocialFeedLoading.value = false;
     }
 }
 
@@ -1622,6 +1828,12 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
     syncActiveTabFromSelection();
     persistReaderState();
 });
+
+watch(activeStudyTab, (tab) => {
+    if (tab === 'feed') {
+        void loadSocialFeed();
+    }
+});
 </script>
 
 <template>
@@ -1691,11 +1903,20 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
             </form>
 
             <div class="profile">
-                <div class="profile-text">
-                    <strong>Войти</strong>
-                    <span>Личный кабинет</span>
-                </div>
-                <div class="avatar">В</div>
+                <a v-if="currentUser" class="profile-link" :href="currentUser.dashboard_url">
+                    <div class="profile-text">
+                        <strong>{{ currentUser.name }}</strong>
+                        <span>Личный кабинет</span>
+                    </div>
+                    <div class="avatar">{{ currentUser.name.slice(0, 1).toUpperCase() }}</div>
+                </a>
+                <a v-else class="profile-link" :href="appConfig.auth.login_url">
+                    <div class="profile-text">
+                        <strong>Войти</strong>
+                        <span>Личный кабинет</span>
+                    </div>
+                    <div class="avatar">В</div>
+                </a>
             </div>
         </header>
 
@@ -1845,6 +2066,11 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </section>
 
                 <section v-else-if="activeLeftPanel === 'bookmarks'" class="bookmark-panel">
+                    <div v-if="!currentUser" class="guest-warning">
+                        Закладки сохраняются в этом браузере и могут быть потеряны.
+                        <a :href="appConfig.auth.login_url">Войти</a>
+                        <a :href="appConfig.auth.register_url">Регистрация</a>
+                    </div>
                     <button type="button" class="bookmark-add" @click="addBookmark">Добавить выбранный стих</button>
                     <div class="bookmark-list">
                         <article v-for="bookmark in bookmarks" :key="bookmark.id">
@@ -1859,6 +2085,11 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </section>
 
                 <section v-else class="history-panel">
+                    <div v-if="!currentUser" class="guest-warning">
+                        История просмотра хранится только в этом браузере.
+                        <a :href="appConfig.auth.login_url">Войти</a>
+                        <a :href="appConfig.auth.register_url">Регистрация</a>
+                    </div>
                     <div class="history-list">
                         <button
                             v-for="item in viewHistory"
@@ -1925,7 +2156,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         v-model.number="selectedChapterNumber"
                         class="chapter-select"
                         aria-label="Глава"
-                        @change="() => loadChapter()"
+                        @change="changeChapter"
                     >
                         <option
                             v-for="chapter in chapterOptions"
@@ -1996,6 +2227,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     <p
                         v-for="verse in currentVerses"
                         :key="verse.id ?? verse.number"
+                        :data-verse-number="verse.number"
                         :class="{ selected: verse.id === selectedVerse?.id, highlighted: highlightedVerseNumbers.includes(verse.number) }"
                         @contextmenu="openVerseMenu($event, verse)"
                     >
@@ -2094,6 +2326,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     <button type="button" :class="{ active: activeStudyTab === 'strong' }" @click="activeStudyTab = 'strong'">Strong</button>
                     <button type="button" :class="{ active: activeStudyTab === 'references' }" @click="activeStudyTab = 'references'">Параллельные места</button>
                     <button type="button" :class="{ active: activeStudyTab === 'notes' }" @click="activeStudyTab = 'notes'">Заметки</button>
+                    <button type="button" :class="{ active: activeStudyTab === 'feed' }" @click="activeStudyTab = 'feed'">Лента</button>
                 </div>
 
                 <section class="note">
@@ -2140,6 +2373,11 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </section>
 
                 <form v-if="activeStudyTab === 'notes'" class="comment-form" @submit.prevent="submitVerseNote">
+                    <div v-if="!currentUser" class="guest-warning">
+                        Заметки сохраняются только в этом браузере. Для постоянного хранения войдите или зарегистрируйтесь.
+                        <a :href="appConfig.auth.login_url">Войти</a>
+                        <a :href="appConfig.auth.register_url">Регистрация</a>
+                    </div>
                     <div class="note-list">
                         <p v-if="isNotesLoading">Загружаю заметки...</p>
                         <p v-else-if="noteError">API: {{ noteError }}</p>
@@ -2158,6 +2396,40 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     ></textarea>
                     <button type="submit" :disabled="!selectedVerse?.id || noteBody.trim().length === 0 || isNotesLoading">Написать</button>
                 </form>
+
+                <section v-if="activeStudyTab === 'feed'" class="social-feed">
+                    <div v-if="!currentUser" class="guest-warning">
+                        Лента доступна после входа.
+                        <a :href="appConfig.auth.login_url">Войти</a>
+                        <a :href="appConfig.auth.register_url">Регистрация</a>
+                    </div>
+                    <form v-else @submit.prevent="submitSocialPost">
+                        <textarea v-model="socialPostBody" placeholder="Напишите публикацию"></textarea>
+                        <button type="submit" :disabled="socialPostBody.trim().length === 0 || isSocialFeedLoading">
+                            Опубликовать
+                        </button>
+                    </form>
+                    <p v-if="isSocialFeedLoading">Загружаю ленту...</p>
+                    <p v-else-if="socialFeedError">API: {{ socialFeedError }}</p>
+                    <article
+                        v-for="post in socialPosts"
+                        :key="post.id"
+                    >
+                        <strong>{{ post.author }}</strong>
+                        <small v-if="post.reference">{{ post.reference }}</small>
+                        <p>{{ post.body }}</p>
+                    </article>
+                    <p v-if="currentUser && !isSocialFeedLoading && socialPosts.length === 0">В ленте пока нет публикаций.</p>
+                </section>
+
+                <button
+                    v-if="studyReturnVerseNumber !== null"
+                    type="button"
+                    class="return-to-verse"
+                    @click="scrollSelectedVerseIntoView"
+                >
+                    К стиху {{ studyReturnVerseNumber }}
+                </button>
             </aside>
         </main>
 
@@ -2173,10 +2445,19 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
         <footer class="footerbar">
             <button type="button">{{ selectedLanguage }}</button>
             <nav>
-                <a href="#">Информация</a>
-                <a href="#">О проекте</a>
-                <a href="#">Разработчики</a>
-                <a href="#">Контакты</a>
+                <a
+                    v-for="page in footerPages"
+                    :key="page.url"
+                    :href="page.url"
+                >
+                    {{ page.title }}
+                </a>
+                <template v-if="footerPages.length === 0">
+                    <a href="/pages/information">Информация</a>
+                    <a href="/pages/about">О проекте</a>
+                    <a href="/pages/impressum">Impressum</a>
+                    <a href="/pages/contacts">Контакты</a>
+                </template>
             </nav>
         </footer>
     </div>
