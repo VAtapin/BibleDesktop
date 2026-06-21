@@ -597,6 +597,17 @@ function handleToolClick(toolId: string): void {
         return;
     }
 
+    if (toolId === 'references') {
+        activeStudyTab.value = 'references';
+        document.querySelector('.analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+
+    if (toolId === 'print') {
+        window.print();
+        return;
+    }
+
     if (toolId === 'strong') {
         showStrongNumbers.value = !showStrongNumbers.value;
     }
