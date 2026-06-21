@@ -37,6 +37,26 @@ button {
     cursor: pointer;
 }
 
+svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.9;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
 .app-shell {
     display: grid;
     grid-template-rows: 60px 44px 42px minmax(0, 1fr) 28px;
@@ -64,17 +84,15 @@ button {
     align-items: center;
     gap: 10px;
     min-width: 170px;
+    color: #16395f;
+    text-decoration: none;
 }
 
 .brand-mark {
-    display: grid;
-    place-items: center;
     width: 36px;
-    height: 42px;
-    border: 1px solid #8aa0ba;
-    background: #4f78a8;
-    color: white;
-    font-weight: 700;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
 }
 
 .brand strong,
@@ -101,6 +119,8 @@ button {
 }
 
 .search button {
+    display: grid;
+    place-items: center;
     border: 0;
     background: transparent;
     color: #6f7f93;
@@ -265,6 +285,15 @@ button {
     font-size: 12px;
 }
 
+.reader-tab-close,
+.reader-tab-add,
+.workspace-title button,
+.left-panel header button,
+.analysis-close {
+    display: grid;
+    place-items: center;
+}
+
 .reader-tab-close:hover,
 .reader-tab-add:hover {
     color: #537ca6;
@@ -300,6 +329,8 @@ button {
 }
 
 .tool-rail button {
+    display: grid;
+    place-items: center;
     width: 34px;
     height: 34px;
     border: 1px solid #d4dbe4;
@@ -441,6 +472,8 @@ button {
 }
 
 .bookmark {
+    display: grid;
+    place-items: center;
     width: 24px;
     height: 34px;
     border: 1px solid #9fb2c7;
@@ -470,6 +503,11 @@ button {
     gap: 8px;
     margin-left: auto;
     color: #8b96a5;
+}
+
+.reader-actions button {
+    display: grid;
+    place-items: center;
 }
 
 .reader-actions button.active {
@@ -871,6 +909,10 @@ button {
     text-decoration: none;
 }
 
+.print-document {
+    display: none;
+}
+
 @media (max-width: 1320px) {
     .reader-layout.has-left-panel {
         grid-template-columns: 42px minmax(220px, 300px) minmax(0, 1fr);
@@ -927,7 +969,7 @@ button {
 
     .brand-mark {
         width: 30px;
-        height: 34px;
+        height: 30px;
         font-size: 12px;
     }
 
@@ -1380,5 +1422,52 @@ button {
     .tool-rail button {
         height: 42px;
         font-size: 12px;
+    }
+}
+
+@media print {
+    @page {
+        margin: 18mm 16mm;
+    }
+
+    :root,
+    body {
+        background: #ffffff;
+        color: #111827;
+    }
+
+    .app-shell,
+    .strong-tooltip {
+        display: none !important;
+    }
+
+    .print-document {
+        display: block;
+        font-family: Georgia, 'Times New Roman', serif;
+        color: #111827;
+    }
+
+    .print-document h1 {
+        margin: 0 0 14px;
+        font-family: var(--font-sans);
+        font-size: 20px;
+        line-height: 1.25;
+    }
+
+    .print-document p {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 8px;
+        margin: 0 0 8px;
+        break-inside: avoid;
+        font-size: 13pt;
+        line-height: 1.45;
+    }
+
+    .print-document strong {
+        color: #1f5f90;
+        font-family: var(--font-sans);
+        font-size: 10pt;
+        text-align: right;
     }
 }

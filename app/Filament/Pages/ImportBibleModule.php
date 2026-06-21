@@ -23,6 +23,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Artisan;
@@ -58,7 +59,7 @@ class ImportBibleModule extends Page implements HasForms
     public function mount(): void
     {
         $this->form->fill([
-            'languages' => ['ru', 'de', 'en', 'uk'],
+            'languages' => ['ru', 'de', 'en', 'uk', 'pl'],
             'replace' => false,
         ]);
     }
@@ -86,11 +87,18 @@ class ImportBibleModule extends Page implements HasForms
                         'de' => 'Немецкий',
                         'en' => 'Английский',
                         'uk' => 'Украинский',
+                        'pl' => 'Польский',
                     ])
-                    ->default(['ru', 'de', 'en', 'uk'])
+                    ->default(['ru', 'de', 'en', 'uk', 'pl'])
                     ->required(),
-                Toggle::make('replace')
-                    ->label('Перед импортом удалить все текущие Bible-модули'),
+                Section::make('Опасные действия')
+                    ->collapsed()
+                    ->description('Открывайте только если действительно нужно полностью заменить текущие Bible-модули.')
+                    ->schema([
+                        Toggle::make('replace')
+                            ->label('Перед импортом удалить все текущие Bible-модули')
+                            ->helperText('Обычный импорт добавляет или обновляет один модуль. Этот переключатель очищает текущие переводы перед импортом.'),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -99,7 +107,7 @@ class ImportBibleModule extends Page implements HasForms
     {
         $state = $this->form->getState();
         $path = $this->uploadedPath($state);
-        $languages = array_values((array) ($state['languages'] ?? ['ru', 'de', 'en', 'uk']));
+        $languages = array_values((array) ($state['languages'] ?? ['ru', 'de', 'en', 'uk', 'pl']));
 
         $this->report = app(ModuleImportInspector::class)->inspect($path, $languages);
         $this->importOutput = null;
@@ -115,7 +123,7 @@ class ImportBibleModule extends Page implements HasForms
     {
         $state = $this->form->getState();
         $path = $this->uploadedPath($state);
-        $languages = implode(',', array_values((array) ($state['languages'] ?? ['ru', 'de', 'en', 'uk'])));
+        $languages = implode(',', array_values((array) ($state['languages'] ?? ['ru', 'de', 'en', 'uk', 'pl'])));
         $this->report = app(ModuleImportInspector::class)->inspect($path, explode(',', $languages));
 
         if (! ($this->report['importable'] ?? false)) {

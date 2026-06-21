@@ -26,7 +26,8 @@ class FreshImportBibleModules extends Command
         {--dir=OLD/Mod : Directory that contains module archives}
         {--module=* : File names to import; defaults to the first supported ru/de/en/uk set}
         {--languages=ru,de,en,uk : Allowed language codes for the module importer}
-        {--strong-dictionary=OLD/Mod/BibleQuote_7.5.0.900/Library/System/Strong/Лексикон.dictionary.SQLite3 : Global Strong dictionary SQLite file}';
+        {--strong-dictionary=OLD/Mod/BibleQuote_7.5.0.900/Library/System/Strong/Лексикон.dictionary.SQLite3 : Global Strong dictionary SQLite file}
+        {--cross-references=OLD/bible-desktop.sql : Legacy SQL dump for quote.tsk cross references; empty skips import}';
 
     protected $description = 'Drop all tables, migrate, seed core data, and import the initial Bible module set.';
 
@@ -97,6 +98,22 @@ class FreshImportBibleModules extends Command
 
             if ($exitCode !== self::SUCCESS) {
                 $this->error('Strong dictionary import failed.');
+
+                return self::FAILURE;
+            }
+        }
+
+        $crossReferences = (string) $this->option('cross-references');
+
+        if ($crossReferences !== '') {
+            $this->components->info('Importing cross references');
+            $exitCode = Artisan::call('bible:legacy:import-cross-references', [
+                '--path' => $crossReferences,
+            ]);
+            $this->output->write(Artisan::output());
+
+            if ($exitCode !== self::SUCCESS) {
+                $this->error('Cross reference import failed.');
 
                 return self::FAILURE;
             }

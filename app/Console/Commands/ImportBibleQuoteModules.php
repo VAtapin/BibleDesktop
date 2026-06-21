@@ -708,35 +708,45 @@ class ImportBibleQuoteModules extends Command
      */
     private function languageCode(string $path, array $meta): string
     {
-        $name = basename($path);
+        $haystack = mb_strtolower(implode(' ', array_filter([
+            basename($path),
+            $meta['Language'] ?? null,
+            $meta['language'] ?? null,
+            $meta['BibleName'] ?? null,
+            $meta['BibleShortName'] ?? null,
+            $meta['ModuleName'] ?? null,
+        ])));
+
+        $metaLanguage = strtolower(trim((string) ($meta['Language'] ?? $meta['language'] ?? '')));
 
         return match (true) {
-            str_contains($name, 'Russian') || str_starts_with($name, 'B_Russian') => 'ru',
-            str_contains($name, 'Ukrain') || str_contains($name, 'Ukraine') => 'uk',
-            str_contains($name, 'German') => 'de',
-            str_contains($name, 'English') || str_contains($name, '0En') => 'en',
-            str_contains($name, 'French') => 'fr',
-            str_contains($name, 'Espanol') => 'es',
-            str_contains($name, 'Estonian') => 'et',
-            str_contains($name, 'Armenian') => 'hy',
-            str_contains($name, 'Azerbajan') => 'az',
-            str_contains($name, 'Greek') || str_contains($name, 'LXX') => 'el',
-            str_contains($name, 'Hebrew') => 'he',
-            str_contains($name, 'Kazakh') => 'kk',
-            str_contains($name, 'Latin') => 'la',
-            str_contains($name, 'Latvian') => 'lv',
-            str_contains($name, 'Lithuanian') => 'lt',
-            str_contains($name, 'Macedonian') => 'mk',
-            str_contains($name, 'Poland') => 'pl',
-            str_contains($name, 'Serbia') => 'sr',
-            str_contains($name, 'Harvat') => 'hr',
-            str_contains($name, 'Slovak') => 'sk',
-            str_contains($name, 'Slovenian') => 'sl',
-            str_contains($name, 'Suomi') => 'fi',
-            str_contains($name, 'Sweden') => 'sv',
-            str_contains($name, 'Turkish') => 'tr',
-            str_contains($name, 'Uzbek') => 'uz',
-            default => 'en',
+            in_array($metaLanguage, ['ru', 'de', 'en', 'uk', 'pl', 'fr', 'es', 'et', 'hy', 'az', 'el', 'he', 'kk', 'la', 'lv', 'lt', 'mk', 'sr', 'hr', 'sk', 'sl', 'fi', 'sv', 'tr', 'uz'], true) => $metaLanguage,
+            str_contains($haystack, 'russian') || str_contains($haystack, 'рус') => 'ru',
+            str_contains($haystack, 'ukrain') || str_contains($haystack, 'україн') => 'uk',
+            str_contains($haystack, 'german') || str_contains($haystack, 'deutsch') || str_contains($haystack, 'elberfeld') => 'de',
+            str_contains($haystack, 'english') || str_contains($haystack, 'king james') || str_contains($haystack, 'kjv') || str_contains($haystack, '0en') => 'en',
+            str_contains($haystack, 'french') => 'fr',
+            str_contains($haystack, 'espanol') || str_contains($haystack, 'español') => 'es',
+            str_contains($haystack, 'estonian') => 'et',
+            str_contains($haystack, 'armenian') => 'hy',
+            str_contains($haystack, 'azerbajan') => 'az',
+            str_contains($haystack, 'greek') || str_contains($haystack, 'lxx') => 'el',
+            str_contains($haystack, 'hebrew') => 'he',
+            str_contains($haystack, 'kazakh') => 'kk',
+            str_contains($haystack, 'latin') => 'la',
+            str_contains($haystack, 'latvian') => 'lv',
+            str_contains($haystack, 'lithuanian') => 'lt',
+            str_contains($haystack, 'macedonian') => 'mk',
+            str_contains($haystack, 'poland') || str_contains($haystack, 'polish') || str_contains($haystack, 'polski') || str_contains($haystack, 'gdańsk') || str_contains($haystack, 'gdansk') => 'pl',
+            str_contains($haystack, 'serbia') => 'sr',
+            str_contains($haystack, 'harvat') => 'hr',
+            str_contains($haystack, 'slovak') => 'sk',
+            str_contains($haystack, 'slovenian') => 'sl',
+            str_contains($haystack, 'suomi') => 'fi',
+            str_contains($haystack, 'sweden') => 'sv',
+            str_contains($haystack, 'turkish') => 'tr',
+            str_contains($haystack, 'uzbek') => 'uz',
+            default => 'unknown',
         };
     }
 

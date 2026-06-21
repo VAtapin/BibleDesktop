@@ -185,6 +185,8 @@ type BookmarkItem = {
     createdAt: string;
 };
 
+type IconName = 'bookmark' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
+
 const readerStateKey = 'bible-desktop-reader-state';
 const bookmarkStateKey = 'bible-desktop-bookmarks';
 const maxReaderTabs = 8;
@@ -241,12 +243,57 @@ const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
 
 const tools = [
-    { id: 'search', label: 'S', title: 'Расширенный поиск' },
-    { id: 'bookmarks', label: 'B', title: 'Закладки' },
-    { id: 'references', label: 'R', title: 'Справочник' },
-    { id: 'print', label: 'P', title: 'Печать' },
-    { id: 'strong', label: 'S#', title: 'Strong' },
+    { id: 'search', icon: 'search', title: 'Расширенный поиск' },
+    { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
+    { id: 'references', icon: 'sidebar', title: 'Справочник' },
+    { id: 'print', icon: 'printer', title: 'Печать' },
+    { id: 'strong', icon: 'hash', title: 'Strong' },
 ] as const;
+
+const icons: Record<IconName, string[]> = {
+    bookmark: [
+        'M6 4.75C6 3.78 6.78 3 7.75 3h8.5C17.22 3 18 3.78 18 4.75V21l-6-3.5L6 21V4.75Z',
+    ],
+    close: [
+        'M18 6 6 18',
+        'm6 6 12 12',
+    ],
+    hash: [
+        'M5 9h14',
+        'M4 15h14',
+        'M10 3 8 21',
+        'm16 3-2 18',
+    ],
+    menu: [
+        'M4 6h16',
+        'M4 12h16',
+        'M4 18h16',
+    ],
+    plus: [
+        'M12 5v14',
+        'M5 12h14',
+    ],
+    printer: [
+        'M7 8V4h10v4',
+        'M7 18h10v-5H7v5Z',
+        'M6 14H5a2 2 0 0 1-2-2v-1a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v1a2 2 0 0 1-2 2h-1',
+    ],
+    search: [
+        'm21 21-4.35-4.35',
+        'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Z',
+    ],
+    sidebar: [
+        'M4 5.75C4 4.78 4.78 4 5.75 4h12.5c.97 0 1.75.78 1.75 1.75v12.5c0 .97-.78 1.75-1.75 1.75H5.75C4.78 20 4 19.22 4 18.25V5.75Z',
+        'M9 4v16',
+        'M13 8h4',
+        'M13 12h4',
+        'M13 16h4',
+    ],
+};
+
+function iconPaths(name: IconName): string[] {
+    return icons[name];
+}
 
 const selectedLanguage = computed(() => languages.value[0]?.native_name ?? 'Русский');
 const currentTranslation = computed(() => {
@@ -282,6 +329,22 @@ const selectedVerseReference = computed(() => {
 });
 const compareVerseByNumber = computed(() => {
     return new Map(compareVerses.value.map((verse) => [verse.number, verse]));
+});
+const printableVerses = computed(() => {
+    const selectedNumbers = highlightedVerseNumbers.value;
+
+    if (selectedNumbers.length > 0) {
+        return currentVerses.value.filter((verse) => selectedNumbers.includes(verse.number));
+    }
+
+    return currentVerses.value;
+});
+const printTitle = computed(() => {
+    if (printableVerses.value.length === 1) {
+        return `${currentTitle.value}:${printableVerses.value[0]?.number}`;
+    }
+
+    return currentTitle.value;
 });
 
 function translationLabel(translation: TranslationDto | null | undefined): string {
@@ -676,13 +739,17 @@ function handleToolClick(toolId: string): void {
     }
 
     if (toolId === 'print') {
-        window.print();
+        printPage();
         return;
     }
 
     if (toolId === 'strong') {
         showStrongNumbers.value = !showStrongNumbers.value;
     }
+}
+
+function printPage(): void {
+    window.print();
 }
 
 async function loadJson<T>(url: string): Promise<T> {
@@ -1363,16 +1430,24 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
 <template>
     <div class="app-shell">
         <header class="topbar">
-            <div class="brand">
-                <div class="brand-mark">BD</div>
+            <a class="brand" href="/" aria-label="Bible Desktop - на главную">
+                <img class="brand-mark" :src="'/brand/bible-desktop-mark.png'" alt="" />
                 <div>
                     <strong>Bible</strong>
                     <span>desktop</span>
                 </div>
-            </div>
+            </a>
 
             <form class="search" role="search" @submit.prevent="runSearch">
-                <button type="submit" aria-label="Найти">S</button>
+                <button type="submit" aria-label="Найти">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            v-for="path in iconPaths('search')"
+                            :key="path"
+                            :d="path"
+                        />
+                    </svg>
+                </button>
                 <input
                     v-model="searchQuery"
                     type="search"
@@ -1430,7 +1505,15 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
         <section class="workspace-title">
             <span class="muted-icon">Чтение</span>
             <strong>{{ currentTitle }}</strong>
-            <button type="button" aria-label="Меню">...</button>
+            <button type="button" aria-label="Меню">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path
+                        v-for="path in iconPaths('menu')"
+                        :key="path"
+                        :d="path"
+                    />
+                </svg>
+            </button>
         </section>
 
         <nav class="tabs" aria-label="Открытые вкладки">
@@ -1454,7 +1537,13 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     aria-label="Закрыть вкладку"
                     @click="closeReaderTab(tab.id)"
                 >
-                    X
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            v-for="path in iconPaths('close')"
+                            :key="path"
+                            :d="path"
+                        />
+                    </svg>
                 </button>
             </div>
             <button
@@ -1464,7 +1553,13 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 aria-label="Открыть новую вкладку"
                 @click="addReaderTab"
             >
-                +
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path
+                        v-for="path in iconPaths('plus')"
+                        :key="path"
+                        :d="path"
+                    />
+                </svg>
             </button>
         </nav>
 
@@ -1478,14 +1573,29 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     :class="{ active: activeLeftPanel === tool.id || (tool.id === 'strong' && showStrongNumbers) }"
                     @click="handleToolClick(tool.id)"
                 >
-                    {{ tool.label }}
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            v-for="path in iconPaths(tool.icon)"
+                            :key="path"
+                            :d="path"
+                        />
+                    </svg>
+                    <span class="sr-only">{{ tool.title }}</span>
                 </button>
             </aside>
 
             <aside v-if="activeLeftPanel" class="left-panel">
                 <header>
                     <h2>{{ activeLeftPanel === 'search' ? 'Расширенный поиск' : 'Закладки' }}</h2>
-                    <button type="button" aria-label="Закрыть" @click="activeLeftPanel = null">X</button>
+                    <button type="button" aria-label="Закрыть" @click="activeLeftPanel = null">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('close')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
                 </header>
 
                 <form v-if="activeLeftPanel === 'search'" class="advanced-search-panel" @submit.prevent="runAdvancedSearch">
@@ -1538,7 +1648,15 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
 
             <section class="reader-panel">
                 <div class="reader-toolbar">
-                    <button type="button" class="bookmark" aria-label="Закладка" @click="addBookmark">+</button>
+                    <button type="button" class="bookmark" aria-label="Добавить закладку" @click="addBookmark">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('bookmark')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
                     <select
                         v-model="selectedTranslationCode"
                         aria-label="Перевод"
@@ -1608,10 +1726,32 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             :class="{ active: showStrongNumbers }"
                             @click="showStrongNumbers = !showStrongNumbers"
                         >
-                            S#
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path
+                                    v-for="path in iconPaths('hash')"
+                                    :key="path"
+                                    :d="path"
+                                />
+                            </svg>
                         </button>
-                        <button type="button" aria-label="Печать">P</button>
-                        <button type="button" aria-label="Закрыть">X</button>
+                        <button type="button" aria-label="Печать" @click="printPage">
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path
+                                    v-for="path in iconPaths('printer')"
+                                    :key="path"
+                                    :d="path"
+                                />
+                            </svg>
+                        </button>
+                        <button type="button" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path
+                                    v-for="path in iconPaths('close')"
+                                    :key="path"
+                                    :d="path"
+                                />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -1705,7 +1845,15 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
             <aside class="analysis-panel" :class="{ 'is-open': isStudyPanelOpen }">
                 <header>
                     <h2>Справочник</h2>
-                    <button type="button" class="analysis-close" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">X</button>
+                    <button type="button" class="analysis-close" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('close')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
                 </header>
 
                 <div class="analysis-tabs">
@@ -1798,4 +1946,14 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
             </nav>
         </footer>
     </div>
+    <section class="print-document" aria-hidden="true">
+        <h1>{{ printTitle }}</h1>
+        <p
+            v-for="verse in printableVerses"
+            :key="`print-${verse.id ?? verse.number}`"
+        >
+            <strong>{{ verse.number }}</strong>
+            <span>{{ displayVerseText(verse) }}</span>
+        </p>
+    </section>
 </template>

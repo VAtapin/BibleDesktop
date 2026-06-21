@@ -14,6 +14,7 @@
 
 namespace Tests\Feature;
 
+use App\Support\ModuleImportInspector;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -153,5 +154,47 @@ HTML);
             'text' => 'In the beginning 7225 God 430 created 1254.',
             'has_strong_markup' => true,
         ]);
+    }
+
+    public function test_inspector_detects_polish_biblequote_zip_and_counts_verses(): void
+    {
+        $path = base_path('.tmp/01KVNA81QGC8Q4325W1P331HAH.zip');
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+
+        $zip = new ZipArchive;
+        $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->addFromString('Bible_Polish_Gdanska/bibleqt.ini', <<<'INI'
+BibleName=Biblia gdańska
+BibleShortName=BG
+Bible=Y
+OldTestament=Y
+NewTestament=Y
+Apocrypha=N
+StrongNumbers=N
+DefaultEncoding=utf-8
+BookQty=1
+PathName=01_genesis.htm
+FullName=Księga Rodzaju
+ShortName=Rdz
+ChapterQty=1
+INI);
+        $zip->addFromString('Bible_Polish_Gdanska/01_genesis.htm', <<<'HTML'
+<h4>1</h4>
+<p><sup>1</sup> Na początku stworzył Bóg niebo i ziemię.
+<p><sup>2</sup> A ziemia była niekształtowna i próżna.
+HTML);
+        $zip->close();
+
+        try {
+            $report = app(ModuleImportInspector::class)->inspect($path, ['ru', 'de', 'en', 'uk', 'pl']);
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertTrue($report['importable']);
+        $this->assertSame('pl', $report['language']);
+        $this->assertSame(2, $report['verses']);
     }
 }

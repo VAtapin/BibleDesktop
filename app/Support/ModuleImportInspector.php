@@ -66,13 +66,24 @@ class ModuleImportInspector
             $language = $this->languageCode($path, $meta);
             $books = $ini['books'];
             $missing = [];
+            $verseCount = 0;
 
             foreach ($books as $book) {
                 $bookPath = trim(dirname($iniPath).'/'.($book['PathName'] ?? ''), '/');
 
-                if (($book['PathName'] ?? '') !== '' && ! $this->findZipEntry($zip, $bookPath)) {
-                    $missing[] = (string) $book['PathName'];
+                if (($book['PathName'] ?? '') === '') {
+                    continue;
                 }
+
+                $entryPath = $this->findZipEntry($zip, $bookPath);
+
+                if (! $entryPath) {
+                    $missing[] = (string) $book['PathName'];
+
+                    continue;
+                }
+
+                $verseCount += $this->countBookVerses($this->readZipText($zip, $entryPath));
             }
 
             $errors = [];
@@ -95,7 +106,7 @@ class ModuleImportInspector
                 'short_name' => $meta['BibleShortName'] ?? null,
                 'language' => $language,
                 'books' => count($books),
-                'verses' => null,
+                'verses' => $verseCount > 0 ? $verseCount : null,
                 'has_strong' => ($meta['StrongNumbers'] ?? 'N') === 'Y',
                 'encoding' => $meta['DefaultEncoding'] ?? 'UTF-8',
                 'warnings' => $missing === [] ? [] : ['Не найдены файлы книг: '.implode(', ', array_slice($missing, 0, 8))],
@@ -251,6 +262,41 @@ class ModuleImportInspector
         return null;
     }
 
+    private function countBookVerses(string $html): int
+    {
+        $count = 0;
+        $parts = preg_split('/<h4[^>]*>\s*\d+\s*<\/h4>/iu', $html);
+
+        foreach ($parts ?: [] as $chapterHtml) {
+            if (preg_match_all('/<p\b[^>]*>(.*?)(?=<p\b|<h4\b|<\/body>|<\/html>|$)/isu', (string) $chapterHtml, $matches)) {
+                foreach ($matches[1] as $paragraph) {
+                    if ($this->isVerseParagraph((string) $paragraph)) {
+                        $count++;
+                    }
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    private function isVerseParagraph(string $paragraph): bool
+    {
+        $paragraph = trim($paragraph);
+
+        if ($paragraph === '') {
+            return false;
+        }
+
+        if (preg_match('/^\s*<sup[^>]*>\s*\d+\s*<\/sup>/isu', $paragraph) === 1) {
+            return true;
+        }
+
+        $plainStart = trim(html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return preg_match('/^\d+\s+\S/us', $plainStart) === 1;
+    }
+
     /**
      * @param  list<string>  $tables
      */
@@ -274,14 +320,25 @@ class ModuleImportInspector
      */
     private function languageCode(string $path, array $meta): string
     {
-        $name = basename($path);
+        $haystack = mb_strtolower(implode(' ', array_filter([
+            basename($path),
+            $meta['Language'] ?? null,
+            $meta['language'] ?? null,
+            $meta['BibleName'] ?? null,
+            $meta['BibleShortName'] ?? null,
+            $meta['ModuleName'] ?? null,
+        ])));
+
+        $metaLanguage = strtolower(trim((string) ($meta['Language'] ?? $meta['language'] ?? '')));
 
         return match (true) {
-            str_contains($name, 'Russian') || str_starts_with($name, 'B_Russian') => 'ru',
-            str_contains($name, 'Ukrain') || str_contains($name, 'Ukraine') => 'uk',
-            str_contains($name, 'German') => 'de',
-            str_contains($name, 'English') || str_contains($name, '0En') || ($meta['language'] ?? null) === 'en' => 'en',
-            default => (string) ($meta['language'] ?? 'en'),
+            in_array($metaLanguage, ['ru', 'de', 'en', 'uk', 'pl'], true) => $metaLanguage,
+            str_contains($haystack, 'russian') || str_contains($haystack, 'рус') => 'ru',
+            str_contains($haystack, 'ukrain') || str_contains($haystack, 'україн') => 'uk',
+            str_contains($haystack, 'german') || str_contains($haystack, 'deutsch') || str_contains($haystack, 'elberfeld') => 'de',
+            str_contains($haystack, 'poland') || str_contains($haystack, 'polish') || str_contains($haystack, 'polski') || str_contains($haystack, 'gdańsk') || str_contains($haystack, 'gdansk') => 'pl',
+            str_contains($haystack, 'english') || str_contains($haystack, 'king james') || str_contains($haystack, 'kjv') || str_contains($haystack, '0en') => 'en',
+            default => 'unknown',
         };
     }
 
