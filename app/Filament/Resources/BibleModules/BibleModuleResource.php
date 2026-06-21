@@ -40,43 +40,52 @@ class BibleModuleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Bible';
+    protected static string|UnitEnum|null $navigationGroup = 'Библия';
 
-    protected static ?string $navigationLabel = 'Modules';
+    protected static ?string $navigationLabel = 'Модули';
 
-    protected static ?string $modelLabel = 'module';
+    protected static ?string $modelLabel = 'модуль';
+
+    protected static ?string $pluralModelLabel = 'модули';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Select::make('language_id')
+                    ->label('Язык')
                     ->relationship('language', 'name')
                     ->searchable()
                     ->preload(),
                 Select::make('type')
+                    ->label('Тип')
                     ->options([
-                        'bible' => 'Bible',
-                        'commentary' => 'Commentary',
-                        'dictionary' => 'Dictionary',
-                        'calendar' => 'Calendar',
-                        'other' => 'Other',
+                        'bible' => 'Библия',
+                        'commentary' => 'Комментарий',
+                        'dictionary' => 'Словарь',
+                        'calendar' => 'Календарь',
+                        'other' => 'Другое',
                     ])
                     ->required(),
                 TextInput::make('code')
+                    ->label('Код')
                     ->required()
                     ->maxLength(40),
                 TextInput::make('name')
+                    ->label('Название')
                     ->required()
                     ->maxLength(240),
                 TextInput::make('short_name')
+                    ->label('Короткое название')
                     ->maxLength(80),
                 TextInput::make('version')
+                    ->label('Версия')
                     ->maxLength(40),
                 Textarea::make('description')
+                    ->label('Описание')
                     ->columnSpanFull(),
                 FileUpload::make('cover_path')
-                    ->label('Cover')
+                    ->label('Обложка')
                     ->image()
                     ->disk('public')
                     ->directory('module-covers')
@@ -87,12 +96,15 @@ class BibleModuleResource extends Resource
                     ->imageResizeTargetHeight('640')
                     ->maxSize(4096),
                 TextInput::make('sort_order')
+                    ->label('Порядок')
                     ->numeric()
                     ->required()
                     ->default(0),
                 Toggle::make('is_active')
+                    ->label('Активен')
                     ->default(true),
                 Toggle::make('is_public')
+                    ->label('Публичный')
                     ->default(false),
             ]);
     }
@@ -102,21 +114,27 @@ class BibleModuleResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
+                    ->label('Код')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
+                    ->label('Название')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('type')
+                    ->label('Тип')
                     ->sortable(),
                 TextColumn::make('language.code')
-                    ->label('Lang')
+                    ->label('Язык')
                     ->sortable(),
                 TextColumn::make('sort_order')
+                    ->label('Порядок')
                     ->sortable(),
                 IconColumn::make('is_active')
+                    ->label('Активен')
                     ->boolean(),
                 IconColumn::make('is_public')
+                    ->label('Публичный')
                     ->boolean(),
             ])
             ->filters([

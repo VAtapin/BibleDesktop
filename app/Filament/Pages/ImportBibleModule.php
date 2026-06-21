@@ -36,9 +36,9 @@ class ImportBibleModule extends Page implements HasForms
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ArrowUpTray;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Bible';
+    protected static string|UnitEnum|null $navigationGroup = 'Библия';
 
-    protected static ?string $navigationLabel = 'Import module';
+    protected static ?string $navigationLabel = 'Импорт модулей';
 
     protected static ?int $navigationSort = 20;
 

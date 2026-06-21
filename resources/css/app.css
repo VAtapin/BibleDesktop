@@ -403,6 +403,7 @@ svg {
 
 .advanced-search-panel,
 .bookmark-panel,
+.calendar-panel,
 .history-panel,
 .library-panel {
     overflow: auto;
@@ -432,6 +433,7 @@ svg {
 
 .advanced-search-results,
 .bookmark-list,
+.calendar-readings,
 .history-list,
 .module-card-list {
     display: grid;
@@ -469,6 +471,7 @@ svg {
 
 .advanced-search-results strong,
 .bookmark-list strong,
+.calendar-readings strong,
 .history-list strong,
 .module-card-list strong {
     color: #557496;
@@ -477,12 +480,63 @@ svg {
 
 .advanced-search-results span,
 .bookmark-list span,
+.calendar-readings span,
 .history-list span,
 .module-card-list span,
 .module-card-list small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.calendar-date,
+.calendar-readings article {
+    border: 1px solid #e0e5eb;
+    background: #f8fafc;
+    padding: 10px;
+}
+
+.calendar-date {
+    display: grid;
+    gap: 4px;
+}
+
+.calendar-date strong {
+    color: #163a5d;
+}
+
+.calendar-date span,
+.calendar-panel li,
+.calendar-panel p {
+    color: #596579;
+}
+
+.calendar-panel h3 {
+    margin: 8px 0 0;
+    color: #557496;
+    font-size: 13px;
+}
+
+.calendar-panel ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding-left: 18px;
+}
+
+.calendar-readings article {
+    display: grid;
+    gap: 5px;
+}
+
+.calendar-readings span {
+    color: #2f6f9f;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.calendar-readings p {
+    margin: 0;
 }
 
 .module-card-list button {
@@ -1489,6 +1543,7 @@ svg {
 
     .advanced-search-panel,
     .bookmark-panel,
+    .calendar-panel,
     .history-panel,
     .library-panel {
         padding: 12px;

@@ -41,7 +41,11 @@ class TelegramBroadcastResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Telegram';
 
-    protected static ?string $navigationLabel = 'Broadcasts';
+    protected static ?string $navigationLabel = 'Рассылки';
+
+    protected static ?string $modelLabel = 'рассылка';
+
+    protected static ?string $pluralModelLabel = 'рассылки';
 
     public static function form(Schema $schema): Schema
     {

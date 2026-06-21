@@ -195,6 +195,30 @@ type SearchResultDto = {
     }>;
 };
 
+type CalendarReadingDto = {
+    id: number;
+    type: 'gospel' | 'apostle' | 'psalm' | string;
+    title: string | null;
+    passage_ref: string;
+    date_rule_type: string;
+};
+
+type CalendarEventDto = {
+    id: number;
+    name: string;
+    legacy_type: number | null;
+    date_rule_type: string;
+    is_fasting: boolean;
+};
+
+type CalendarDayDto = {
+    date: string;
+    pascha_date: string;
+    events: CalendarEventDto[];
+    fasting_events: CalendarEventDto[];
+    readings: CalendarReadingDto[];
+};
+
 type ReaderTab = {
     id: string;
     title: string;
@@ -233,9 +257,9 @@ type HistoryItem = {
     openedAt: string;
 };
 
-type LeftPanelId = 'library' | 'bookmarks' | 'history' | 'search';
+type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search';
 type ToolId = LeftPanelId | 'strong' | 'print';
-type IconName = 'book-open' | 'bookmark' | 'clock' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
+type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
 
 declare global {
     interface Window {
@@ -309,6 +333,9 @@ const advancedSearchMatch = ref<'all_words' | 'phrase' | 'partial'>('all_words')
 const advancedSearchResults = ref<SearchResultDto[]>([]);
 const isAdvancedSearchLoading = ref(false);
 const advancedSearchError = ref<string | null>(null);
+const calendarDay = ref<CalendarDayDto | null>(null);
+const isCalendarLoading = ref(false);
+const calendarError = ref<string | null>(null);
 const bookmarks = ref<BookmarkItem[]>([]);
 const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
@@ -337,6 +364,7 @@ const studyDataCache = new Map<string, StudyDataCacheItem>();
 
 const tools = [
     { id: 'library', icon: 'book-open', title: 'Библиотека' },
+    { id: 'calendar', icon: 'calendar', title: 'Календарь' },
     { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
     { id: 'history', icon: 'clock', title: 'История просмотра' },
     { id: 'search', icon: 'search', title: 'Поиск' },
@@ -351,6 +379,16 @@ const icons: Record<IconName, string[]> = {
     ],
     bookmark: [
         'M6 4.75C6 3.78 6.78 3 7.75 3h8.5C17.22 3 18 3.78 18 4.75V21l-6-3.5L6 21V4.75Z',
+    ],
+    calendar: [
+        'M7 3v4',
+        'M17 3v4',
+        'M4 8h16',
+        'M6.75 5h10.5A2.75 2.75 0 0 1 20 7.75v9.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25v-9.5A2.75 2.75 0 0 1 6.75 5Z',
+        'M8 12h2',
+        'M14 12h2',
+        'M8 16h2',
+        'M14 16h2',
     ],
     clock: [
         'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
@@ -433,6 +471,10 @@ const leftPanelTitle = computed(() => {
 
     if (activeLeftPanel.value === 'bookmarks') {
         return 'Закладки';
+    }
+
+    if (activeLeftPanel.value === 'calendar') {
+        return 'Календарь дня';
     }
 
     if (activeLeftPanel.value === 'history') {
@@ -935,10 +977,14 @@ function toggleLeftPanel(panel: LeftPanelId): void {
     if (activeLeftPanel.value !== null) {
         isStudyPanelOpen.value = false;
     }
+
+    if (activeLeftPanel.value === 'calendar') {
+        void loadCalendarDay();
+    }
 }
 
 function handleToolClick(toolId: ToolId): void {
-    if (toolId === 'library' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search') {
+    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search') {
         toggleLeftPanel(toolId);
         return;
     }
@@ -951,6 +997,44 @@ function handleToolClick(toolId: ToolId): void {
     if (toolId === 'strong') {
         showStrongNumbers.value = !showStrongNumbers.value;
     }
+}
+
+async function loadCalendarDay(): Promise<void> {
+    if (calendarDay.value || isCalendarLoading.value) {
+        return;
+    }
+
+    isCalendarLoading.value = true;
+    calendarError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<CalendarDayDto>>('/api/calendar/day');
+        calendarDay.value = response.data;
+    } catch (error) {
+        calendarError.value = error instanceof Error ? error.message : 'Не удалось загрузить календарь дня';
+    } finally {
+        isCalendarLoading.value = false;
+    }
+}
+
+function calendarReadingTypeLabel(type: string): string {
+    return matchCalendarReadingType(type);
+}
+
+function matchCalendarReadingType(type: string): string {
+    if (type === 'gospel') {
+        return 'Евангелие';
+    }
+
+    if (type === 'apostle') {
+        return 'Апостол';
+    }
+
+    if (type === 'psalm') {
+        return 'Псалтирь';
+    }
+
+    return type;
 }
 
 function printPage(): void {
@@ -2111,6 +2195,33 @@ watch(activeStudyTab, (tab) => {
                         </button>
                         <p v-if="translations.length === 0">Библии пока не загружены.</p>
                     </div>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'calendar'" class="calendar-panel">
+                    <p v-if="isCalendarLoading">Загружаю календарь...</p>
+                    <p v-else-if="calendarError">{{ calendarError }}</p>
+                    <template v-else-if="calendarDay">
+                        <div class="calendar-date">
+                            <strong>{{ calendarDay.date }}</strong>
+                            <span>Пасха: {{ calendarDay.pascha_date }}</span>
+                        </div>
+                        <h3>События</h3>
+                        <ul v-if="calendarDay.events.length > 0">
+                            <li v-for="event in calendarDay.events" :key="event.id">
+                                {{ event.name }}
+                            </li>
+                        </ul>
+                        <p v-else>События на этот день ещё не импортированы.</p>
+                        <h3>Евангелие и Апостол</h3>
+                        <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
+                            <article v-for="reading in calendarDay.readings" :key="reading.id">
+                                <span>{{ calendarReadingTypeLabel(reading.type) }}</span>
+                                <strong>{{ reading.title || reading.passage_ref }}</strong>
+                                <p>{{ reading.passage_ref }}</p>
+                            </article>
+                        </div>
+                        <p v-else>Чтения дня ещё не заданы.</p>
+                    </template>
                 </section>
 
                 <section v-else-if="activeLeftPanel === 'bookmarks'" class="bookmark-panel">

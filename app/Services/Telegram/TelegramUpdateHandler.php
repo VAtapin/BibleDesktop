@@ -367,9 +367,10 @@ class TelegramUpdateHandler
     private function calendarText(): string
     {
         $day = $this->calendar->day(now()->toDateString());
+        $readings = $this->readingsSummary($day);
 
-        if ($day['events']->isEmpty()) {
-            return 'Календарные события ещё не импортированы.';
+        if ($day['events']->isEmpty() && $readings === '') {
+            return 'Календарные события и чтения дня ещё не импортированы.';
         }
 
         $events = $day['events']
@@ -377,7 +378,9 @@ class TelegramUpdateHandler
             ->map(fn (array $event) => '- '.$event['name'])
             ->implode("\n");
 
-        $readings = $this->readingsSummary($day);
+        if ($events === '') {
+            $events = 'События на этот день ещё не импортированы.';
+        }
 
         return trim("Календарь на {$day['date']}\n{$events}\n\n{$readings}");
     }
@@ -452,7 +455,17 @@ class TelegramUpdateHandler
 
         if ($apostle !== '' || $gospel !== '') {
             $lines[] = 'Евангелие и Апостол:';
-            $lines[] = trim('Ап.: '.$apostle.' Ев.: '.$gospel);
+            $dailyReadings = [];
+
+            if ($apostle !== '') {
+                $dailyReadings[] = 'Ап.: '.$apostle;
+            }
+
+            if ($gospel !== '') {
+                $dailyReadings[] = 'Ев.: '.$gospel;
+            }
+
+            $lines[] = implode(' ', $dailyReadings);
         }
 
         if ($psalms !== '') {

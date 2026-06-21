@@ -32,6 +32,8 @@ class LegacyBookResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Migration';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([]);

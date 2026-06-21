@@ -42,9 +42,13 @@ class CmsPageResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Content';
+    protected static string|UnitEnum|null $navigationGroup = 'Контент';
 
-    protected static ?string $navigationLabel = 'Pages';
+    protected static ?string $navigationLabel = 'Страницы';
+
+    protected static ?string $modelLabel = 'страница';
+
+    protected static ?string $pluralModelLabel = 'страницы';
 
     public static function form(Schema $schema): Schema
     {

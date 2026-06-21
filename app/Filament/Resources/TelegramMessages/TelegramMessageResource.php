@@ -30,6 +30,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use UnitEnum;
 
 class TelegramMessageResource extends Resource
@@ -40,7 +42,39 @@ class TelegramMessageResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Telegram';
 
-    protected static ?string $navigationLabel = 'Messages';
+    protected static ?string $navigationLabel = 'Диалоги';
+
+    protected static ?string $modelLabel = 'диалог';
+
+    protected static ?string $pluralModelLabel = 'диалоги';
+
+    protected static ?int $navigationSort = 5;
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = TelegramMessage::query()->where('status', 'new')->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'warning';
+    }
+
+    /**
+     * Show one row per Telegram user: the latest message in each dialog.
+     *
+     * @return Builder<TelegramMessage>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->whereIn('id', DB::table('telegram_messages')
+                ->selectRaw('MAX(id)')
+                ->whereNotNull('telegram_id')
+                ->groupBy('telegram_id'));
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -70,28 +104,53 @@ class TelegramMessageResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('created_at')
+                    ->label('Последнее сообщение')
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('telegram_username')
+                    ->label('Пользователь')
                     ->searchable(),
                 TextColumn::make('telegram_id')
+                    ->label('Telegram ID')
                     ->searchable(),
+                TextColumn::make('unread_count')
+                    ->label('Новые')
+                    ->badge()
+                    ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray')
+                    ->state(fn (TelegramMessage $record): int => TelegramMessage::query()
+                        ->where('telegram_id', $record->telegram_id)
+                        ->where('status', 'new')
+                        ->count()),
                 TextColumn::make('status')
+                    ->label('Статус')
                     ->badge()
                     ->sortable(),
                 TextColumn::make('body')
+                    ->label('Последний текст')
                     ->limit(80)
                     ->searchable(),
                 TextColumn::make('answered_at')
+                    ->label('Ответ')
                     ->dateTime()
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->recordAction('dialog')
             ->recordActions([
-                Action::make('reply')
-                    ->label('Reply')
+                Action::make('dialog')
+                    ->label('Открыть диалог')
+                    ->modalHeading(fn (TelegramMessage $record): string => 'Диалог: '.($record->telegram_username ?: $record->telegram_id))
+                    ->modalSubmitActionLabel('Ответить')
+                    ->modalContent(fn (TelegramMessage $record) => view('filament.telegram.dialog', [
+                        'messages' => TelegramMessage::query()
+                            ->where('telegram_id', $record->telegram_id)
+                            ->orderBy('created_at')
+                            ->orderBy('id')
+                            ->get(),
+                    ]))
                     ->form([
                         Textarea::make('reply')
+                            ->label('Ответ')
                             ->required()
                             ->rows(5),
                     ])
