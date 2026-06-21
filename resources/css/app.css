@@ -381,7 +381,9 @@ svg {
 }
 
 .advanced-search-panel,
-.bookmark-panel {
+.bookmark-panel,
+.history-panel,
+.library-panel {
     overflow: auto;
     display: grid;
     align-content: start;
@@ -408,19 +410,32 @@ svg {
 }
 
 .advanced-search-results,
-.bookmark-list {
+.bookmark-list,
+.history-list,
+.book-card-list {
     display: grid;
     gap: 8px;
+    min-height: 0;
+}
+
+.advanced-search-results {
+    max-height: min(52vh, 520px);
+    overflow: auto;
+    padding-right: 4px;
 }
 
 .advanced-search-results button,
-.bookmark-list article {
+.bookmark-list article,
+.history-list button,
+.book-card-list button {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
 }
 
 .advanced-search-results button,
-.bookmark-list article > button:first-child {
+.bookmark-list article > button:first-child,
+.history-list button,
+.book-card-list button {
     display: grid;
     gap: 4px;
     width: 100%;
@@ -432,16 +447,48 @@ svg {
 }
 
 .advanced-search-results strong,
-.bookmark-list strong {
+.bookmark-list strong,
+.history-list strong,
+.book-card-list strong {
     color: #557496;
     font-size: 12px;
 }
 
 .advanced-search-results span,
-.bookmark-list span {
+.bookmark-list span,
+.history-list span,
+.book-card-list span,
+.book-card-list small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.book-card-list button.active {
+    border-color: #7fa4c8;
+    background: #edf5fb;
+}
+
+.book-card-list small {
+    color: #7a8797;
+    font-size: 12px;
+}
+
+.history-panel {
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.history-clear {
+    border: 1px solid #d8e0ea;
+    background: #f6f8fb;
+    color: #66758a;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.history-clear:disabled {
+    cursor: default;
+    opacity: 0.55;
 }
 
 .bookmark-list article {
@@ -1095,7 +1142,7 @@ svg {
         bottom: calc(8px + env(safe-area-inset-bottom));
         left: 10px;
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 6px;
         align-content: stretch;
         border: 1px solid #cdd8e4;
@@ -1148,7 +1195,9 @@ svg {
     }
 
     .advanced-search-panel,
-    .bookmark-panel {
+    .bookmark-panel,
+    .history-panel,
+    .library-panel {
         padding: 12px;
     }
 
@@ -1166,7 +1215,10 @@ svg {
     }
 
     .advanced-search-results span,
-    .bookmark-list span {
+    .bookmark-list span,
+    .history-list span,
+    .book-card-list span,
+    .book-card-list small {
         white-space: normal;
     }
 
@@ -1469,5 +1521,14 @@ svg {
         font-family: var(--font-sans);
         font-size: 10pt;
         text-align: right;
+    }
+
+    .print-document footer {
+        margin-top: 18px;
+        border-top: 1px solid #d1d5db;
+        padding-top: 8px;
+        color: #4b5563;
+        font-family: var(--font-sans);
+        font-size: 9pt;
     }
 }

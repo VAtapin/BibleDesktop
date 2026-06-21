@@ -185,10 +185,23 @@ type BookmarkItem = {
     createdAt: string;
 };
 
-type IconName = 'bookmark' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
+type HistoryItem = {
+    id: string;
+    title: string;
+    translationCode: string;
+    bookSlug: string;
+    chapterNumber: number;
+    verseNumber: number | null;
+    openedAt: string;
+};
+
+type LeftPanelId = 'library' | 'bookmarks' | 'history' | 'search';
+type ToolId = LeftPanelId | 'strong' | 'print';
+type IconName = 'book-open' | 'bookmark' | 'clock' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
 
 const readerStateKey = 'bible-desktop-reader-state';
 const bookmarkStateKey = 'bible-desktop-bookmarks';
+const historyStateKey = 'bible-desktop-view-history';
 const maxReaderTabs = 8;
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
@@ -217,15 +230,17 @@ const isSearchLoading = ref(false);
 const searchError = ref<string | null>(null);
 const showSearchResults = ref(false);
 const searchScope = ref('canonical');
-const activeLeftPanel = ref<'search' | 'bookmarks' | null>(null);
+const activeLeftPanel = ref<LeftPanelId | null>(null);
 const advancedSearchQuery = ref('');
 const advancedSearchScope = ref('canonical');
-const advancedSearchMatch = ref<'all_words' | 'phrase' | 'partial' | 'fuzzy'>('all_words');
+const advancedSearchMatch = ref<'all_words' | 'phrase' | 'partial'>('all_words');
 const advancedSearchResults = ref<SearchResultDto[]>([]);
 const isAdvancedSearchLoading = ref(false);
 const advancedSearchError = ref<string | null>(null);
 const bookmarks = ref<BookmarkItem[]>([]);
+const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
+const selectionAnchorVerseNumber = ref<number | null>(null);
 const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
 const activeStudyTab = ref<'strong' | 'references' | 'notes'>('strong');
@@ -241,18 +256,28 @@ const currentVerses = ref<Verse[]>([]);
 const compareVerses = ref<Verse[]>([]);
 const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
+const chapterCache = new Map<string, ChapterDto>();
 
 const tools = [
-    { id: 'search', icon: 'search', title: 'Расширенный поиск' },
+    { id: 'library', icon: 'book-open', title: 'Библиотека' },
     { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
-    { id: 'references', icon: 'sidebar', title: 'Справочник' },
-    { id: 'print', icon: 'printer', title: 'Печать' },
+    { id: 'history', icon: 'clock', title: 'История просмотра' },
+    { id: 'search', icon: 'search', title: 'Поиск' },
     { id: 'strong', icon: 'hash', title: 'Strong' },
-] as const;
+    { id: 'print', icon: 'printer', title: 'Печать' },
+] satisfies Array<{ id: ToolId; icon: IconName; title: string }>;
 
 const icons: Record<IconName, string[]> = {
+    'book-open': [
+        'M4 19.5V5.75A2.75 2.75 0 0 1 6.75 3H20v16H7.25A3.25 3.25 0 0 0 4 22V19.5Z',
+        'M4 19.5A3.5 3.5 0 0 1 7.5 16H20',
+    ],
     bookmark: [
         'M6 4.75C6 3.78 6.78 3 7.75 3h8.5C17.22 3 18 3.78 18 4.75V21l-6-3.5L6 21V4.75Z',
+    ],
+    clock: [
+        'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+        'M12 7v5l3 2',
     ],
     close: [
         'M18 6 6 18',
@@ -324,17 +349,35 @@ const visibleReaderTabs = computed(() => {
     }));
 });
 const visibleCrossReferences = computed(() => crossReferences.value.slice(0, 12));
+const leftPanelTitle = computed(() => {
+    if (activeLeftPanel.value === 'library') {
+        return 'Библиотека';
+    }
+
+    if (activeLeftPanel.value === 'bookmarks') {
+        return 'Закладки';
+    }
+
+    if (activeLeftPanel.value === 'history') {
+        return 'История просмотра';
+    }
+
+    return 'Поиск';
+});
 const selectedVerseReference = computed(() => {
     return selectedVerse.value ? verseReference(selectedVerse.value) : currentTitle.value;
 });
 const compareVerseByNumber = computed(() => {
     return new Map(compareVerses.value.map((verse) => [verse.number, verse]));
 });
-const printableVerses = computed(() => {
-    const selectedNumbers = highlightedVerseNumbers.value;
+const selectedVerses = computed(() => {
+    const selectedNumbers = [...highlightedVerseNumbers.value].sort((left, right) => left - right);
 
-    if (selectedNumbers.length > 0) {
-        return currentVerses.value.filter((verse) => selectedNumbers.includes(verse.number));
+    return currentVerses.value.filter((verse) => selectedNumbers.includes(verse.number));
+});
+const printableVerses = computed(() => {
+    if (selectedVerses.value.length > 0) {
+        return selectedVerses.value;
     }
 
     return currentVerses.value;
@@ -342,6 +385,12 @@ const printableVerses = computed(() => {
 const printTitle = computed(() => {
     if (printableVerses.value.length === 1) {
         return `${currentTitle.value}:${printableVerses.value[0]?.number}`;
+    }
+
+    if (selectedVerses.value.length > 1) {
+        const lastSelectedVerse = selectedVerses.value[selectedVerses.value.length - 1];
+
+        return `${currentTitle.value}:${selectedVerses.value[0]?.number}-${lastSelectedVerse?.number}`;
     }
 
     return currentTitle.value;
@@ -379,6 +428,16 @@ function shortTranslationLabel(translation: TranslationDto | null | undefined): 
 
 function bookDisplayName(book: ReaderBookDto | null | undefined): string {
     return book?.name || book?.short_name || book?.slug || 'Библия';
+}
+
+function bookInfo(book: ReaderBookDto): string {
+    const testament = book.canonical_book?.testament === 'new'
+        ? 'Новый Завет'
+        : book.canonical_book?.testament === 'old'
+            ? 'Ветхий Завет'
+            : 'Дополнительные книги';
+
+    return `${testament}. Глав: ${book.chapters_count}.`;
 }
 
 function verseTextParts(verse: Verse): VerseTextPart[] {
@@ -474,6 +533,10 @@ function displayVerseText(verse: Verse | undefined | null): string {
     return cleanDisplayChunk(
         stripStrongNumbers(verse.text),
     ).replace(/\s+([,.;:!?])/gu, '$1').replace(/\s{2,}/gu, ' ').trim();
+}
+
+function displayReferenceText(reference: CrossReferenceDto): string {
+    return cleanDisplayChunk(stripStrongNumbers(reference.target.text ?? reference.type)).trim();
 }
 
 function stripStrongNumbers(text: string): string {
@@ -678,6 +741,36 @@ function persistBookmarks(): void {
     window.localStorage.setItem(bookmarkStateKey, JSON.stringify(bookmarks.value));
 }
 
+function readHistory(): HistoryItem[] {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+
+    try {
+        const value = window.localStorage.getItem(historyStateKey);
+        const parsed = value ? JSON.parse(value) : [];
+
+        return Array.isArray(parsed) ? parsed.filter((item): item is HistoryItem => {
+            return item
+                && typeof item.id === 'string'
+                && typeof item.title === 'string'
+                && typeof item.translationCode === 'string'
+                && typeof item.bookSlug === 'string'
+                && typeof item.chapterNumber === 'number';
+        }) : [];
+    } catch {
+        return [];
+    }
+}
+
+function persistHistory(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(historyStateKey, JSON.stringify(viewHistory.value));
+}
+
 function readUrlState(): Partial<ReaderState> & { verses?: number[] } {
     if (typeof window === 'undefined') {
         return {};
@@ -712,29 +805,16 @@ function persistReaderState(): void {
     }));
 }
 
-function toggleLeftPanel(panel: 'search' | 'bookmarks'): void {
+function toggleLeftPanel(panel: LeftPanelId): void {
     activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel;
     if (activeLeftPanel.value !== null) {
         isStudyPanelOpen.value = false;
     }
 }
 
-function handleToolClick(toolId: string): void {
-    if (toolId === 'search') {
-        toggleLeftPanel('search');
-        return;
-    }
-
-    if (toolId === 'bookmarks') {
-        toggleLeftPanel('bookmarks');
-        return;
-    }
-
-    if (toolId === 'references') {
-        activeStudyTab.value = 'references';
-        isStudyPanelOpen.value = true;
-        activeLeftPanel.value = null;
-        scrollStudyPanelIntoView();
+function handleToolClick(toolId: ToolId): void {
+    if (toolId === 'library' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search') {
+        toggleLeftPanel(toolId);
         return;
     }
 
@@ -766,6 +846,19 @@ async function loadJson<T>(url: string): Promise<T> {
     return response.json() as Promise<T>;
 }
 
+function chapterCacheKey(translationCode: string, bookSlug: string, chapterNumber: number): string {
+    return `${translationCode}:${bookSlug}:${chapterNumber}`;
+}
+
+function applyChapterData(chapter: ChapterDto, targetVerseNumber: number | null): void {
+    currentVerses.value = chapter.verses;
+
+    const preferredVerseNumber = targetVerseNumber ?? highlightedVerseNumbers.value[0] ?? null;
+    selectedVerse.value = preferredVerseNumber === null
+        ? currentVerses.value[0] ?? null
+        : currentVerses.value.find((verse) => verse.number === preferredVerseNumber) ?? currentVerses.value[0] ?? null;
+}
+
 async function postJson<T>(url: string, payload: Record<string, unknown>): Promise<T> {
     const response = await fetch(url, {
         method: 'POST',
@@ -788,24 +881,25 @@ async function loadChapter(targetVerseNumber: number | null = null): Promise<voi
         return;
     }
 
-    isChapterLoading.value = true;
+    const cacheKey = chapterCacheKey(selectedTranslationCode.value, selectedBookSlug.value, selectedChapterNumber.value);
+    const cachedChapter = chapterCache.get(cacheKey);
+    isChapterLoading.value = cachedChapter === undefined;
 
     try {
-        const chapterResponse = await loadJson<ApiResponse<ChapterDto>>(
+        const chapter = cachedChapter ?? (await loadJson<ApiResponse<ChapterDto>>(
             `/api/translations/${selectedTranslationCode.value}/books/${selectedBookSlug.value}/chapters/${selectedChapterNumber.value}`,
-        );
+        )).data;
 
-        currentVerses.value = chapterResponse.data.verses;
-        selectedVerse.value = targetVerseNumber === null
-            ? currentVerses.value[0] ?? null
-            : currentVerses.value.find((verse) => verse.number === targetVerseNumber) ?? currentVerses.value[0] ?? null;
-        if (highlightedVerseNumbers.value.length > 0) {
-            selectedVerse.value = currentVerses.value.find((verse) => verse.number === highlightedVerseNumbers.value[0]) ?? selectedVerse.value;
+        if (!cachedChapter) {
+            chapterCache.set(cacheKey, chapter);
         }
+
+        applyChapterData(chapter, targetVerseNumber);
         if (selectedVerse.value?.id) {
             await loadStudyData(selectedVerse.value);
         }
         await loadCompareChapter();
+        recordHistory(selectedVerse.value?.number ?? null);
         apiError.value = null;
     } catch (error) {
         currentVerses.value = [];
@@ -827,14 +921,20 @@ async function loadCompareChapter(): Promise<void> {
         return;
     }
 
-    isCompareLoading.value = true;
+    const cacheKey = chapterCacheKey(compareTranslationCode.value, selectedBookSlug.value, selectedChapterNumber.value);
+    const cachedChapter = chapterCache.get(cacheKey);
+    isCompareLoading.value = cachedChapter === undefined;
 
     try {
-        const chapterResponse = await loadJson<ApiResponse<ChapterDto>>(
+        const chapter = cachedChapter ?? (await loadJson<ApiResponse<ChapterDto>>(
             `/api/translations/${compareTranslationCode.value}/books/${selectedBookSlug.value}/chapters/${selectedChapterNumber.value}`,
-        );
+        )).data;
 
-        compareVerses.value = chapterResponse.data.verses;
+        if (!cachedChapter) {
+            chapterCache.set(cacheKey, chapter);
+        }
+
+        compareVerses.value = chapter.verses;
     } catch (error) {
         compareError.value = error instanceof Error ? error.message : 'Не удалось загрузить параллельный перевод';
     } finally {
@@ -942,7 +1042,7 @@ function addBookmark(): void {
         bookSlug: selectedBookSlug.value,
         chapterNumber: selectedChapterNumber.value,
         verseNumber: verse.number,
-        text: verse.text,
+        text: displayVerseText(verse),
         createdAt: new Date().toISOString(),
     };
 
@@ -970,6 +1070,52 @@ async function openBookmark(bookmark: BookmarkItem): Promise<void> {
 function removeBookmark(bookmark: BookmarkItem): void {
     bookmarks.value = bookmarks.value.filter((item) => item.id !== bookmark.id);
     persistBookmarks();
+}
+
+function recordHistory(verseNumber: number | null = null): void {
+    const versePart = verseNumber ? `:${verseNumber}` : '';
+    const item: HistoryItem = {
+        id: `${selectedTranslationCode.value}:${selectedBookSlug.value}:${selectedChapterNumber.value}${versePart}`,
+        title: `${currentTitle.value}${versePart}`,
+        translationCode: selectedTranslationCode.value,
+        bookSlug: selectedBookSlug.value,
+        chapterNumber: selectedChapterNumber.value,
+        verseNumber,
+        openedAt: new Date().toISOString(),
+    };
+
+    viewHistory.value = [
+        item,
+        ...viewHistory.value.filter((historyItem) => historyItem.id !== item.id),
+    ].slice(0, 100);
+    persistHistory();
+}
+
+async function openHistoryItem(item: HistoryItem): Promise<void> {
+    selectedTranslationCode.value = item.translationCode;
+    selectedBookSlug.value = item.bookSlug;
+    selectedChapterNumber.value = item.chapterNumber;
+    highlightedVerseNumbers.value = item.verseNumber ? [item.verseNumber] : [];
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter(item.verseNumber);
+    syncActiveTabFromSelection();
+    persistReaderState();
+}
+
+function clearHistory(): void {
+    viewHistory.value = [];
+    persistHistory();
+}
+
+async function openLibraryBook(book: ReaderBookDto): Promise<void> {
+    selectedBookSlug.value = book.slug;
+    selectedChapterNumber.value = 1;
+    highlightedVerseNumbers.value = [];
+
+    await loadChapter();
+    syncActiveTabFromSelection();
+    persistReaderState();
 }
 
 async function switchReaderTab(tabId: string): Promise<void> {
@@ -1140,9 +1286,31 @@ async function submitVerseNote(): Promise<void> {
     }
 }
 
-function selectVerse(verse: Verse): void {
+function selectVerse(verse: Verse, event: MouseEvent | null = null): void {
     selectedVerse.value = verse;
-    highlightedVerseNumbers.value = [verse.number];
+    const currentSelection = [...highlightedVerseNumbers.value];
+
+    if (event?.shiftKey && selectionAnchorVerseNumber.value !== null) {
+        const start = Math.min(selectionAnchorVerseNumber.value, verse.number);
+        const end = Math.max(selectionAnchorVerseNumber.value, verse.number);
+        highlightedVerseNumbers.value = currentVerses.value
+            .map((candidate) => candidate.number)
+            .filter((number) => number >= start && number <= end);
+    } else if (event?.ctrlKey || event?.metaKey) {
+        highlightedVerseNumbers.value = currentSelection.includes(verse.number)
+            ? currentSelection.filter((number) => number !== verse.number)
+            : [...currentSelection, verse.number].sort((left, right) => left - right);
+
+        if (highlightedVerseNumbers.value.length === 0) {
+            highlightedVerseNumbers.value = [verse.number];
+        }
+
+        selectionAnchorVerseNumber.value = verse.number;
+    } else {
+        highlightedVerseNumbers.value = [verse.number];
+        selectionAnchorVerseNumber.value = verse.number;
+    }
+
     verseMenu.value = null;
     void loadStudyData(verse);
 }
@@ -1163,11 +1331,15 @@ function crossReferenceLabel(reference: CrossReferenceDto): string {
 
 function versePermalink(verse: Verse): string {
     const url = new URL(window.location.href);
+    const selectedNumbers = selectedVerses.value.length > 0
+        ? selectedVerses.value.map((selected) => selected.number)
+        : [verse.number];
+
     url.search = new URLSearchParams({
         translation: selectedTranslationCode.value,
         book: selectedBookSlug.value,
         chapter: String(selectedChapterNumber.value),
-        verses: String(verse.number),
+        verses: selectedNumbers.join(','),
     }).toString();
 
     return url.toString();
@@ -1176,6 +1348,10 @@ function versePermalink(verse: Verse): string {
 function openVerseMenu(event: MouseEvent, verse: Verse): void {
     event.preventDefault();
     selectedVerse.value = verse;
+    if (!highlightedVerseNumbers.value.includes(verse.number)) {
+        highlightedVerseNumbers.value = [verse.number];
+        selectionAnchorVerseNumber.value = verse.number;
+    }
     verseMenu.value = {
         verse,
         x: Math.min(event.clientX, window.innerWidth - 220),
@@ -1215,8 +1391,13 @@ async function copyVerseReference(verse: Verse): Promise<void> {
 }
 
 async function copyVerseText(verse: Verse): Promise<void> {
-    await copyToClipboard(`${verseReference(verse)} ${verse.text}`);
-    showVerseActionMessage('Стих скопирован');
+    const verses = selectedVerses.value.length > 0 ? selectedVerses.value : [verse];
+    const text = verses
+        .map((selected) => `${verseReference(selected)} ${displayVerseText(selected)}`)
+        .join('\n');
+
+    await copyToClipboard(text);
+    showVerseActionMessage(verses.length > 1 ? 'Стихи скопированы' : 'Стих скопирован');
     closeVerseMenu();
 }
 
@@ -1224,6 +1405,21 @@ function openVerseStudy(verse: Verse): void {
     selectVerse(verse);
     activeStudyTab.value = 'strong';
     showVerseActionMessage('Справочник открыт');
+}
+
+function toggleVerseInSelection(verse: Verse): void {
+    const selected = highlightedVerseNumbers.value.includes(verse.number);
+    highlightedVerseNumbers.value = selected
+        ? highlightedVerseNumbers.value.filter((number) => number !== verse.number)
+        : [...highlightedVerseNumbers.value, verse.number].sort((left, right) => left - right);
+
+    if (highlightedVerseNumbers.value.length === 0) {
+        highlightedVerseNumbers.value = [verse.number];
+    }
+
+    selectedVerse.value = verse;
+    selectionAnchorVerseNumber.value = verse.number;
+    void loadStudyData(verse);
 }
 
 function showVerseActionMessage(message: string): void {
@@ -1368,6 +1564,7 @@ onMounted(async () => {
         const savedState = readReaderState();
         const urlState = readUrlState();
         bookmarks.value = readBookmarks();
+        viewHistory.value = readHistory();
         const [languagesResponse, translationsResponse] = await Promise.all([
             loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
             loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
@@ -1467,7 +1664,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     <template v-else>
                         <button type="button" class="advanced-search-open" @click="activeLeftPanel = 'search'; advancedSearchQuery = searchQuery; showSearchResults = false">
                             <strong>Расширенный поиск</strong>
-                            <span>Фильтры, точность, часть слова, опечатки</span>
+                            <span>Фильтры, точная фраза и часть слова</span>
                         </button>
                         <p v-if="searchResults.length === 0">Ничего не найдено.</p>
                         <template v-else>
@@ -1586,7 +1783,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
 
             <aside v-if="activeLeftPanel" class="left-panel">
                 <header>
-                    <h2>{{ activeLeftPanel === 'search' ? 'Расширенный поиск' : 'Закладки' }}</h2>
+                    <h2>{{ leftPanelTitle }}</h2>
                     <button type="button" aria-label="Закрыть" @click="activeLeftPanel = null">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
@@ -1604,7 +1801,6 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         <option value="all_words">Все слова</option>
                         <option value="phrase">Точная фраза</option>
                         <option value="partial">Часть слова</option>
-                        <option value="fuzzy">С опечатками</option>
                     </select>
                     <select v-model="advancedSearchScope">
                         <option value="canonical">Канон</option>
@@ -1631,7 +1827,24 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                     </div>
                 </form>
 
-                <section v-else class="bookmark-panel">
+                <section v-else-if="activeLeftPanel === 'library'" class="library-panel">
+                    <div class="book-card-list">
+                        <button
+                            v-for="book in books"
+                            :key="book.slug"
+                            type="button"
+                            :class="{ active: book.slug === selectedBookSlug }"
+                            @click="openLibraryBook(book)"
+                        >
+                            <strong>{{ book.name }}</strong>
+                            <span>{{ book.short_name || book.slug }}</span>
+                            <small>{{ bookInfo(book) }}</small>
+                        </button>
+                        <p v-if="books.length === 0">Книги пока не загружены.</p>
+                    </div>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'bookmarks'" class="bookmark-panel">
                     <button type="button" class="bookmark-add" @click="addBookmark">Добавить выбранный стих</button>
                     <div class="bookmark-list">
                         <article v-for="bookmark in bookmarks" :key="bookmark.id">
@@ -1643,6 +1856,24 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         </article>
                         <p v-if="bookmarks.length === 0">Закладок пока нет.</p>
                     </div>
+                </section>
+
+                <section v-else class="history-panel">
+                    <div class="history-list">
+                        <button
+                            v-for="item in viewHistory"
+                            :key="item.id"
+                            type="button"
+                            @click="openHistoryItem(item)"
+                        >
+                            <strong>{{ item.title }}</strong>
+                            <span>{{ item.translationCode }}</span>
+                        </button>
+                        <p v-if="viewHistory.length === 0">История пока пуста.</p>
+                    </div>
+                    <button type="button" class="history-clear" :disabled="viewHistory.length === 0" @click="clearHistory">
+                        Очистить историю
+                    </button>
                 </section>
             </aside>
 
@@ -1771,11 +2002,11 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         <button
                             type="button"
                             class="verse-number"
-                            @click="selectVerse(verse)"
+                            @click="selectVerse(verse, $event)"
                         >
                             {{ verse.number }}
                         </button>
-                        <span class="verse-text" @click="selectVerse(verse)">
+                        <span class="verse-text" @click="selectVerse(verse, $event)">
                             <template
                                 v-for="part in verseTextParts(verse)"
                                 :key="part.key"
@@ -1816,6 +2047,9 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                         :style="{ left: `${verseMenu.x}px`, top: `${verseMenu.y}px` }"
                         @click.stop
                     >
+                        <button type="button" @click="toggleVerseInSelection(verseMenu.verse)">
+                            {{ highlightedVerseNumbers.includes(verseMenu.verse.number) && highlightedVerseNumbers.length > 1 ? 'Убрать из выделения' : 'Добавить к выделению' }}
+                        </button>
                         <button type="button" @click="copyVerseReference(verseMenu.verse)">Копировать ссылку</button>
                         <button type="button" @click="copyVerseText(verseMenu.verse)">Копировать стих</button>
                         <button type="button" @click="openVerseStudy(verseMenu.verse)">Открыть справочник</button>
@@ -1899,7 +2133,7 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                             @click="openCrossReference(reference)"
                         >
                             <strong>{{ crossReferenceLabel(reference) }}</strong>
-                            <span>{{ reference.target.text ?? reference.type }}</span>
+                            <span>{{ displayReferenceText(reference) }}</span>
                         </button>
                         <p v-if="!isStudyLoading && crossReferences.length === 0">Нет ссылок.</p>
                     </div>
@@ -1955,5 +2189,6 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
             <strong>{{ verse.number }}</strong>
             <span>{{ displayVerseText(verse) }}</span>
         </p>
+        <footer>https://bible-desktop.com</footer>
     </section>
 </template>

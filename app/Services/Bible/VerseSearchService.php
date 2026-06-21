@@ -50,9 +50,18 @@ class VerseSearchService
             ];
         }
 
+        $results = $this->textResults($query, $translationCode, $limit, $filters);
+
+        if ($results->isEmpty() && ($filters['match'] ?? 'all_words') !== 'fuzzy') {
+            $results = $this->textResults($query, $translationCode, $limit, [
+                ...$filters,
+                'match' => 'fuzzy',
+            ]);
+        }
+
         return [
             'mode' => 'text',
-            'results' => $this->textResults($query, $translationCode, $limit, $filters),
+            'results' => $results,
         ];
     }
 

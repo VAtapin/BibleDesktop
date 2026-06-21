@@ -209,7 +209,7 @@ class StudyDataController extends Controller
                     'book_short_name' => $reference->book_short_name,
                     'chapter_number' => $reference->chapter_number,
                     'verse_number' => $reference->verse_number,
-                    'text' => $reference->text,
+                    'text' => $reference->text ? StrongText::textWithoutNumbers((string) $reference->text) : null,
                 ],
             ]);
 
