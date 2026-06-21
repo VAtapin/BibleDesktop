@@ -14,6 +14,7 @@
 
 namespace App\Services\Telegram;
 
+use App\Services\Bible\PassageTextService;
 use App\Services\Bible\VerseSearchService;
 use App\Services\Calendar\OrthodoxCalendarService;
 use App\Support\BibleReferenceFormatter;
@@ -42,6 +43,7 @@ class TelegramUpdateHandler
 
     public function __construct(
         private readonly OrthodoxCalendarService $calendar,
+        private readonly PassageTextService $passageText,
         private readonly VerseSearchService $verseSearch,
     ) {}
 
@@ -107,9 +109,9 @@ class TelegramUpdateHandler
             '/help' => $this->messageAction($chatId, $this->helpText()),
             '/search' => $this->searchAction($chatId, $telegramId, $text, $settings),
             '/ask', '/contact', '/message' => $this->contactAction($chatId, $telegramId, $text, $settings, $message),
-            '/today', '/calendar' => $this->messageAction($chatId, $this->calendarText()),
-            '/gospel' => $this->messageAction($chatId, $this->readingText('gospel', 'Евангелие')),
-            '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол')),
+            '/today', '/calendar' => $this->messageAction($chatId, $this->calendarText($settings)),
+            '/gospel' => $this->messageAction($chatId, $this->readingText('gospel', 'Евангелие', $settings)),
+            '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол', $settings)),
             '/fasting' => $this->messageAction($chatId, $this->fastingText()),
             '/settings' => $this->messageAction($chatId, $this->settingsText($settings), [
                 'reply_markup' => $this->settingsKeyboard($settings),
@@ -364,10 +366,13 @@ class TelegramUpdateHandler
         ];
     }
 
-    private function calendarText(): string
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    private function calendarText(array $settings): string
     {
         $day = $this->calendar->day(now()->toDateString());
-        $readings = $this->readingsSummary($day);
+        $readings = $this->readingsSummary($day, $settings);
 
         if ($day['events']->isEmpty() && $readings === '') {
             return 'Календарные события и чтения дня ещё не импортированы.';
@@ -401,9 +406,13 @@ class TelegramUpdateHandler
         return "Пост на {$day['date']}\n{$events}";
     }
 
-    private function readingText(string $readingType, string $readingName): string
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    private function readingText(string $readingType, string $readingName, array $settings): string
     {
         $day = $this->calendar->day(now()->toDateString());
+        $translationCode = $this->selectedTranslationCode($settings);
         $readings = $day['readings']
             ->filter(fn (array $reading): bool => $reading['type'] === $readingType)
             ->values();
@@ -414,20 +423,26 @@ class TelegramUpdateHandler
 
         $lines = $readings
             ->take(4)
-            ->map(function (array $reading): string {
+            ->map(function (array $reading) use ($translationCode): string {
                 $title = $reading['title'] ? "{$reading['title']}: " : '';
+                $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 35);
 
-                return "- {$title}{$reading['passage_ref']}";
+                if ($text === '') {
+                    return "- {$title}{$reading['passage_ref']}\nТекст не найден в выбранном переводе.";
+                }
+
+                return "{$title}{$reading['passage_ref']}\n{$text}";
             })
             ->implode("\n");
 
-        return "{$readingName} на {$day['date']}\n{$lines}";
+        return $this->trimTelegramText("{$readingName} на {$day['date']}\n{$lines}");
     }
 
     /**
      * @param  array{readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>}  $day
+     * @param  array<string, mixed>  $settings
      */
-    private function readingsSummary(array $day): string
+    private function readingsSummary(array $day, array $settings): string
     {
         $readings = $day['readings'];
 
@@ -435,16 +450,9 @@ class TelegramUpdateHandler
             return '';
         }
 
-        $apostle = $readings
-            ->filter(fn (array $reading): bool => $reading['type'] === 'apostle')
-            ->take(2)
-            ->map(fn (array $reading): string => $reading['passage_ref'])
-            ->implode('; ');
-        $gospel = $readings
-            ->filter(fn (array $reading): bool => $reading['type'] === 'gospel')
-            ->take(2)
-            ->map(fn (array $reading): string => $reading['passage_ref'])
-            ->implode('; ');
+        $translationCode = $this->selectedTranslationCode($settings);
+        $apostle = $this->calendarReadingBlock($readings, 'apostle', $translationCode);
+        $gospel = $this->calendarReadingBlock($readings, 'gospel', $translationCode);
         $psalms = $readings
             ->filter(fn (array $reading): bool => $reading['type'] === 'psalm')
             ->take(4)
@@ -455,17 +463,14 @@ class TelegramUpdateHandler
 
         if ($apostle !== '' || $gospel !== '') {
             $lines[] = 'Евангелие и Апостол:';
-            $dailyReadings = [];
 
             if ($apostle !== '') {
-                $dailyReadings[] = 'Ап.: '.$apostle;
+                $lines[] = 'Ап.: '.$apostle;
             }
 
             if ($gospel !== '') {
-                $dailyReadings[] = 'Ев.: '.$gospel;
+                $lines[] = 'Ев.: '.$gospel;
             }
-
-            $lines[] = implode(' ', $dailyReadings);
         }
 
         if ($psalms !== '') {
@@ -473,7 +478,38 @@ class TelegramUpdateHandler
             $lines[] = $psalms;
         }
 
-        return implode("\n", array_filter($lines));
+        return $this->trimTelegramText(implode("\n", array_filter($lines)));
+    }
+
+    /**
+     * @param  Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>  $readings
+     */
+    private function calendarReadingBlock(Collection $readings, string $type, string $translationCode): string
+    {
+        return $readings
+            ->filter(fn (array $reading): bool => $reading['type'] === $type)
+            ->take(2)
+            ->map(function (array $reading) use ($translationCode): string {
+                $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 20);
+
+                if ($text === '') {
+                    return $reading['passage_ref'];
+                }
+
+                return $reading['passage_ref']."\n".$text;
+            })
+            ->implode("\n");
+    }
+
+    private function trimTelegramText(string $text): string
+    {
+        $text = trim($text);
+
+        if (mb_strlen($text) <= 3900) {
+            return $text;
+        }
+
+        return rtrim(mb_substr($text, 0, 3850))."\n\nТекст сокращён, полный отрывок откройте на сайте.";
     }
 
     /**

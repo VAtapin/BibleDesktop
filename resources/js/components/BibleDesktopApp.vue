@@ -201,6 +201,7 @@ type CalendarReadingDto = {
     title: string | null;
     passage_ref: string;
     date_rule_type: string;
+    text?: string;
 };
 
 type CalendarEventDto = {
@@ -1008,7 +1009,8 @@ async function loadCalendarDay(): Promise<void> {
     calendarError.value = null;
 
     try {
-        const response = await loadJson<ApiResponse<CalendarDayDto>>('/api/calendar/day');
+        const params = new URLSearchParams({ translation: selectedTranslationCode.value });
+        const response = await loadJson<ApiResponse<CalendarDayDto>>(`/api/calendar/day?${params.toString()}`);
         calendarDay.value = response.data;
     } catch (error) {
         calendarError.value = error instanceof Error ? error.message : 'Не удалось загрузить календарь дня';
@@ -1949,6 +1951,7 @@ onMounted(async () => {
 });
 
 watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
+    calendarDay.value = null;
     syncActiveTabFromSelection();
     persistReaderState();
 });
@@ -2218,6 +2221,8 @@ watch(activeStudyTab, (tab) => {
                                 <span>{{ calendarReadingTypeLabel(reading.type) }}</span>
                                 <strong>{{ reading.title || reading.passage_ref }}</strong>
                                 <p>{{ reading.passage_ref }}</p>
+                                <pre v-if="reading.text" class="calendar-reading-text">{{ reading.text }}</pre>
+                                <p v-else>Текст для выбранного перевода не найден.</p>
                             </article>
                         </div>
                         <p v-else>Чтения дня ещё не заданы.</p>

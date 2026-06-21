@@ -539,6 +539,17 @@ svg {
     margin: 0;
 }
 
+.calendar-reading-text {
+    max-height: 220px;
+    margin: 2px 0 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    color: #142235;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 .module-card-list button {
     grid-template-columns: 58px minmax(0, 1fr);
     align-items: start;

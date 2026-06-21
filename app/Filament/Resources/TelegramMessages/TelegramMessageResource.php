@@ -141,13 +141,23 @@ class TelegramMessageResource extends Resource
                     ->label('Открыть диалог')
                     ->modalHeading(fn (TelegramMessage $record): string => 'Диалог: '.($record->telegram_username ?: $record->telegram_id))
                     ->modalSubmitActionLabel('Ответить')
-                    ->modalContent(fn (TelegramMessage $record) => view('filament.telegram.dialog', [
-                        'messages' => TelegramMessage::query()
+                    ->modalContent(function (TelegramMessage $record) {
+                        $messages = TelegramMessage::query()
                             ->where('telegram_id', $record->telegram_id)
                             ->orderBy('created_at')
                             ->orderBy('id')
-                            ->get(),
-                    ]))
+                            ->get();
+
+                        TelegramMessage::query()
+                            ->where('telegram_id', $record->telegram_id)
+                            ->where('direction', 'inbound')
+                            ->where('status', 'new')
+                            ->update(['status' => 'read']);
+
+                        return view('filament.telegram.dialog', [
+                            'messages' => $messages,
+                        ]);
+                    })
                     ->form([
                         Textarea::make('reply')
                             ->label('Ответ')

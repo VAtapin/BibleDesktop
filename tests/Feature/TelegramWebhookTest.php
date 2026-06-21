@@ -267,13 +267,16 @@ class TelegramWebhookTest extends TestCase
 
     public function test_telegram_gospel_command_returns_calendar_reading(): void
     {
+        $this->createSearchFixture();
+        $this->addJohnFixture();
+
         DB::table('calendar_readings')->insert([
             'date_rule_type' => 'fixed',
             'month' => (int) now()->month,
             'day' => (int) now()->day,
             'reading_type' => 'gospel',
             'title' => 'Евангелие дня',
-            'passage_ref' => 'John.1.1-17',
+            'passage_ref' => 'John.1.1-2',
             'sort_order' => 10,
             'created_at' => now(),
             'updated_at' => now(),
@@ -286,7 +289,10 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', 'Евангелие на '.now()->toDateString()."\n- Евангелие дня: John.1.1-17");
+            ->assertJsonPath(
+                'actions.0.payload.text',
+                'Евангелие на '.now()->toDateString()."\nЕвангелие дня: John.1.1-2\nОт Иоанна 1:1 В начале было Слово.\nОт Иоанна 1:2 Оно было в начале у Бога.",
+            );
     }
 
     private function createSearchFixture(): void
@@ -372,6 +378,68 @@ class TelegramWebhookTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+    }
+
+    private function addJohnFixture(): void
+    {
+        $now = now();
+        $moduleId = DB::table('modules')->where('code', 'L1_RST')->value('id');
+        $translationId = DB::table('translations')->where('code', 'L1_RST')->value('id');
+        $bookId = DB::table('canonical_books')->where('slug', 'john')->value('id');
+        $chapterId = DB::table('canonical_chapters')
+            ->where('canonical_book_id', $bookId)
+            ->where('number', 1)
+            ->value('id');
+
+        DB::table('module_books')->insert([
+            'module_id' => $moduleId,
+            'translation_id' => $translationId,
+            'canonical_book_id' => $bookId,
+            'slug' => 'john',
+            'name' => 'От Иоанна',
+            'short_name' => 'Ин.',
+            'book_order' => 50,
+            'chapters_count' => 21,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleBookId = DB::table('module_books')->where('module_id', $moduleId)->where('slug', 'john')->value('id');
+
+        DB::table('module_chapters')->insert([
+            'module_book_id' => $moduleBookId,
+            'canonical_chapter_id' => $chapterId,
+            'chapter_number' => 1,
+            'verses_count' => 2,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $moduleChapterId = DB::table('module_chapters')->where('module_book_id', $moduleBookId)->value('id');
+
+        foreach ([
+            1 => 'В начале было Слово.',
+            2 => 'Оно было в начале у Бога.',
+        ] as $verseNumber => $text) {
+            DB::table('verses')->insert([
+                'canonical_book_id' => $bookId,
+                'canonical_chapter_id' => $chapterId,
+                'chapter_number' => 1,
+                'verse_number' => $verseNumber,
+                'osis_ref' => "John.1.{$verseNumber}",
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $verseId = DB::table('verses')->where('osis_ref', "John.1.{$verseNumber}")->value('id');
+
+            DB::table('verse_texts')->insert([
+                'verse_id' => $verseId,
+                'translation_id' => $translationId,
+                'module_book_id' => $moduleBookId,
+                'module_chapter_id' => $moduleChapterId,
+                'text' => $text,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 
     private function createDeuterocanonicalOnlyFixture(): void

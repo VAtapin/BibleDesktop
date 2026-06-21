@@ -29,20 +29,30 @@ class TelegramAdminService
             'text' => $reply,
         ]);
 
-        $inboundMessage = $message->direction === 'inbound'
-            ? $message
-            : TelegramMessage::query()
-                ->where('telegram_id', $message->telegram_id)
-                ->where('direction', 'inbound')
-                ->where('status', 'new')
-                ->latest('id')
-                ->first();
+        $inboundMessage = TelegramMessage::query()
+            ->where('telegram_id', $message->telegram_id)
+            ->where('direction', 'inbound')
+            ->where('status', 'new')
+            ->latest('id')
+            ->first();
 
-        $inboundMessage?->update([
+        TelegramMessage::query()
+            ->where('telegram_id', $message->telegram_id)
+            ->where('direction', 'inbound')
+            ->where('status', 'new')
+            ->update([
+                'status' => 'answered',
+                'admin_reply' => $reply,
+                'answered_at' => now(),
+            ]);
+
+        if ($message->direction === 'inbound' && $message->status !== 'new') {
+            $message->update([
             'status' => 'answered',
             'admin_reply' => $reply,
             'answered_at' => now(),
-        ]);
+            ]);
+        }
 
         TelegramMessage::query()->create([
             'user_id' => $message->user_id,
