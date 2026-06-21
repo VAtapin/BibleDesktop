@@ -547,6 +547,30 @@ button {
     text-decoration: underline;
 }
 
+.strong-tooltip {
+    position: fixed;
+    z-index: 120;
+    width: min(280px, calc(100vw - 24px));
+    border: 1px solid #cfd7e1;
+    background: #ffffff;
+    box-shadow: 0 16px 34px rgb(48 64 80 / 22%);
+    color: #46515f;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.42;
+    pointer-events: none;
+}
+
+.strong-tooltip strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #2f74ad;
+}
+
+.strong-tooltip span {
+    display: block;
+}
+
 .words-of-jesus {
     color: #9b1c1c;
 }

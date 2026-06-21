@@ -103,6 +103,6 @@ class StrongText
 
     private static function numberPatternBody(): string
     {
-        return '\b(?:[GH]\d{1,5}|\d{3,5})\b';
+        return '\b(?:[GH]\d{1,5}|\d{1,5})\b';
     }
 }

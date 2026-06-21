@@ -25,7 +25,8 @@ class FreshImportBibleModules extends Command
     protected $signature = 'bible:fresh-import
         {--dir=OLD/Mod : Directory that contains module archives}
         {--module=* : File names to import; defaults to the first supported ru/de/en/uk set}
-        {--languages=ru,de,en,uk : Allowed language codes for the module importer}';
+        {--languages=ru,de,en,uk : Allowed language codes for the module importer}
+        {--strong-dictionary=OLD/Mod/BibleQuote_7.5.0.900/Library/System/Strong/Лексикон.dictionary.SQLite3 : Global Strong dictionary SQLite file}';
 
     protected $description = 'Drop all tables, migrate, seed core data, and import the initial Bible module set.';
 
@@ -80,6 +81,22 @@ class FreshImportBibleModules extends Command
 
             if ($exitCode !== self::SUCCESS) {
                 $this->error('Import failed: '.basename($path));
+
+                return self::FAILURE;
+            }
+        }
+
+        $strongDictionary = (string) $this->option('strong-dictionary');
+
+        if ($strongDictionary !== '') {
+            $this->components->info('Importing Strong dictionary');
+            $exitCode = Artisan::call('bible:strong:import-sqlite', [
+                '--path' => $strongDictionary,
+            ]);
+            $this->output->write(Artisan::output());
+
+            if ($exitCode !== self::SUCCESS) {
+                $this->error('Strong dictionary import failed.');
 
                 return self::FAILURE;
             }

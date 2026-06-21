@@ -51,6 +51,7 @@ class StudyDataController extends Controller
 
     private function findStrongEntry(string $number, ?int $verseId): ?object
     {
+        $number = strtoupper(trim($number));
         $candidates = [$number];
 
         if (preg_match('/^\d{1,5}$/', $number)) {
@@ -62,6 +63,12 @@ class StudyDataController extends Controller
 
             $candidates[] = 'G'.$number;
             $candidates[] = 'H'.$number;
+        }
+
+        if (preg_match('/^[GH](\d{1,5})$/', $number, $matches)) {
+            $digits = ltrim($matches[1], '0') ?: '0';
+            $candidates[] = $number[0].$digits;
+            $candidates[] = $digits;
         }
 
         $candidates = array_values(array_unique($candidates));

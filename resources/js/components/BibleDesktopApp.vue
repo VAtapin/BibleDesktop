@@ -231,6 +231,8 @@ const isStudyPanelOpen = ref(false);
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
+const strongTooltip = ref<{ number: string; text: string; x: number; y: number } | null>(null);
+let strongTooltipTimer: number | undefined;
 let verseActionMessageTimer: number | undefined;
 
 const currentVerses = ref<Verse[]>([]);
@@ -317,8 +319,8 @@ function bookDisplayName(book: ReaderBookDto | null | undefined): string {
 }
 
 function verseTextParts(verse: Verse): VerseTextPart[] {
-    const text = verse.text ?? '';
-    const pattern = /(<\s*font\b[^>]*color\s*=\s*["']?darkred["']?[^>]*>|<\s*\/\s*font\s*>|\b(?:[GH]\d{1,5}|\d{3,5})\b)/giu;
+    const text = showStrongNumbers.value ? (verse.text ?? '') : stripStrongNumbers(verse.text ?? '');
+    const pattern = /(<\s*font\b[^>]*color\s*=\s*["']?darkred["']?[^>]*>|<\s*\/\s*font\s*>|\b(?:[GH]\d{1,5}|\d{1,5})\b)/giu;
     const parts: VerseTextPart[] = [];
 
     if (!verse.has_strong_markup && !hasRedLetterMarkup(text)) {
@@ -407,8 +409,76 @@ function displayVerseText(verse: Verse | undefined | null): string {
     }
 
     return cleanDisplayChunk(
-        verse.text.replace(/\s*\b(?:[GH]\d{1,5}|\d{3,5})\b/giu, ''),
+        stripStrongNumbers(verse.text),
     ).replace(/\s+([,.;:!?])/gu, '$1').replace(/\s{2,}/gu, ' ').trim();
+}
+
+function stripStrongNumbers(text: string): string {
+    return text
+        .replace(/\s*\b(?:[GH]\d{1,5}|\d{1,5})\b/giu, '')
+        .replace(/\s+([,.;:!?])/gu, '$1')
+        .replace(/\s{2,}/gu, ' ');
+}
+
+function strongEntrySummary(entry: StrongEntryDto): string {
+    const title = [entry.word, entry.transliteration, entry.pronunciation]
+        .filter((part) => typeof part === 'string' && part.trim().length > 0)
+        .join(' · ');
+    const body = cleanDisplayChunk(entry.content ?? entry.raw_content ?? '')
+        .replace(/\s+/gu, ' ')
+        .trim();
+
+    return [title, body].filter((part) => part.length > 0).join(' — ').slice(0, 260);
+}
+
+function scrollStudyPanelIntoView(): void {
+    window.requestAnimationFrame(() => {
+        document.querySelector('.analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+}
+
+function strongTooltipPosition(event: MouseEvent | FocusEvent): { x: number; y: number } {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const rect = target?.getBoundingClientRect();
+    const rawX = rect ? rect.left + 10 : 12;
+    const rawY = rect ? rect.bottom + 8 : 12;
+
+    return {
+        x: Math.max(12, Math.min(rawX, window.innerWidth - 292)),
+        y: Math.max(12, Math.min(rawY, window.innerHeight - 150)),
+    };
+}
+
+function showStrongTooltip(event: MouseEvent | FocusEvent, verse: Verse, strongNumber: string): void {
+    hideStrongTooltip();
+
+    const position = strongTooltipPosition(event);
+    strongTooltipTimer = window.setTimeout(async () => {
+        try {
+            const verseQuery = verse.id ? `?verse=${verse.id}` : '';
+            const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${strongNumber}${verseQuery}`);
+            strongTooltip.value = {
+                number: response.data.number,
+                text: strongEntrySummary(response.data) || 'Strong: данные найдены.',
+                ...position,
+            };
+        } catch {
+            strongTooltip.value = {
+                number: strongNumber,
+                text: 'Strong: нет данных в словаре.',
+                ...position,
+            };
+        }
+    }, 220);
+}
+
+function hideStrongTooltip(): void {
+    if (strongTooltipTimer) {
+        window.clearTimeout(strongTooltipTimer);
+        strongTooltipTimer = undefined;
+    }
+
+    strongTooltip.value = null;
 }
 
 function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
@@ -601,7 +671,7 @@ function handleToolClick(toolId: string): void {
         activeStudyTab.value = 'references';
         isStudyPanelOpen.value = true;
         activeLeftPanel.value = null;
-        document.querySelector('.analysis-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollStudyPanelIntoView();
         return;
     }
 
@@ -931,14 +1001,17 @@ async function selectStrongNumber(strongNumber: string, verse: Verse | null = se
     isStudyPanelOpen.value = true;
     activeLeftPanel.value = null;
     studyError.value = null;
+    scrollStudyPanelIntoView();
 
     try {
         const verseQuery = verse?.id ? `?verse=${verse.id}` : '';
         const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${strongNumber}${verseQuery}`);
         selectedStrongEntry.value = response.data;
+        scrollStudyPanelIntoView();
     } catch (error) {
         selectedStrongEntry.value = null;
         studyError.value = error instanceof Error ? error.message : 'Не удалось загрузить номер Strong';
+        scrollStudyPanelIntoView();
     }
 }
 
@@ -1574,6 +1647,10 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                                     class="strong-inline-number"
                                     :class="{ 'words-of-jesus': part.isRed }"
                                     @click.stop="selectInlineStrongNumber(verse, part.strongNumber, part.strongToken)"
+                                    @mouseenter="showStrongTooltip($event, verse, part.strongNumber)"
+                                    @mouseleave="hideStrongTooltip"
+                                    @focus="showStrongTooltip($event, verse, part.strongNumber)"
+                                    @blur="hideStrongTooltip"
                                 >
                                     {{ part.strongNumber }}
                                 </button>
@@ -1701,6 +1778,15 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
                 </form>
             </aside>
         </main>
+
+        <div
+            v-if="strongTooltip"
+            class="strong-tooltip"
+            :style="{ left: `${strongTooltip.x}px`, top: `${strongTooltip.y}px` }"
+        >
+            <strong>{{ strongTooltip.number }}</strong>
+            <span>{{ strongTooltip.text }}</span>
+        </div>
 
         <footer class="footerbar">
             <button type="button">{{ selectedLanguage }}</button>

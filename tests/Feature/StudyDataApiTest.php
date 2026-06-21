@@ -40,13 +40,33 @@ class StudyDataApiTest extends TestCase
         $lexiconId = DB::table('strong_lexicons')->where('code', 'HEB')->value('id');
 
         DB::table('strong_entries')->insert([
-            'strong_lexicon_id' => $lexiconId,
-            'number' => 'H7225',
-            'word' => 'רֵאשִׁית',
-            'transliteration' => 'rêshı̂yth',
-            'content' => 'beginning',
-            'created_at' => $now,
-            'updated_at' => $now,
+            [
+                'strong_lexicon_id' => $lexiconId,
+                'number' => 'H7225',
+                'word' => 'רֵאשִׁית',
+                'transliteration' => 'rêshı̂yth',
+                'content' => 'beginning',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'strong_lexicon_id' => $lexiconId,
+                'number' => 'H7014',
+                'word' => 'קַיִן',
+                'transliteration' => 'qayin',
+                'content' => 'Cain',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'strong_lexicon_id' => $lexiconId,
+                'number' => 'H1',
+                'word' => 'אָב',
+                'transliteration' => 'ab',
+                'content' => 'father',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
         ]);
         DB::table('cross_references')->insert([
             'source_verse_id' => $ids['source_verse_id'],
@@ -67,6 +87,18 @@ class StudyDataApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.number', 'H7225')
             ->assertJsonPath('data.lexicon.code', 'HEB');
+
+        $this->getJson("/api/strong/H07225?verse={$ids['source_verse_id']}")
+            ->assertOk()
+            ->assertJsonPath('data.number', 'H7225');
+
+        $this->getJson("/api/strong/H7014?verse={$ids['source_verse_id']}")
+            ->assertOk()
+            ->assertJsonPath('data.number', 'H7014');
+
+        $this->getJson("/api/strong/1?verse={$ids['source_verse_id']}")
+            ->assertOk()
+            ->assertJsonPath('data.number', 'H1');
 
         $this->getJson("/api/verses/{$ids['source_verse_id']}/strong-tokens")
             ->assertOk()
