@@ -166,6 +166,25 @@ class TelegramWebhookTest extends TestCase
             ->assertJsonPath('actions.0.payload.text', 'Стихи для выбранного языка и раздела ещё не импортированы.');
     }
 
+    public function test_telegram_random_command_returns_clean_text_without_strong_numbers_or_html(): void
+    {
+        $this->createSearchFixture();
+
+        DB::table('verse_texts')->update([
+            'text' => '<font COLOR="darkred">В начале G1722 сотворил G4160 Бог G2316 небо G3772 и землю G1093.</font>',
+        ]);
+
+        $this->postJson('/api/telegram/webhook', [
+            'message' => [
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'chat' => ['id' => 123],
+                'text' => '/random',
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.payload.text', "Бытие 1:1\nВ начале сотворил Бог небо и землю.");
+    }
+
     public function test_telegram_today_command_returns_calendar_events(): void
     {
         DB::table('calendar_events')->insert([

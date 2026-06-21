@@ -9,6 +9,7 @@
         @vite(['resources/js/app.ts'])
     </head>
     <body class="public-page">
+        @php($footerPages = \App\Support\FooterPages::links())
         <main class="public-shell">
             <a class="public-brand" href="/">
                 <img src="/brand/bible-desktop-mark.png" alt="">
@@ -16,5 +17,18 @@
             </a>
             {{ $slot }}
         </main>
+        <footer class="footerbar public-footer">
+            <button type="button">Русский</button>
+            <nav>
+                @forelse ($footerPages as $page)
+                    <a href="{{ $page['url'] }}">{{ $page['title'] }}</a>
+                @empty
+                    <a href="/pages/info">Информация</a>
+                    <a href="/pages/about">О проекте</a>
+                    <a href="/pages/developers">Разработчики</a>
+                    <a href="/pages/contacts">Контакты</a>
+                @endforelse
+            </nav>
+        </footer>
     </body>
 </html>

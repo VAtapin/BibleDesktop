@@ -1082,6 +1082,15 @@ svg {
     text-decoration: none;
 }
 
+.public-footer {
+    width: min(920px, calc(100% - 24px));
+    margin: 0 auto;
+    border-top: 1px solid #d9dee5;
+    border-bottom: 0;
+    background: transparent;
+    min-height: 42px;
+}
+
 .public-page {
     min-height: 100vh;
     background: #edf2f7;
@@ -1212,6 +1221,15 @@ svg {
 .cms-page-content {
     color: #27364a;
     line-height: 1.65;
+}
+
+.cms-page-content a {
+    color: #2f6f9f;
+}
+
+.cms-page-content ul,
+.cms-page-content ol {
+    padding-left: 24px;
 }
 
 .cms-page-excerpt {
@@ -1689,8 +1707,21 @@ svg {
         font-size: 16px;
     }
 
-    .footerbar {
+    .footerbar:not(.public-footer) {
         display: none;
+    }
+
+    .public-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 0 24px;
+    }
+
+    .public-footer nav {
+        flex-wrap: wrap;
+        gap: 10px 16px;
     }
 }
 

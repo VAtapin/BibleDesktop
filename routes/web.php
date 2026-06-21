@@ -15,25 +15,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReaderDataController;
-use App\Models\CmsPage;
-use Illuminate\Support\Facades\Schema;
+use App\Support\FooterPages;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    $footerPages = Schema::hasTable('cms_pages')
-        ? CmsPage::query()
-            ->where('is_published', true)
-            ->where('menu_location', 'footer')
-            ->orderBy('sort_order')
-            ->orderBy('title')
-            ->get(['title', 'slug', 'menu_label'])
-            ->map(fn (CmsPage $page): array => [
-                'title' => $page->menu_label ?: $page->title,
-                'url' => route('pages.show', ['slug' => $page->slug]),
-            ])
-        : collect();
-
-    return view('app', ['footerPages' => $footerPages]);
+    return view('app', ['footerPages' => FooterPages::links()]);
 });
 
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');

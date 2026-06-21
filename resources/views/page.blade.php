@@ -5,7 +5,7 @@
             <p class="cms-page-excerpt">{{ $page->excerpt }}</p>
         @endif
         <div class="cms-page-content">
-            {!! nl2br(e($page->content ?? '')) !!}
+            {!! $page->renderedContent() !!}
         </div>
     </article>
 </x-public-layout>

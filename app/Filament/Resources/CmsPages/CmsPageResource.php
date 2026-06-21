@@ -22,6 +22,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -77,8 +78,13 @@ class CmsPageResource extends Resource
                 Textarea::make('excerpt')
                     ->rows(3)
                     ->columnSpanFull(),
-                Textarea::make('content')
-                    ->rows(16)
+                RichEditor::make('content')
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline', 'strike', 'link'],
+                        ['h2', 'h3', 'blockquote'],
+                        ['bulletList', 'orderedList'],
+                        ['undo', 'redo'],
+                    ])
                     ->columnSpanFull(),
             ]);
     }

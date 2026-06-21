@@ -17,6 +17,7 @@ namespace App\Services\Telegram;
 use App\Services\Bible\VerseSearchService;
 use App\Services\Calendar\OrthodoxCalendarService;
 use App\Support\BibleReferenceFormatter;
+use App\Support\StrongText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -250,7 +251,7 @@ class TelegramUpdateHandler
             (int) $verse->verse_number,
         );
 
-        return trim("{$reference}\n{$verse->text}");
+        return trim("{$reference}\n{$this->telegramVerseText((string) $verse->text)}");
     }
 
     /**
@@ -323,8 +324,21 @@ class TelegramUpdateHandler
         }
 
         return $results
-            ->map(fn (array $row) => "{$row['reference']} {$row['text']}")
+            ->map(fn (array $row) => "{$row['reference']} {$this->telegramVerseText((string) $row['text'])}")
             ->implode("\n\n");
+    }
+
+    /**
+     * Keep Telegram Bible output readable by removing Strong numbers and imported markup.
+     */
+    private function telegramVerseText(string $text): string
+    {
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = StrongText::textWithoutNumbers($text);
+        $text = preg_replace('/\s+([,.;:!?»])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/([«])\s+/u', '$1', $text) ?? $text;
+
+        return preg_replace('/\s{2,}/u', ' ', trim($text)) ?? trim($text);
     }
 
     /**
