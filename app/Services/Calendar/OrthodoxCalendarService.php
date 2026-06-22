@@ -106,7 +106,7 @@ class OrthodoxCalendarService
                 'name' => (string) $event->name,
                 'legacy_type' => $event->legacy_type === null ? null : (int) $event->legacy_type,
                 'date_rule_type' => (string) $event->date_rule_type,
-                'is_fasting' => (bool) $event->is_fasting,
+                'is_fasting' => (bool) $event->is_fasting || in_array((int) $event->legacy_type, [10, 20], true),
                 'type' => $event->type_code === null ? null : [
                     'code' => (string) $event->type_code,
                     'name' => (string) $event->type_name,

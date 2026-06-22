@@ -109,7 +109,7 @@ class TelegramUpdateHandler
             '/help' => $this->messageAction($chatId, $this->helpText()),
             '/search' => $this->searchAction($chatId, $telegramId, $text, $settings),
             '/ask', '/contact', '/message' => $this->contactAction($chatId, $telegramId, $text, $settings, $message),
-            '/today', '/calendar' => $this->messageAction($chatId, $this->calendarText($settings)),
+            '/today', '/calendar' => $this->calendarAction($chatId, $settings),
             '/gospel' => $this->messageAction($chatId, $this->readingText('gospel', 'Евангелие', $settings)),
             '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол', $settings)),
             '/fasting' => $this->messageAction($chatId, $this->fastingText()),
@@ -155,6 +155,23 @@ class TelegramUpdateHandler
             if (isset(self::SEARCH_SCOPES[$scope])) {
                 $settings['search_scope'] = $scope;
             }
+        } elseif (str_starts_with($data, 'calendar:reading:')) {
+            $readingId = (int) mb_substr($data, mb_strlen('calendar:reading:'));
+            $text = $this->calendarReadingTextById($readingId, $settings);
+
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Открываю чтение',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->messageAction($chatId, $text);
+            }
+
+            return $actions;
         } elseif ($data === 'search:more') {
             $query = (string) ($settings['last_search_query'] ?? '');
             $offset = (int) ($settings['last_search_offset'] ?? 0);
@@ -368,11 +385,27 @@ class TelegramUpdateHandler
 
     /**
      * @param  array<string, mixed>  $settings
+     * @return array{method: string, payload: array<string, mixed>}
      */
-    private function calendarText(array $settings): string
+    private function calendarAction(int|string $chatId, array $settings): array
     {
         $day = $this->calendar->day(now()->toDateString());
-        $readings = $this->readingsSummary($day, $settings);
+        $keyboard = $this->calendarReadingsKeyboard($day);
+        $extra = $keyboard['inline_keyboard'] === [] ? [] : ['reply_markup' => $keyboard];
+
+        return $this->messageAction($chatId, $this->calendarText($day), $extra);
+    }
+
+    /**
+     * @param  array{
+     *     date: string,
+     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
+     * }  $day
+     */
+    private function calendarText(array $day): string
+    {
+        $readings = $this->readingsSummary($day);
 
         if ($day['events']->isEmpty() && $readings === '') {
             return 'Календарные события и чтения дня ещё не импортированы.';
@@ -384,10 +417,86 @@ class TelegramUpdateHandler
             ->implode("\n");
 
         if ($events === '') {
-            $events = 'События на этот день ещё не импортированы.';
+            $events = 'На этот день нет включённых событий календаря.';
         }
 
         return trim("Календарь на {$day['date']}\n{$events}\n\n{$readings}");
+    }
+
+    /**
+     * @param  array{
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
+     * }  $day
+     * @return array<string, mixed>
+     */
+    private function calendarReadingsKeyboard(array $day): array
+    {
+        $buttons = $day['readings']
+            ->filter(fn (array $reading): bool => in_array($reading['type'], ['apostle', 'gospel', 'psalm'], true))
+            ->take(8)
+            ->map(fn (array $reading): array => [[
+                'text' => $this->calendarReadingButtonLabel($reading),
+                'callback_data' => 'calendar:reading:'.$reading['id'],
+            ]])
+            ->values()
+            ->all();
+
+        return [
+            'inline_keyboard' => $buttons,
+        ];
+    }
+
+    /**
+     * @param  array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}  $reading
+     */
+    private function calendarReadingButtonLabel(array $reading): string
+    {
+        $prefix = match ($reading['type']) {
+            'apostle' => 'Ап.',
+            'gospel' => 'Ев.',
+            'psalm' => 'Пс.',
+            default => 'Чт.',
+        };
+
+        return trim($prefix.' '.($reading['display_ref'] ?: $reading['passage_ref']));
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    private function calendarReadingTextById(int $readingId, array $settings): string
+    {
+        $reading = DB::table('calendar_readings')
+            ->where('id', $readingId)
+            ->first(['id', 'reading_type', 'title', 'passage_ref', 'metadata_json']);
+
+        if (! $reading) {
+            return 'Чтение не найдено.';
+        }
+
+        $translationCode = $this->selectedTranslationCode($settings);
+        $metadata = json_decode((string) ($reading->metadata_json ?? ''), true);
+        $displayRef = is_array($metadata) && isset($metadata['raw_name'])
+            ? (string) $metadata['raw_name']
+            : (string) $reading->passage_ref;
+        $title = $reading->title ? (string) $reading->title : $this->calendarReadingTypeName((string) $reading->reading_type);
+        $text = $this->passageText->bodyText((string) $reading->passage_ref, $translationCode, 80);
+
+        if ($text === '') {
+            return "{$title}: {$displayRef}\nТекст не найден в выбранном переводе.";
+        }
+
+        return $this->trimTelegramText("{$title}: {$displayRef}\n{$text}");
+    }
+
+    private function calendarReadingTypeName(string $type): string
+    {
+        return match ($type) {
+            'apostle' => 'Апостол',
+            'gospel' => 'Евангелие',
+            'psalm' => 'Псалтирь',
+            default => 'Чтение',
+        };
     }
 
     private function fastingText(): string
@@ -442,9 +551,8 @@ class TelegramUpdateHandler
 
     /**
      * @param  array{readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref?: string, date_rule_type: string}>}  $day
-     * @param  array<string, mixed>  $settings
      */
-    private function readingsSummary(array $day, array $settings): string
+    private function readingsSummary(array $day): string
     {
         $readings = $day['readings'];
 
@@ -452,13 +560,12 @@ class TelegramUpdateHandler
             return '';
         }
 
-        $translationCode = $this->selectedTranslationCode($settings);
-        $apostle = $this->calendarReadingBlock($readings, 'apostle', $translationCode);
-        $gospel = $this->calendarReadingBlock($readings, 'gospel', $translationCode);
+        $apostle = $this->calendarReadingBlock($readings, 'apostle');
+        $gospel = $this->calendarReadingBlock($readings, 'gospel');
         $psalms = $readings
             ->filter(fn (array $reading): bool => $reading['type'] === 'psalm')
             ->take(4)
-            ->map(fn (array $reading): string => $reading['passage_ref'])
+            ->map(fn (array $reading): string => $reading['display_ref'] ?? $reading['passage_ref'])
             ->implode('; ');
 
         $lines = [];
@@ -486,22 +593,13 @@ class TelegramUpdateHandler
     /**
      * @param  Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref?: string, date_rule_type: string}>  $readings
      */
-    private function calendarReadingBlock(Collection $readings, string $type, string $translationCode): string
+    private function calendarReadingBlock(Collection $readings, string $type): string
     {
         return $readings
             ->filter(fn (array $reading): bool => $reading['type'] === $type)
             ->take(2)
-            ->map(function (array $reading) use ($translationCode): string {
-                $text = $this->passageText->bodyText($reading['passage_ref'], $translationCode, 20);
-                $displayRef = $reading['display_ref'] ?? $reading['passage_ref'];
-
-                if ($text === '') {
-                    return $displayRef;
-                }
-
-                return $displayRef."\n".$text;
-            })
-            ->implode("\n");
+            ->map(fn (array $reading): string => $reading['display_ref'] ?? $reading['passage_ref'])
+            ->implode('; ');
     }
 
     private function trimTelegramText(string $text): string

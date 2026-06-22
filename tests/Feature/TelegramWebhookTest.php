@@ -228,7 +228,41 @@ class TelegramWebhookTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.payload.text', 'Календарь на '.now()->toDateString()."\nСобытия на этот день ещё не импортированы.\n\nЕвангелие и Апостол:\nЕв.: John.1.1-17");
+            ->assertJsonPath('actions.0.payload.text', 'Календарь на '.now()->toDateString()."\nНа этот день нет включённых событий календаря.\n\nЕвангелие и Апостол:\nЕв.: John.1.1-17")
+            ->assertJsonPath('actions.0.payload.reply_markup.inline_keyboard.0.0.text', 'Ев. John.1.1-17');
+    }
+
+    public function test_telegram_calendar_reading_button_returns_reading_text(): void
+    {
+        $this->createSearchFixture();
+        $this->addJohnFixture();
+
+        DB::table('calendar_readings')->insert([
+            'date_rule_type' => 'fixed',
+            'month' => (int) now()->month,
+            'day' => (int) now()->day,
+            'reading_type' => 'gospel',
+            'title' => 'Евангелие дня',
+            'passage_ref' => 'John.1.1-2',
+            'sort_order' => 10,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $readingId = DB::table('calendar_readings')->value('id');
+
+        $this->postJson('/api/telegram/webhook', [
+            'callback_query' => [
+                'id' => 'callback-1',
+                'from' => ['id' => 456, 'first_name' => 'Test'],
+                'message' => [
+                    'chat' => ['id' => 123],
+                ],
+                'data' => 'calendar:reading:'.$readingId,
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('actions.0.method', 'answerCallbackQuery')
+            ->assertJsonPath('actions.1.payload.text', "Евангелие дня: John.1.1-2\nВ начале было Слово.\nОно было в начале у Бога.");
     }
 
     public function test_telegram_fasting_command_returns_fasting_events(): void
