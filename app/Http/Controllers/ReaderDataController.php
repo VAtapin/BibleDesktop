@@ -137,15 +137,58 @@ class ReaderDataController extends Controller
 
     public function feed(Request $request): JsonResponse
     {
+        $userId = $this->userId($request);
+        $bookSlug = trim((string) $request->query('book', ''));
+
         $posts = DB::table('social_posts')
             ->join('users', 'users.id', '=', 'social_posts.user_id')
             ->leftJoin('verses', 'verses.id', '=', 'social_posts.verse_id')
             ->leftJoin('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
-            ->whereIn('social_posts.visibility', ['followers', 'public'])
+            ->where(function ($query) use ($userId): void {
+                $query
+                    ->where('social_posts.user_id', $userId)
+                    ->orWhere('social_posts.visibility', 'public')
+                    ->orWhere(function ($followersQuery) use ($userId): void {
+                        $followersQuery
+                            ->where('social_posts.visibility', 'followers')
+                            ->whereExists(function ($exists) use ($userId): void {
+                                $exists
+                                    ->selectRaw('1')
+                                    ->from('user_follows')
+                                    ->whereColumn('user_follows.followed_id', 'social_posts.user_id')
+                                    ->where('user_follows.follower_id', $userId);
+                            });
+                    })
+                    ->orWhere(function ($friendsQuery) use ($userId): void {
+                        $friendsQuery
+                            ->where('social_posts.visibility', 'friends')
+                            ->whereExists(function ($exists) use ($userId): void {
+                                $exists
+                                    ->selectRaw('1')
+                                    ->from('user_friendships')
+                                    ->where('user_friendships.status', 'accepted')
+                                    ->where(function ($friendshipQuery) use ($userId): void {
+                                        $friendshipQuery
+                                            ->where(function ($pairQuery) use ($userId): void {
+                                                $pairQuery
+                                                    ->whereColumn('user_friendships.requester_id', 'social_posts.user_id')
+                                                    ->where('user_friendships.addressee_id', $userId);
+                                            })
+                                            ->orWhere(function ($pairQuery) use ($userId): void {
+                                                $pairQuery
+                                                    ->whereColumn('user_friendships.addressee_id', 'social_posts.user_id')
+                                                    ->where('user_friendships.requester_id', $userId);
+                                            });
+                                    });
+                            });
+                    });
+            })
+            ->when($bookSlug !== '', fn ($query) => $query->where('canonical_books.slug', $bookSlug))
             ->orderByDesc('social_posts.created_at')
             ->limit(30)
             ->get([
                 'social_posts.id',
+                'social_posts.verse_id',
                 'social_posts.body',
                 'social_posts.visibility',
                 'social_posts.created_at',
@@ -160,12 +203,18 @@ class ReaderDataController extends Controller
                 'author' => (string) $post->user_name,
                 'body' => (string) $post->body,
                 'visibility' => (string) $post->visibility,
+                'verse_id' => $post->verse_id === null ? null : (int) $post->verse_id,
                 'reference' => $post->chapter_number ? BibleReferenceFormatter::format(
                     $post->book_slug,
                     $post->osis_code,
                     (int) $post->chapter_number,
                     (int) $post->verse_number,
                 ) : null,
+                'book_slug' => $post->book_slug === null ? null : (string) $post->book_slug,
+                'book_name' => null,
+                'book_short_name' => null,
+                'chapter_number' => $post->chapter_number === null ? null : (int) $post->chapter_number,
+                'verse_number' => $post->verse_number === null ? null : (int) $post->verse_number,
                 'created_at' => (string) $post->created_at,
             ]);
 
@@ -177,7 +226,7 @@ class ReaderDataController extends Controller
         $validated = $request->validate([
             'body' => ['required', 'string', 'min:1', 'max:2000'],
             'verse_id' => ['nullable', 'integer', 'exists:verses,id'],
-            'visibility' => ['nullable', 'string', 'in:followers,public,private'],
+            'visibility' => ['nullable', 'string', 'in:followers,friends,public,private'],
         ]);
 
         DB::table('social_posts')->insert([

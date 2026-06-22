@@ -166,7 +166,13 @@ type SocialPostDto = {
     author: string;
     body: string;
     visibility: string;
+    verse_id: number | null;
     reference: string | null;
+    book_slug: string | null;
+    book_name: string | null;
+    book_short_name: string | null;
+    chapter_number: number | null;
+    verse_number: number | null;
     created_at: string;
 };
 
@@ -400,9 +406,11 @@ type HistoryItem = {
 };
 
 type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'materials' | 'recipes' | 'quizzes' | 'tours';
-type ToolId = LeftPanelId | 'strong' | 'print';
+type StudyToolId = 'references' | 'notes' | 'feed';
+type ToolId = LeftPanelId | StudyToolId | 'strong' | 'print';
 type MainContentMode = 'chapter' | 'prayer' | 'recipe' | 'quiz' | 'tour';
 type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'globe' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'recipe' | 'search' | 'sidebar' | 'test';
+type ReaderTheme = 'light' | 'dark';
 
 declare global {
     interface Window {
@@ -423,6 +431,7 @@ declare global {
 
 const readerStateKey = 'bible-desktop-reader-state';
 const readerFontSizeStateKey = 'bible-desktop-reader-font-size';
+const readerThemeStateKey = 'bible-desktop-reader-theme';
 const bookmarkStateKey = 'bible-desktop-bookmarks';
 const historyStateKey = 'bible-desktop-view-history';
 const localNotesStateKey = 'bible-desktop-local-notes';
@@ -518,10 +527,12 @@ const socialPosts = ref<SocialPostDto[]>([]);
 const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
 const socialFeedError = ref<string | null>(null);
+const socialFeedScope = ref<'book' | 'all'>('book');
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
 const readerFontSize = ref(defaultReaderFontSize());
+const readerTheme = ref<ReaderTheme>(defaultReaderTheme());
 const strongTooltip = ref<{ number: string; text: string; x: number; y: number } | null>(null);
 let strongTooltipTimer: number | undefined;
 let verseActionMessageTimer: number | undefined;
@@ -538,19 +549,19 @@ const readerStyle = computed(() => ({
 }));
 
 const tools = [
-    { id: 'library', icon: 'book-open', title: 'Библиотека' },
-    { id: 'calendar', icon: 'calendar', title: 'Календарь' },
-    { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
-    { id: 'prayers', icon: 'prayer', title: 'Молитвы' },
-    { id: 'materials', icon: 'link', title: 'Полезные материалы' },
-    { id: 'recipes', icon: 'recipe', title: 'Постные рецепты' },
-    { id: 'quizzes', icon: 'test', title: 'Тесты' },
-    { id: 'tours', icon: 'globe', title: '360° туры' },
-    { id: 'history', icon: 'clock', title: 'История просмотра' },
-    { id: 'search', icon: 'search', title: 'Поиск' },
-    { id: 'strong', icon: 'hash', title: 'Strong' },
-    { id: 'print', icon: 'printer', title: 'Печать' },
-] satisfies Array<{ id: ToolId; icon: IconName; title: string }>;
+    { id: 'library', icon: 'library', title: 'Библиотека', group: 'reader' },
+    { id: 'bookmarks', icon: 'bookmarks', title: 'Закладки', group: 'reader' },
+    { id: 'references', icon: 'references', title: 'Параллельные места', group: 'reader' },
+    { id: 'strong', icon: 'strong', title: 'Номера Стронга', group: 'reader' },
+    { id: 'notes', icon: 'comments', title: 'Толкования и комментарии', group: 'reader' },
+    { id: 'feed', icon: 'feed', title: 'Лента размышлений', group: 'reader' },
+    { id: 'history', icon: 'history', title: 'История просмотров', group: 'reader' },
+    { id: 'print', icon: 'print', title: 'Печать страницы', group: 'reader' },
+    { id: 'calendar', icon: 'calendar', title: 'Церковный календарь', group: 'church' },
+    { id: 'prayers', icon: 'prayers', title: 'Молитвослов', group: 'church' },
+    { id: 'quizzes', icon: 'faith', title: 'Вопросы о вере', group: 'church' },
+    { id: 'tours', icon: 'tours', title: 'Храмы и монастыри 360°', group: 'church' },
+] satisfies Array<{ id: ToolId; icon: string; title: string; group: 'reader' | 'church' }>;
 
 function defaultReaderFontSize(): number {
     if (typeof window === 'undefined') {
@@ -560,8 +571,24 @@ function defaultReaderFontSize(): number {
     return window.matchMedia('(max-width: 760px)').matches ? 16 : 15;
 }
 
+function defaultReaderTheme(): ReaderTheme {
+    if (typeof window === 'undefined') {
+        return 'light';
+    }
+
+    return window.localStorage.getItem(readerThemeStateKey) === 'dark' ? 'dark' : 'light';
+}
+
 function changeReaderFontSize(delta: number): void {
     readerFontSize.value = Math.min(22, Math.max(13, readerFontSize.value + delta));
+}
+
+function toggleReaderTheme(): void {
+    readerTheme.value = readerTheme.value === 'dark' ? 'light' : 'dark';
+}
+
+function toolIconUrl(icon: string): string {
+    return `/assets/tool-icons/${icon}.png`;
 }
 
 function closeReaderMenu(): void {
@@ -1243,6 +1270,14 @@ function persistReaderFontSize(): void {
     window.localStorage.setItem(readerFontSizeStateKey, String(readerFontSize.value));
 }
 
+function persistReaderTheme(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(readerThemeStateKey, readerTheme.value);
+}
+
 function toggleLeftPanel(panel: LeftPanelId): void {
     activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel;
     if (activeLeftPanel.value !== null) {
@@ -1280,6 +1315,13 @@ function handleToolClick(toolId: ToolId): void {
         return;
     }
 
+    if (toolId === 'references' || toolId === 'notes' || toolId === 'feed') {
+        activeStudyTab.value = toolId;
+        isStudyPanelOpen.value = true;
+        activeLeftPanel.value = null;
+        return;
+    }
+
     if (toolId === 'print') {
         printPage();
         return;
@@ -1287,6 +1329,9 @@ function handleToolClick(toolId: ToolId): void {
 
     if (toolId === 'strong') {
         showStrongNumbers.value = !showStrongNumbers.value;
+        activeStudyTab.value = 'strong';
+        isStudyPanelOpen.value = true;
+        activeLeftPanel.value = null;
     }
 }
 
@@ -2210,7 +2255,14 @@ async function loadSocialFeed(): Promise<void> {
     socialFeedError.value = null;
 
     try {
-        const response = await loadJson<ApiResponse<{ posts: SocialPostDto[] }>>('/reader/feed');
+        const params = new URLSearchParams();
+
+        if (socialFeedScope.value === 'book' && selectedBookSlug.value) {
+            params.set('book', selectedBookSlug.value);
+        }
+
+        const url = params.toString() ? `/reader/feed?${params.toString()}` : '/reader/feed';
+        const response = await loadJson<ApiResponse<{ posts: SocialPostDto[] }>>(url);
         socialPosts.value = response.data.posts;
     } catch (error) {
         socialPosts.value = [];
@@ -2218,6 +2270,24 @@ async function loadSocialFeed(): Promise<void> {
     } finally {
         isSocialFeedLoading.value = false;
     }
+}
+
+async function openSocialPost(post: SocialPostDto): Promise<void> {
+    if (!post.book_slug || !post.chapter_number || !post.verse_number) {
+        return;
+    }
+
+    syncActiveTabFromSelection();
+
+    selectedBookSlug.value = post.book_slug;
+    selectedChapterNumber.value = post.chapter_number;
+    highlightedVerseNumbers.value = [post.verse_number];
+    mainContentMode.value = 'chapter';
+
+    await loadBooksForSelectedTranslation();
+    await loadChapter(post.verse_number);
+    syncActiveTabFromSelection();
+    persistReaderState();
 }
 
 async function submitSocialPost(): Promise<void> {
@@ -2589,15 +2659,25 @@ watch(readerFontSize, () => {
     persistReaderFontSize();
 });
 
+watch(readerTheme, () => {
+    persistReaderTheme();
+});
+
 watch(activeStudyTab, (tab) => {
     if (tab === 'feed') {
+        void loadSocialFeed();
+    }
+});
+
+watch([selectedBookSlug, socialFeedScope], () => {
+    if (activeStudyTab.value === 'feed') {
         void loadSocialFeed();
     }
 });
 </script>
 
 <template>
-    <div class="app-shell" :class="{ 'embed-shell': isEmbed }" :style="readerStyle">
+    <div class="app-shell" :class="[{ 'embed-shell': isEmbed }, `reader-theme-${readerTheme}`]" :style="readerStyle">
         <header class="topbar">
             <a class="brand" href="/" aria-label="Bible Desktop - на главную">
                 <img class="brand-mark" :src="'/brand/bible-desktop-mark.png'" alt="" />
@@ -2661,6 +2741,17 @@ watch(activeStudyTab, (tab) => {
                     </template>
                 </div>
             </form>
+
+            <div class="reader-preferences" aria-label="Настройки чтения">
+                <button type="button" data-tooltip="Уменьшить шрифт" aria-label="Уменьшить шрифт" @click="changeReaderFontSize(-1)">A-</button>
+                <button type="button" data-tooltip="Увеличить шрифт" aria-label="Увеличить шрифт" @click="changeReaderFontSize(1)">A+</button>
+                <button type="button" :data-tooltip="readerTheme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" aria-label="Переключить тему" @click="toggleReaderTheme">
+                    {{ readerTheme === 'dark' ? '☀' : '☾' }}
+                </button>
+                <select aria-label="Язык интерфейса" disabled>
+                    <option>RU</option>
+                </select>
+            </div>
 
             <div class="profile">
                 <a v-if="currentUser" class="profile-link" :href="currentUser.dashboard_url">
@@ -2738,17 +2829,14 @@ watch(activeStudyTab, (tab) => {
                     v-for="tool in tools"
                     :key="tool.id"
                     type="button"
-                    :title="tool.title"
-                    :class="{ active: activeLeftPanel === tool.id || (tool.id === 'strong' && showStrongNumbers) }"
+                    :data-tooltip="tool.title"
+                    :class="[
+                        `tool-group-${tool.group}`,
+                        { active: activeLeftPanel === tool.id || activeStudyTab === tool.id || (tool.id === 'strong' && showStrongNumbers) },
+                    ]"
                     @click="handleToolClick(tool.id)"
                 >
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                        <path
-                            v-for="path in iconPaths(tool.icon)"
-                            :key="path"
-                            :d="path"
-                        />
-                    </svg>
+                    <img :src="toolIconUrl(tool.icon)" :alt="tool.title" />
                     <span class="sr-only">{{ tool.title }}</span>
                 </button>
             </aside>
@@ -3170,17 +3258,14 @@ watch(activeStudyTab, (tab) => {
                             type="button"
                             class="reader-menu-tool"
                             :aria-label="tool.title"
-                            :title="tool.title"
-                            :class="{ active: activeLeftPanel === tool.id || (tool.id === 'strong' && showStrongNumbers) }"
+                            :data-tooltip="tool.title"
+                            :class="[
+                                `tool-group-${tool.group}`,
+                                { active: activeLeftPanel === tool.id || activeStudyTab === tool.id || (tool.id === 'strong' && showStrongNumbers) },
+                            ]"
                             @click="handleToolClick(tool.id); closeReaderMenu()"
                         >
-                            <svg aria-hidden="true" viewBox="0 0 24 24">
-                                <path
-                                    v-for="path in iconPaths(tool.icon)"
-                                    :key="path"
-                                    :d="path"
-                                />
-                            </svg>
+                            <img :src="toolIconUrl(tool.icon)" :alt="tool.title" />
                         </button>
                         <button
                             type="button"
@@ -3559,16 +3644,39 @@ watch(activeStudyTab, (tab) => {
                             Опубликовать
                         </button>
                     </form>
+                    <div v-if="currentUser" class="feed-scope">
+                        <button
+                            type="button"
+                            :class="{ active: socialFeedScope === 'book' }"
+                            @click="socialFeedScope = 'book'"
+                        >
+                            {{ currentBook?.name ?? 'Текущая книга' }}
+                        </button>
+                        <button
+                            type="button"
+                            :class="{ active: socialFeedScope === 'all' }"
+                            @click="socialFeedScope = 'all'"
+                        >
+                            Вся лента
+                        </button>
+                    </div>
+                    <p v-if="currentUser" class="feed-note">
+                        Публикации “для подписчиков” видят только ваши подписчики. Свои публикации видны вам всегда.
+                    </p>
                     <p v-if="isSocialFeedLoading">Загружаю ленту...</p>
                     <p v-else-if="socialFeedError">API: {{ socialFeedError }}</p>
-                    <article
+                    <button
                         v-for="post in socialPosts"
                         :key="post.id"
+                        type="button"
+                        class="feed-post"
+                        :disabled="!post.book_slug"
+                        @click="openSocialPost(post)"
                     >
                         <strong>{{ post.author }}</strong>
                         <small v-if="post.reference">{{ post.reference }}</small>
                         <p>{{ post.body }}</p>
-                    </article>
+                    </button>
                     <p v-if="currentUser && !isSocialFeedLoading && socialPosts.length === 0">В ленте пока нет публикаций.</p>
                 </section>
 

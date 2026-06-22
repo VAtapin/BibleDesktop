@@ -17,6 +17,7 @@ namespace App\Services\Calendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OrthodoxCalendarService
 {
@@ -75,6 +76,13 @@ class OrthodoxCalendarService
      */
     private function eventsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
+        if (! Schema::hasTable('calendar_events') || ! Schema::hasTable('calendar_event_types')) {
+            return collect();
+        }
+
+        $hasStartYear = Schema::hasColumn('calendar_events', 'start_year');
+        $hasEndYear = Schema::hasColumn('calendar_events', 'end_year');
+
         return DB::table('calendar_events')
             ->leftJoin('calendar_event_types', 'calendar_event_types.id', '=', 'calendar_events.calendar_event_type_id')
             ->where(fn ($query) => $query
@@ -88,8 +96,8 @@ class OrthodoxCalendarService
                 'calendar_events.name',
                 'calendar_events.legacy_type',
                 'calendar_events.date_rule_type',
-                'calendar_events.start_year',
-                'calendar_events.end_year',
+                DB::raw($hasStartYear ? 'calendar_events.start_year' : 'null as start_year'),
+                DB::raw($hasEndYear ? 'calendar_events.end_year' : 'null as end_year'),
                 'calendar_events.start_month',
                 'calendar_events.start_day',
                 'calendar_events.start_offset',
@@ -132,6 +140,10 @@ class OrthodoxCalendarService
      */
     private function readingsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
+        if (! Schema::hasTable('calendar_readings')) {
+            return collect();
+        }
+
         return DB::table('calendar_readings')
             ->orderBy('sort_order')
             ->orderBy('reading_type')
@@ -160,6 +172,10 @@ class OrthodoxCalendarService
      */
     private function monasteryServicesForDay(CarbonImmutable $day): Collection
     {
+        if (! Schema::hasTable('monastery_services')) {
+            return collect();
+        }
+
         $timezone = (string) config('services.monastery_calendar.timezone', 'Europe/Berlin');
         $start = $day->setTimezone($timezone)->startOfDay();
         $end = $day->setTimezone($timezone)->endOfDay();

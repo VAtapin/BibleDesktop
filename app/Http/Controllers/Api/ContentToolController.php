@@ -19,12 +19,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class ContentToolController extends Controller
 {
     public function usefulLinks(): JsonResponse
     {
+        if (! Schema::hasTable('useful_links')) {
+            return response()->json(['data' => []]);
+        }
+
         $links = DB::table('useful_links')
             ->where('is_public', true)
             ->orderBy('sort_order')
@@ -45,6 +50,10 @@ class ContentToolController extends Controller
 
     public function recipeCategories(): JsonResponse
     {
+        if (! Schema::hasTable('recipe_categories')) {
+            return response()->json(['data' => []]);
+        }
+
         $categories = DB::table('recipe_categories')
             ->where('is_public', true)
             ->orderBy('sort_order')
@@ -62,6 +71,10 @@ class ContentToolController extends Controller
 
     public function recipes(Request $request): JsonResponse
     {
+        if (! Schema::hasTable('recipes') || ! Schema::hasTable('recipe_categories')) {
+            return response()->json(['data' => []]);
+        }
+
         $category = trim((string) $request->query('category', ''));
         $fastingRule = trim((string) $request->query('fasting_rule', ''));
 
@@ -99,6 +112,12 @@ class ContentToolController extends Controller
 
     public function recipe(int $recipe): JsonResponse
     {
+        if (! Schema::hasTable('recipes') || ! Schema::hasTable('recipe_categories')) {
+            abort(404);
+        }
+
+        $hasServings = Schema::hasColumn('recipes', 'servings');
+
         $row = DB::table('recipes')
             ->join('recipe_categories', 'recipe_categories.id', '=', 'recipes.recipe_category_id')
             ->where('recipes.status', 'approved')
@@ -108,7 +127,7 @@ class ContentToolController extends Controller
                 'recipes.id',
                 'recipes.title',
                 'recipes.summary',
-                'recipes.servings',
+                DB::raw($hasServings ? 'recipes.servings' : '4 as servings'),
                 'recipes.ingredients',
                 'recipes.cover_image_url',
                 'recipes.youtube_url',
@@ -119,7 +138,7 @@ class ContentToolController extends Controller
 
         abort_if(! $row, 404);
 
-        $steps = DB::table('recipe_steps')
+        $steps = Schema::hasTable('recipe_steps') ? DB::table('recipe_steps')
             ->where('recipe_id', $recipe)
             ->orderBy('step_number')
             ->get(['step_number', 'body', 'image_url'])
@@ -127,9 +146,9 @@ class ContentToolController extends Controller
                 'step_number' => (int) $step->step_number,
                 'body' => (string) $step->body,
                 'image_url' => $this->publicAssetUrl($step->image_url),
-            ]);
+            ]) : collect();
 
-        $ingredients = DB::table('recipe_ingredients')
+        $ingredients = Schema::hasTable('recipe_ingredients') ? DB::table('recipe_ingredients')
             ->where('recipe_id', $recipe)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -139,7 +158,7 @@ class ContentToolController extends Controller
                 'amount' => $ingredient->amount === null ? null : (float) $ingredient->amount,
                 'unit' => $ingredient->unit === null ? null : (string) $ingredient->unit,
                 'note' => $ingredient->note === null ? null : (string) $ingredient->note,
-            ]);
+            ]) : collect();
 
         return response()->json(['data' => [
             'id' => (int) $row->id,
@@ -188,6 +207,10 @@ class ContentToolController extends Controller
 
     public function quizzes(): JsonResponse
     {
+        if (! Schema::hasTable('quizzes')) {
+            return response()->json(['data' => []]);
+        }
+
         $quizzes = DB::table('quizzes')
             ->where('is_public', true)
             ->orderBy('sort_order')
@@ -205,6 +228,10 @@ class ContentToolController extends Controller
 
     public function quiz(int $quiz): JsonResponse
     {
+        if (! Schema::hasTable('quizzes') || ! Schema::hasTable('quiz_questions')) {
+            abort(404);
+        }
+
         $row = DB::table('quizzes')
             ->where('is_public', true)
             ->where('id', $quiz)
@@ -212,37 +239,47 @@ class ContentToolController extends Controller
 
         abort_if(! $row, 404);
 
+        $questionColumns = [
+            'id',
+            'question',
+            'explanation',
+        ];
+
+        foreach (['answer_type', 'image_path', 'recommendation_type', 'recommended_prayer_id', 'recommended_passage_ref', 'recommendation_text'] as $column) {
+            if (Schema::hasColumn('quiz_questions', $column)) {
+                $questionColumns[] = $column;
+            }
+        }
+
         $questions = DB::table('quiz_questions')
             ->where('quiz_id', $quiz)
             ->orderBy('sort_order')
-            ->get([
-                'id',
-                'question',
-                'answer_type',
-                'image_path',
-                'explanation',
-                'recommendation_type',
-                'recommended_prayer_id',
-                'recommended_passage_ref',
-                'recommendation_text',
-            ])
+            ->get($questionColumns)
             ->map(function ($question): array {
-                $answers = DB::table('quiz_answers')
+                $answerColumns = ['id', 'answer', 'is_correct'];
+
+                foreach (['recommendation_type', 'recommended_prayer_id', 'recommended_passage_ref', 'recommendation_text'] as $column) {
+                    if (Schema::hasColumn('quiz_answers', $column)) {
+                        $answerColumns[] = $column;
+                    }
+                }
+
+                $answers = Schema::hasTable('quiz_answers') ? DB::table('quiz_answers')
                     ->where('quiz_question_id', $question->id)
                     ->orderBy('sort_order')
-                    ->get(['id', 'answer', 'is_correct', 'recommendation_type', 'recommended_prayer_id', 'recommended_passage_ref', 'recommendation_text'])
+                    ->get($answerColumns)
                     ->map(fn ($answer): array => [
                         'id' => (int) $answer->id,
                         'answer' => (string) $answer->answer,
                         'is_correct' => (bool) $answer->is_correct,
                         'recommendation' => $this->recommendationPayload($answer),
-                    ]);
+                    ]) : collect();
 
                 return [
                     'id' => (int) $question->id,
                     'question' => (string) $question->question,
-                    'answer_type' => (string) $question->answer_type,
-                    'image_url' => $this->publicAssetUrl($question->image_path),
+                    'answer_type' => (string) ($question->answer_type ?? 'single'),
+                    'image_url' => $this->publicAssetUrl($question->image_path ?? null),
                     'explanation' => $question->explanation === null ? null : (string) $question->explanation,
                     'recommendation' => $this->recommendationPayload($question),
                     'answers' => $answers,
@@ -260,6 +297,10 @@ class ContentToolController extends Controller
 
     public function tours(): JsonResponse
     {
+        if (! Schema::hasTable('virtual_tours')) {
+            return response()->json(['data' => []]);
+        }
+
         $tours = DB::table('virtual_tours')
             ->where('is_public', true)
             ->orderBy('sort_order')

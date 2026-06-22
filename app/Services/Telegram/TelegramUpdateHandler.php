@@ -22,6 +22,7 @@ use App\Support\StrongText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TelegramUpdateHandler
@@ -116,6 +117,7 @@ class TelegramUpdateHandler
             '/fasting' => $this->messageAction($chatId, $this->fastingText()),
             '/prayers', '/prayer' => $this->prayersAction($chatId),
             '/materials', '/apps' => $this->materialsAction($chatId),
+            '/tests', '/quizzes' => $this->testsAction($chatId),
             '/settings' => $this->messageAction($chatId, $this->settingsText($settings), [
                 'reply_markup' => $this->settingsKeyboard($settings),
             ]),
@@ -227,6 +229,20 @@ class TelegramUpdateHandler
             }
 
             return $actions;
+        } elseif ($data === 'start:tests') {
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Вопросы о вере',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->testsAction($chatId);
+            }
+
+            return $actions;
         } elseif ($data === 'start:about') {
             $actions[] = [
                 'method' => 'answerCallbackQuery',
@@ -335,7 +351,7 @@ class TelegramUpdateHandler
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/fasting - посты дня\n/prayers - молитвы\n/materials - полезные материалы\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/fasting - посты дня\n/prayers - молитвы\n/tests - вопросы о вере\n/materials - полезные материалы\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
     }
 
     /**
@@ -356,7 +372,10 @@ class TelegramUpdateHandler
                     ['text' => '🙏 Молитвы', 'callback_data' => 'start:prayers'],
                 ],
                 [
-                    ['text' => '✝ Полезные материалы', 'callback_data' => 'start:materials'],
+                    ['text' => '❓ Вопросы о вере', 'callback_data' => 'start:tests'],
+                    ['text' => '✝ Материалы', 'callback_data' => 'start:materials'],
+                ],
+                [
                     ['text' => 'ℹ О боте', 'callback_data' => 'start:about'],
                 ],
             ],
@@ -558,6 +577,10 @@ class TelegramUpdateHandler
      */
     private function prayersAction(int|string $chatId): array
     {
+        if (! Schema::hasTable('prayers')) {
+            return $this->messageAction($chatId, 'Молитвы пока не добавлены.');
+        }
+
         $prayers = DB::table('prayers')
             ->where('is_public', true)
             ->where('language_code', 'ru')
@@ -590,6 +613,10 @@ class TelegramUpdateHandler
      */
     private function materialsAction(int|string $chatId): array
     {
+        if (! Schema::hasTable('useful_links')) {
+            return $this->messageAction($chatId, 'Полезные материалы пока не добавлены.');
+        }
+
         $links = DB::table('useful_links')
             ->where('is_public', true)
             ->orderBy('sort_order')
@@ -610,6 +637,42 @@ class TelegramUpdateHandler
             ->implode("\n\n");
 
         return $this->messageAction($chatId, $this->trimTelegramText("Полезные материалы и приложения\n{$lines}"));
+    }
+
+    /**
+     * @return array{method: string, payload: array<string, mixed>}
+     */
+    private function testsAction(int|string $chatId): array
+    {
+        if (! Schema::hasTable('quizzes')) {
+            return $this->messageAction($chatId, 'Тесты пока не добавлены.');
+        }
+
+        $quizzes = DB::table('quizzes')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->limit(10)
+            ->get(['id', 'title', 'description']);
+
+        if ($quizzes->isEmpty()) {
+            return $this->messageAction($chatId, 'Тесты пока не добавлены.');
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $buttons = $quizzes
+            ->map(fn ($quiz): array => [[
+                'text' => (string) $quiz->title,
+                'url' => "{$appUrl}/embed?source=telegram&panel=quizzes&quiz={$quiz->id}",
+            ]])
+            ->values()
+            ->all();
+
+        return $this->messageAction($chatId, 'Вопросы о вере и библейские тесты:', [
+            'reply_markup' => [
+                'inline_keyboard' => $buttons,
+            ],
+        ]);
     }
 
     /**
