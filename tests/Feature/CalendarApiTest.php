@@ -65,6 +65,14 @@ class CalendarApiTest extends TestCase
         <name>Великий пост</name>
         <type>10</type>
     </event>
+    <event>
+        <s_month>0</s_month>
+        <s_date>71</s_date>
+        <f_month>0</f_month>
+        <f_date>71</f_date>
+        <name>Рим.9:18-33</name>
+        <type>204</type>
+    </event>
 </MemoryDays>
 XML);
 
@@ -74,21 +82,49 @@ XML);
         @unlink($path);
 
         $this->assertSame(4, DB::table('calendar_events')->count());
+        $this->assertDatabaseHas('calendar_event_types', [
+            'legacy_type' => 1,
+            'name' => 'Двунадесятые праздники',
+            'is_visible' => true,
+        ]);
+        $this->assertDatabaseHas('calendar_event_types', [
+            'legacy_type' => 5,
+            'name' => 'Малые славословные праздники',
+            'is_visible' => false,
+        ]);
 
         $this->getJson('/api/calendar/day?date=2026-01-19')
             ->assertOk()
             ->assertJsonPath('data.date', '2026-01-19')
-            ->assertJsonPath('data.events.0.name', 'Святое Богоявление');
+            ->assertJsonPath('data.events.0.name', 'Святое Богоявление')
+            ->assertJsonPath('data.events.0.type.name', 'Двунадесятые праздники')
+            ->assertJsonPath('data.events.0.type.typicon_symbol', '☦');
 
         $this->getJson('/api/calendar/day?date=2026-06-22')
             ->assertOk()
             ->assertJsonPath('data.old_style_date', '2026-06-09')
+            ->assertJsonCount(0, 'data.events');
+
+        DB::table('calendar_event_types')
+            ->where('legacy_type', 5)
+            ->update(['is_visible' => true]);
+
+        $this->getJson('/api/calendar/day?date=2026-06-22')
+            ->assertOk()
             ->assertJsonPath('data.events.0.name', 'Прп. Кирилла, игумена Белоезерского (1427)');
 
         $this->getJson('/api/calendar/day?date=2026-04-12')
             ->assertOk()
             ->assertJsonPath('data.pascha_date', '2026-04-12')
             ->assertJsonPath('data.events.0.name', 'Светлое Христово Воскресение. Пасха');
+
+        $this->getJson('/api/calendar/day?date=2026-03-01')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.fasting_events');
+
+        DB::table('calendar_event_types')
+            ->where('legacy_type', 10)
+            ->update(['is_visible' => true]);
 
         $this->getJson('/api/calendar/day?date=2026-03-01')
             ->assertOk()

@@ -530,6 +530,17 @@ svg {
     padding-left: 18px;
 }
 
+.calendar-event-symbol {
+    display: inline-block;
+    min-width: 18px;
+    color: #142235;
+    font-weight: 700;
+}
+
+.calendar-event-symbol-red {
+    color: #cf2626;
+}
+
 .calendar-readings article {
     display: grid;
     gap: 5px;

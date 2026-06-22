@@ -26,8 +26,8 @@ class OrthodoxCalendarService
      *     old_style_date: string,
      *     pascha_date: string,
      *     liturgical_period: string|null,
-     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
-     *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
+     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
+     *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
      *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
      * }
      */
@@ -69,14 +69,36 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>
+     * @return Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>
      */
     private function eventsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
         return DB::table('calendar_events')
-            ->orderBy('legacy_type')
-            ->orderBy('name')
-            ->get(['id', 'name', 'legacy_type', 'date_rule_type', 'start_month', 'start_day', 'start_offset', 'end_month', 'end_day', 'end_offset'])
+            ->leftJoin('calendar_event_types', 'calendar_event_types.id', '=', 'calendar_events.calendar_event_type_id')
+            ->where(fn ($query) => $query
+                ->whereNull('calendar_event_types.id')
+                ->orWhere('calendar_event_types.is_visible', true))
+            ->orderBy('calendar_event_types.sort_order')
+            ->orderBy('calendar_events.legacy_type')
+            ->orderBy('calendar_events.name')
+            ->get([
+                'calendar_events.id',
+                'calendar_events.name',
+                'calendar_events.legacy_type',
+                'calendar_events.date_rule_type',
+                'calendar_events.start_month',
+                'calendar_events.start_day',
+                'calendar_events.start_offset',
+                'calendar_events.end_month',
+                'calendar_events.end_day',
+                'calendar_events.end_offset',
+                'calendar_event_types.code as type_code',
+                'calendar_event_types.name as type_name',
+                'calendar_event_types.typicon_symbol',
+                'calendar_event_types.color',
+                'calendar_event_types.is_fasting',
+                'calendar_event_types.sort_order as type_sort_order',
+            ])
             ->filter(fn ($event): bool => $this->matchesDay($event, $day, $pascha))
             ->values()
             ->map(fn ($event) => [
@@ -84,7 +106,14 @@ class OrthodoxCalendarService
                 'name' => (string) $event->name,
                 'legacy_type' => $event->legacy_type === null ? null : (int) $event->legacy_type,
                 'date_rule_type' => (string) $event->date_rule_type,
-                'is_fasting' => (int) $event->legacy_type === 10,
+                'is_fasting' => (bool) $event->is_fasting,
+                'type' => $event->type_code === null ? null : [
+                    'code' => (string) $event->type_code,
+                    'name' => (string) $event->type_name,
+                    'typicon_symbol' => $event->typicon_symbol === null ? null : (string) $event->typicon_symbol,
+                    'color' => $event->color === null ? null : (string) $event->color,
+                    'sort_order' => (int) $event->type_sort_order,
+                ],
             ]);
     }
 

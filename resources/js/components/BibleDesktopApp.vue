@@ -211,6 +211,13 @@ type CalendarEventDto = {
     legacy_type: number | null;
     date_rule_type: string;
     is_fasting: boolean;
+    type: {
+        code: string;
+        name: string;
+        typicon_symbol: string | null;
+        color: string | null;
+        sort_order: number;
+    } | null;
 };
 
 type CalendarDayDto = {
@@ -2227,10 +2234,18 @@ watch(activeStudyTab, (tab) => {
                         <h3>События</h3>
                         <ul v-if="calendarDay.events.length > 0">
                             <li v-for="event in calendarDay.events" :key="event.id">
+                                <span
+                                    v-if="event.type?.typicon_symbol"
+                                    class="calendar-event-symbol"
+                                    :class="{ 'calendar-event-symbol-red': event.type.color === 'red' }"
+                                    :title="event.type.name"
+                                >
+                                    {{ event.type.typicon_symbol }}
+                                </span>
                                 {{ event.name }}
                             </li>
                         </ul>
-                        <p v-else>События на этот день ещё не импортированы.</p>
+                        <p v-else>На этот день нет включённых событий календаря.</p>
                         <h3>Евангелие и Апостол</h3>
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
