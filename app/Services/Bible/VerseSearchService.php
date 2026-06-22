@@ -121,14 +121,15 @@ class VerseSearchService
                 ->map(fn ($row) => $this->mapResult($row, $this->snippet($this->readableText($row), $query), $query));
         }
 
-        $headlineSql = "ts_headline('simple', verse_texts.text, plainto_tsquery('simple', ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
-        $rankSql = "ts_rank(to_tsvector('simple', coalesce(verse_texts.text, '')), plainto_tsquery('simple', ?))";
+        $configSql = "'".$this->postgresTextSearchConfig($translationCode)."'::regconfig";
+        $headlineSql = "ts_headline({$configSql}, verse_texts.text, plainto_tsquery({$configSql}, ?), 'MaxWords=32, MinWords=10, StartSel=<<bd>>, StopSel=<</bd>>')";
+        $rankSql = "ts_rank(to_tsvector({$configSql}, coalesce(verse_texts.text, '')), plainto_tsquery({$configSql}, ?))";
 
         return $this->baseQuery($translationCode, $filters)
             ->select($this->resultColumns())
             ->selectRaw("{$headlineSql} as snippet", [$query])
             ->selectRaw("{$rankSql} as rank", [$query])
-            ->whereRaw("to_tsvector('simple', coalesce(verse_texts.text, '')) @@ plainto_tsquery('simple', ?)", [$query])
+            ->whereRaw("to_tsvector({$configSql}, coalesce(verse_texts.text, '')) @@ plainto_tsquery({$configSql}, ?)", [$query])
             ->orderByDesc('rank')
             ->orderBy('translations.code')
             ->orderBy('canonical_books.canonical_order')
@@ -268,6 +269,28 @@ class VerseSearchService
     private function readableText(object $row): string
     {
         return StrongText::textWithoutNumbers((string) $row->text);
+    }
+
+    private function postgresTextSearchConfig(string $translationCode): string
+    {
+        if ($translationCode === '') {
+            return 'simple';
+        }
+
+        $languageCode = DB::table('translations')
+            ->join('languages', 'languages.id', '=', 'translations.language_id')
+            ->where('translations.code', $translationCode)
+            ->value('languages.code');
+
+        return [
+            'ru' => 'russian',
+            'de' => 'german',
+            'en' => 'english',
+            'es' => 'spanish',
+            'fr' => 'french',
+            'it' => 'italian',
+            'pt' => 'portuguese',
+        ][(string) $languageCode] ?? 'simple';
     }
 
     /**
