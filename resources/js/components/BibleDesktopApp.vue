@@ -523,6 +523,7 @@ const activeTabId = ref('');
 const activeStudyTab = ref<'strong' | 'references' | 'notes' | 'feed'>('strong');
 const isStudyPanelOpen = ref(false);
 const isReaderMenuOpen = ref(false);
+const isMobileToolRailOpen = ref(false);
 const socialPosts = ref<SocialPostDto[]>([]);
 const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
@@ -593,6 +594,11 @@ function toolIconUrl(icon: string): string {
 
 function closeReaderMenu(): void {
     isReaderMenuOpen.value = false;
+}
+
+function handleMobileToolClick(toolId: ToolId): void {
+    handleToolClick(toolId);
+    isMobileToolRailOpen.value = false;
 }
 
 const icons: Record<IconName, string[]> = {
@@ -2828,8 +2834,20 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </button>
         </nav>
 
-        <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null }">
-            <aside class="tool-rail" aria-label="Инструменты">
+        <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen }">
+            <button
+                type="button"
+                class="mobile-tool-toggle"
+                :class="{ open: isMobileToolRailOpen }"
+                :aria-expanded="isMobileToolRailOpen"
+                aria-controls="reader-tool-rail"
+                :aria-label="isMobileToolRailOpen ? 'Скрыть инструменты' : 'Показать инструменты'"
+                @click="isMobileToolRailOpen = !isMobileToolRailOpen"
+            >
+                {{ isMobileToolRailOpen ? '↓' : '↑' }}
+            </button>
+
+            <aside id="reader-tool-rail" class="tool-rail" aria-label="Инструменты">
                 <button
                     v-for="tool in tools"
                     :key="tool.id"
@@ -2839,7 +2857,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         `tool-group-${tool.group}`,
                         { active: activeLeftPanel === tool.id || activeStudyTab === tool.id || (tool.id === 'strong' && showStrongNumbers) },
                     ]"
-                    @click="handleToolClick(tool.id)"
+                    @click="handleMobileToolClick(tool.id)"
                 >
                     <img :src="toolIconUrl(tool.icon)" :alt="tool.title" />
                     <span class="sr-only">{{ tool.title }}</span>

@@ -424,6 +424,10 @@ svg {
     gap: 8px;
 }
 
+.mobile-tool-toggle {
+    display: none;
+}
+
 .tool-rail button {
     position: relative;
     display: grid;
@@ -2002,6 +2006,7 @@ svg {
 
     .app-shell.embed-shell .tabs,
     .app-shell.embed-shell .tool-rail,
+    .app-shell.embed-shell .mobile-tool-toggle,
     .app-shell.embed-shell .reader-footer {
         display: none;
     }
@@ -2185,6 +2190,37 @@ svg {
         background: rgb(255 255 255 / 96%);
         box-shadow: 0 10px 30px rgb(36 52 72 / 20%);
         padding: 5px;
+        transform: translateY(calc(100% + 16px));
+        transition: transform 180ms ease;
+    }
+
+    .reader-layout.mobile-tools-open .tool-rail {
+        transform: translateY(0);
+    }
+
+    .mobile-tool-toggle {
+        position: fixed;
+        z-index: 70;
+        right: 16px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border: 1px solid #c7d4e2;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #16395f;
+        box-shadow: 0 10px 28px rgb(36 52 72 / 24%);
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1;
+        transition: bottom 180ms ease, background 120ms ease;
+    }
+
+    .mobile-tool-toggle.open {
+        bottom: calc(108px + env(safe-area-inset-bottom));
+        background: #edf5fb;
     }
 
     .tool-rail button {
