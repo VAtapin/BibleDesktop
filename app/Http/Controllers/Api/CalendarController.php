@@ -31,7 +31,7 @@ class CalendarController extends Controller
         if ($translationCode !== '') {
             $day['readings'] = $day['readings']
                 ->map(fn (array $reading): array => $reading + [
-                    'text' => $passages->plainText($reading['passage_ref'], $translationCode, 80),
+                    'text' => $passages->bodyText($reading['passage_ref'], $translationCode, 80),
                 ]);
         }
 

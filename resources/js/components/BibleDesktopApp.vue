@@ -340,6 +340,7 @@ const advancedSearchError = ref<string | null>(null);
 const calendarDay = ref<CalendarDayDto | null>(null);
 const isCalendarLoading = ref(false);
 const calendarError = ref<string | null>(null);
+const expandedCalendarReadings = ref<number[]>([]);
 const bookmarks = ref<BookmarkItem[]>([]);
 const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
@@ -1020,6 +1021,16 @@ async function loadCalendarDay(): Promise<void> {
     } finally {
         isCalendarLoading.value = false;
     }
+}
+
+function toggleCalendarReading(readingId: number): void {
+    expandedCalendarReadings.value = expandedCalendarReadings.value.includes(readingId)
+        ? expandedCalendarReadings.value.filter((id) => id !== readingId)
+        : [...expandedCalendarReadings.value, readingId];
+}
+
+function isCalendarReadingExpanded(readingId: number): boolean {
+    return expandedCalendarReadings.value.includes(readingId);
 }
 
 function calendarReadingTypeLabel(type: string): string {
@@ -1955,6 +1966,7 @@ onMounted(async () => {
 
 watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
     calendarDay.value = null;
+    expandedCalendarReadings.value = [];
     syncActiveTabFromSelection();
     persistReaderState();
 });
@@ -2224,9 +2236,13 @@ watch(activeStudyTab, (tab) => {
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
                                 <span>{{ calendarReadingTypeLabel(reading.type) }}</span>
                                 <strong>{{ reading.title || reading.display_ref || reading.passage_ref }}</strong>
-                                <p>{{ reading.display_ref || reading.passage_ref }}</p>
-                                <pre v-if="reading.text" class="calendar-reading-text">{{ reading.text }}</pre>
-                                <p v-else>Текст для выбранного перевода не найден.</p>
+                                <button type="button" class="calendar-reading-link" @click="toggleCalendarReading(reading.id)">
+                                    {{ reading.display_ref || reading.passage_ref }}
+                                </button>
+                                <template v-if="isCalendarReadingExpanded(reading.id)">
+                                    <pre v-if="reading.text" class="calendar-reading-text">{{ reading.text }}</pre>
+                                    <p v-else>Текст для выбранного перевода не найден.</p>
+                                </template>
                             </article>
                         </div>
                         <p v-else>Чтения дня ещё не заданы.</p>

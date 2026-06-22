@@ -60,6 +60,13 @@ class PassageTextService
             ->implode("\n");
     }
 
+    public function bodyText(string $passageRef, string $translationCode, int $limit = 80): string
+    {
+        return $this->verses($passageRef, $translationCode, $limit)
+            ->map(fn (array $verse): string => $verse['text'])
+            ->implode("\n");
+    }
+
     /**
      * @return list<array{book: string, start_chapter: int, start_verse: int, end_chapter: int, end_verse: int}>
      */

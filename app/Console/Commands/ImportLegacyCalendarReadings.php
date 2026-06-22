@@ -215,7 +215,7 @@ class ImportLegacyCalendarReadings extends Command
 
     private function readingTitle(int $legacyType): string
     {
-        return [
+        $directTitle = [
             202 => 'На утрени',
             204 => 'На литургии: Апостол',
             207 => 'На литургии: Евангелие',
@@ -225,7 +225,21 @@ class ImportLegacyCalendarReadings extends Command
             306 => 'Псалтирь: на 6-м часе',
             308 => 'Псалтирь: на вечерне',
             309 => 'Псалтирь: на 9-м часе',
-        ][$legacyType] ?? match ($legacyType % 10) {
+        ][$legacyType] ?? null;
+
+        if ($directTitle !== null) {
+            return $directTitle;
+        }
+
+        if ($legacyType > 207 && $legacyType < 300) {
+            return match ($legacyType % 10) {
+                4 => 'Праздничное чтение: Апостол',
+                7 => 'Праздничное чтение: Евангелие',
+                default => 'Праздничное чтение',
+            };
+        }
+
+        return match ($legacyType % 10) {
             4 => 'Апостол',
             7 => 'Евангелие',
             default => 'Чтение',

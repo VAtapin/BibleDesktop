@@ -189,7 +189,7 @@ class TelegramWebhookTest extends TestCase
     {
         DB::table('calendar_events')->insert([
             'name' => 'Святое Богоявление',
-            'legacy_type' => 1,
+            'legacy_type' => null,
             'date_rule_type' => 'fixed',
             'start_month' => (int) now()->month,
             'start_day' => (int) now()->day,
@@ -233,12 +233,14 @@ class TelegramWebhookTest extends TestCase
 
     public function test_telegram_fasting_command_returns_fasting_events(): void
     {
+        $oldStyleDay = now()->subDays(13);
+
         DB::table('calendar_events')->insert([
             'name' => 'Великий пост',
             'legacy_type' => 10,
             'date_rule_type' => 'fixed',
-            'start_month' => (int) now()->month,
-            'start_day' => (int) now()->day,
+            'start_month' => (int) $oldStyleDay->month,
+            'start_day' => (int) $oldStyleDay->day,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -291,7 +293,7 @@ class TelegramWebhookTest extends TestCase
             ->assertOk()
             ->assertJsonPath(
                 'actions.0.payload.text',
-                'Евангелие на '.now()->toDateString()."\nЕвангелие дня: John.1.1-2\nОт Иоанна 1:1 В начале было Слово.\nОт Иоанна 1:2 Оно было в начале у Бога.",
+                'Евангелие на '.now()->toDateString()."\nЕвангелие дня: John.1.1-2\nВ начале было Слово.\nОно было в начале у Бога.",
             );
     }
 

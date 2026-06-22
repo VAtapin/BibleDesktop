@@ -545,6 +545,23 @@ svg {
     margin: 0;
 }
 
+.calendar-reading-link {
+    justify-self: start;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #245f99;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.calendar-reading-link:hover {
+    color: #163a5d;
+}
+
 .calendar-reading-text {
     max-height: 220px;
     margin: 2px 0 0;

@@ -425,7 +425,7 @@ class TelegramUpdateHandler
             ->take(4)
             ->map(function (array $reading) use ($translationCode): string {
                 $title = $reading['title'] ? "{$reading['title']}: " : '';
-                $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 35);
+                $text = $this->passageText->bodyText($reading['passage_ref'], $translationCode, 35);
 
                 $displayRef = $reading['display_ref'] ?? $reading['passage_ref'];
 
@@ -492,7 +492,7 @@ class TelegramUpdateHandler
             ->filter(fn (array $reading): bool => $reading['type'] === $type)
             ->take(2)
             ->map(function (array $reading) use ($translationCode): string {
-                $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 20);
+                $text = $this->passageText->bodyText($reading['passage_ref'], $translationCode, 20);
                 $displayRef = $reading['display_ref'] ?? $reading['passage_ref'];
 
                 if ($text === '') {
