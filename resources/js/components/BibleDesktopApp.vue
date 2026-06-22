@@ -2754,6 +2754,21 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </form>
 
             <div class="reader-preferences" aria-label="Настройки чтения">
+                <button
+                    type="button"
+                    class="mobile-search-button"
+                    data-tooltip="Поиск"
+                    aria-label="Открыть поиск"
+                    @click="activeLeftPanel = 'search'; advancedSearchQuery = searchQuery; showSearchResults = false"
+                >
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            v-for="path in iconPaths('search')"
+                            :key="path"
+                            :d="path"
+                        />
+                    </svg>
+                </button>
                 <button type="button" data-tooltip="Уменьшить шрифт" aria-label="Уменьшить шрифт" @click="changeReaderFontSize(-1)">A-</button>
                 <button type="button" data-tooltip="Увеличить шрифт" aria-label="Увеличить шрифт" @click="changeReaderFontSize(1)">A+</button>
                 <button type="button" :data-tooltip="readerTheme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" aria-label="Переключить тему" @click="toggleReaderTheme">
