@@ -73,6 +73,19 @@ class StrongText
     }
 
     /**
+     * Remove Strong numbers without collapsing paragraphs or line breaks.
+     */
+    public static function textWithoutNumbersPreservingLines(string $text): string
+    {
+        $text = preg_replace('/[ \t]*'.self::numberPatternBody().'/u', '', $text) ?? $text;
+        $text = strip_tags($text);
+        $text = preg_replace('/[ \t]+([,.;:!?])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
+
+        return trim($text);
+    }
+
+    /**
      * @return list<array{id: int, strong_number: string, token_order: int, surface_text: null, grammar_code: null, entry: array{word: null, transliteration: null}}>
      */
     public static function tokenDtos(string $text): array

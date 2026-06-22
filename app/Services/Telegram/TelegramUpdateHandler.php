@@ -505,7 +505,7 @@ class TelegramUpdateHandler
     private function telegramVerseText(string $text): string
     {
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = StrongText::textWithoutNumbers($text);
+        $text = StrongText::textWithoutNumbersPreservingLines($text);
         $text = preg_replace('/\s+([,.;:!?»])/u', '$1', $text) ?? $text;
         $text = preg_replace('/([«])\s+/u', '$1', $text) ?? $text;
 
@@ -519,13 +519,24 @@ class TelegramUpdateHandler
     {
         $text = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = preg_replace('/<\s*br\s*\/?>/iu', "\n", $text) ?? $text;
-        $text = preg_replace('/<\s*\/\s*(p|div|h[1-6]|blockquote|section|article|tr)\s*>/iu', "\n\n", $text) ?? $text;
+        $text = preg_replace('/<\s*(p|div|h[1-6]|blockquote|section|article|tr|table|ul|ol)\b[^>]*>/iu', "\n", $text) ?? $text;
+        $text = preg_replace('/<\s*\/\s*(p|div|h[1-6]|blockquote|section|article|tr|table|ul|ol)\s*>/iu', "\n\n", $text) ?? $text;
         $text = preg_replace('/<\s*li[^>]*>/iu', "\n• ", $text) ?? $text;
         $text = preg_replace('/<\s*\/\s*li\s*>/iu', "\n", $text) ?? $text;
+        $text = preg_replace_callback('/<\s*(strong|b)\b[^>]*>(.*?)<\s*\/\s*\1\s*>/isu', function (array $matches): string {
+            $heading = trim(html_entity_decode(strip_tags((string) $matches[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+            if ($heading !== '' && mb_strlen($heading) <= 90) {
+                return "\n\n{$heading}\n";
+            }
+
+            return $matches[0];
+        }, $text) ?? $text;
         $text = preg_replace('/<\s*img[^>]*>/iu', "\n", $text) ?? $text;
         $text = strip_tags($text);
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = StrongText::textWithoutNumbers($text);
+        $text = StrongText::textWithoutNumbersPreservingLines($text);
+        $text = preg_replace("/\r\n?/", "\n", $text) ?? $text;
         $text = preg_replace("/[ \t]+\n/u", "\n", $text) ?? $text;
         $text = preg_replace("/\n[ \t]+/u", "\n", $text) ?? $text;
         $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
@@ -695,10 +706,10 @@ class TelegramUpdateHandler
         $intro = trim($this->telegramHtmlText((string) ($prayer->intro ?: '')));
 
         if ($intro === '') {
-            $intro = str($this->telegramHtmlText($this->firstPrayerBody((int) $prayer->id, (string) $prayer->body)))
-                ->squish()
-                ->limit(700)
-                ->toString();
+            $intro = $this->limitTelegramPreview(
+                $this->telegramHtmlText($this->firstPrayerBody((int) $prayer->id, (string) $prayer->body)),
+                700,
+            );
         }
 
         return [
@@ -769,6 +780,28 @@ class TelegramUpdateHandler
             'communion_after' => 'после Причастия',
             default => 'молитвы',
         };
+    }
+
+    private function limitTelegramPreview(string $text, int $limit): string
+    {
+        $text = trim($text);
+
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+
+        $slice = mb_substr($text, 0, $limit);
+        $breakAt = max(
+            mb_strrpos($slice, "\n\n") ?: 0,
+            mb_strrpos($slice, "\n") ?: 0,
+            mb_strrpos($slice, ' ') ?: 0,
+        );
+
+        if ($breakAt > 240) {
+            $slice = mb_substr($slice, 0, $breakAt);
+        }
+
+        return rtrim($slice, " \t\n\r.,;:").'...';
     }
 
     /**
