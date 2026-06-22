@@ -17,14 +17,6 @@ namespace App\Filament\Resources\MonasteryServices;
 use App\Filament\Resources\MonasteryServices\Pages\ManageMonasteryServices;
 use App\Models\MonasteryService;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -45,17 +37,7 @@ class MonasteryServiceResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            TextInput::make('external_uid')->label('UID')->required()->maxLength(255)->columnSpanFull(),
-            TextInput::make('title')->label('Название')->required()->maxLength(255)->columnSpanFull(),
-            Textarea::make('description')->label('Описание')->rows(5)->columnSpanFull(),
-            TextInput::make('location')->label('Место')->maxLength(500)->columnSpanFull(),
-            DateTimePicker::make('starts_at')->label('Начало')->required(),
-            DateTimePicker::make('ends_at')->label('Окончание'),
-            Toggle::make('is_all_day')->label('Весь день'),
-            Toggle::make('is_public')->label('Показывать')->default(true),
-            TextInput::make('source_url')->label('Источник')->maxLength(500)->columnSpanFull(),
-        ]);
+        return $schema->components([]);
     }
 
     public static function table(Table $table): Table
@@ -65,11 +47,13 @@ class MonasteryServiceResource extends Resource
                 TextColumn::make('starts_at')->label('Начало')->dateTime('d.m.Y H:i')->sortable(),
                 TextColumn::make('title')->label('Название')->searchable()->sortable(),
                 TextColumn::make('location')->label('Место')->limit(45),
+                TextColumn::make('source_url')->label('Источник')->limit(35),
+                TextColumn::make('imported_at')->label('Импорт')->dateTime('d.m.Y H:i')->sortable(),
                 IconColumn::make('is_public')->label('Показывать')->boolean(),
             ])
             ->defaultSort('starts_at')
-            ->recordActions([EditAction::make(), DeleteAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->recordActions([])
+            ->toolbarActions([]);
     }
 
     public static function getPages(): array
