@@ -348,6 +348,19 @@ type VirtualTourDto = {
     tour_url: string;
 };
 
+type PrintBlock = {
+    title: string;
+    body?: string;
+    html?: string;
+    image?: string | null;
+};
+
+type PrintDocument = {
+    title: string;
+    subtitle: string | null;
+    blocks: PrintBlock[];
+};
+
 type ReaderTab = {
     id: string;
     title: string;
@@ -747,25 +760,10 @@ const selectedVerses = computed(() => {
 
     return currentVerses.value.filter((verse) => selectedNumbers.includes(verse.number));
 });
-const printableVerses = computed(() => {
-    if (selectedVerses.value.length > 0) {
-        return selectedVerses.value;
-    }
-
-    return currentVerses.value;
-});
-const printTitle = computed(() => {
-    if (printableVerses.value.length === 1) {
-        return `${currentTitle.value}:${printableVerses.value[0]?.number}`;
-    }
-
-    if (selectedVerses.value.length > 1) {
-        const lastSelectedVerse = selectedVerses.value[selectedVerses.value.length - 1];
-
-        return `${currentTitle.value}:${selectedVerses.value[0]?.number}-${lastSelectedVerse?.number}`;
-    }
-
-    return currentTitle.value;
+const printDocument = ref<PrintDocument>({
+    title: '',
+    subtitle: null,
+    blocks: [],
 });
 
 function translationLabel(translation: TranslationDto | null | undefined): string {
@@ -1577,8 +1575,95 @@ function matchCalendarReadingType(type: string): string {
     return type;
 }
 
+function currentPrintDocument(): PrintDocument {
+    if (mainContentMode.value === 'recipe' && selectedRecipe.value) {
+        return recipePrintDocument(selectedRecipe.value);
+    }
+
+    if (mainContentMode.value === 'prayer' && selectedPrayer.value) {
+        return prayerPrintDocument(selectedPrayer.value);
+    }
+
+    return chapterPrintDocument();
+}
+
+function recipePrintDocument(recipe: RecipeDto): PrintDocument {
+    const blocks: PrintBlock[] = [];
+
+    if (recipe.summary) {
+        blocks.push({ title: 'Описание', body: recipe.summary });
+    }
+
+    if (recipe.ingredient_items?.length) {
+        blocks.push({
+            title: `Ингредиенты на ${selectedRecipeTargetServings.value} порц.`,
+            body: recipe.ingredient_items.map((ingredient) => recipeIngredientLine(ingredient)).join('\n'),
+        });
+    } else if (recipe.ingredients) {
+        blocks.push({ title: 'Ингредиенты', body: recipe.ingredients });
+    }
+
+    if (recipe.steps?.length) {
+        recipe.steps.forEach((step) => {
+            blocks.push({
+                title: `Шаг ${step.step_number}`,
+                body: step.body,
+                image: step.image_url,
+            });
+        });
+    }
+
+    if (recipe.youtube_url) {
+        blocks.push({ title: 'Видео', body: recipe.youtube_url });
+    }
+
+    return {
+        title: recipe.title,
+        subtitle: recipe.category.name,
+        blocks,
+    };
+}
+
+function prayerPrintDocument(prayer: PrayerDto): PrintDocument {
+    const body = selectedPrayerSection.value?.body || prayer.body || prayer.intro || '';
+    const sectionTitle = selectedPrayerSection.value?.title;
+
+    return {
+        title: prayer.title,
+        subtitle: sectionTitle || prayerCategoryLabel(prayer.category),
+        blocks: [
+            {
+                title: sectionTitle || 'Текст молитвы',
+                html: body,
+            },
+        ],
+    };
+}
+
+function chapterPrintDocument(): PrintDocument {
+    const verses = selectedVerses.value.length > 0 ? selectedVerses.value : currentVerses.value;
+    let title = currentTitle.value;
+
+    if (verses.length === 1) {
+        title = `${currentTitle.value}:${verses[0]?.number}`;
+    } else if (selectedVerses.value.length > 1) {
+        const lastSelectedVerse = selectedVerses.value[selectedVerses.value.length - 1];
+        title = `${currentTitle.value}:${selectedVerses.value[0]?.number}-${lastSelectedVerse?.number}`;
+    }
+
+    return {
+        title,
+        subtitle: shortTranslationLabel(currentTranslation.value),
+        blocks: verses.map((verse) => ({
+            title: String(verse.number),
+            body: displayVerseText(verse),
+        })),
+    };
+}
+
 function printPage(): void {
-    window.print();
+    printDocument.value = currentPrintDocument();
+    window.setTimeout(() => window.print(), 0);
 }
 
 async function loadJson<T>(url: string): Promise<T> {
@@ -3575,14 +3660,18 @@ watch(activeStudyTab, (tab) => {
         </footer>
     </div>
     <section class="print-document" aria-hidden="true">
-        <h1>{{ printTitle }}</h1>
-        <p
-            v-for="verse in printableVerses"
-            :key="`print-${verse.id ?? verse.number}`"
+        <h1>{{ printDocument.title }}</h1>
+        <p v-if="printDocument.subtitle" class="print-subtitle">{{ printDocument.subtitle }}</p>
+        <article
+            v-for="(block, index) in printDocument.blocks"
+            :key="`print-block-${index}`"
+            class="print-block"
         >
-            <strong>{{ verse.number }}</strong>
-            <span>{{ displayVerseText(verse) }}</span>
-        </p>
+            <h2>{{ block.title }}</h2>
+            <img v-if="block.image" :src="block.image" alt="" />
+            <div v-if="block.html" v-html="block.html"></div>
+            <p v-else>{{ block.body }}</p>
+        </article>
         <footer>https://bible-desktop.com</footer>
     </section>
 </template>

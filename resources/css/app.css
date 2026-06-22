@@ -2493,27 +2493,46 @@ svg {
     }
 
     .print-document h1 {
-        margin: 0 0 14px;
+        margin: 0 0 6px;
         font-family: var(--font-sans);
         font-size: 20px;
         line-height: 1.25;
     }
 
-    .print-document p {
-        display: grid;
-        grid-template-columns: 28px minmax(0, 1fr);
-        gap: 8px;
-        margin: 0 0 8px;
+    .print-subtitle {
+        margin: 0 0 16px;
+        color: #4b5563;
+        font-family: var(--font-sans);
+        font-size: 11pt;
+    }
+
+    .print-block {
+        margin: 0 0 14px;
         break-inside: avoid;
+    }
+
+    .print-block h2 {
+        margin: 0 0 5px;
+        color: #1f5f90;
+        font-family: var(--font-sans);
+        font-size: 11pt;
+        line-height: 1.35;
+    }
+
+    .print-block p,
+    .print-block div {
+        margin: 0;
+        white-space: pre-wrap;
         font-size: 13pt;
         line-height: 1.45;
     }
 
-    .print-document strong {
-        color: #1f5f90;
-        font-family: var(--font-sans);
-        font-size: 10pt;
-        text-align: right;
+    .print-block img {
+        display: block;
+        max-width: 120mm;
+        max-height: 80mm;
+        object-fit: contain;
+        margin: 0 0 8px;
     }
 
     .print-document footer {
