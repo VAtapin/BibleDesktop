@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -98,6 +99,7 @@ class PrayerResource extends Resource
                     ->default(true),
                 RichEditor::make('body')
                     ->label('Текст молитвы')
+                    ->helperText('Для короткой молитвы достаточно этого поля. Для длинных молитв добавляйте части ниже: сайт откроет их как отдельные страницы.')
                     ->required()
                     ->toolbarButtons([
                         ['bold', 'italic', 'underline', 'strike'],
@@ -105,6 +107,38 @@ class PrayerResource extends Resource
                         ['bulletList', 'orderedList'],
                         ['undo', 'redo'],
                     ])
+                    ->columnSpanFull(),
+                Repeater::make('sections')
+                    ->label('Части / страницы молитвы')
+                    ->relationship()
+                    ->schema([
+                        TextInput::make('title')
+                            ->label('Заголовок части')
+                            ->placeholder('Например: Часть 1')
+                            ->maxLength(180)
+                            ->columnSpan(8),
+                        TextInput::make('sort_order')
+                            ->label('Порядок')
+                            ->numeric()
+                            ->required()
+                            ->default(10)
+                            ->columnSpan(4),
+                        RichEditor::make('body')
+                            ->label('Текст части')
+                            ->required()
+                            ->toolbarButtons([
+                                ['bold', 'italic', 'underline', 'strike'],
+                                ['h2', 'h3', 'blockquote'],
+                                ['bulletList', 'orderedList'],
+                                ['undo', 'redo'],
+                            ])
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(12)
+                    ->defaultItems(0)
+                    ->addActionLabel('Добавить часть')
+                    ->orderColumn('sort_order')
+                    ->reorderableWithButtons()
                     ->columnSpanFull(),
                 TextInput::make('source_url')
                     ->label('Источник')
