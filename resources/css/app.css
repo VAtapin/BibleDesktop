@@ -506,9 +506,15 @@ svg {
 }
 
 .calendar-date span,
+.calendar-date small,
 .calendar-panel li,
 .calendar-panel p {
     color: #596579;
+}
+
+.calendar-date small {
+    display: block;
+    font-size: 13px;
 }
 
 .calendar-panel h3 {

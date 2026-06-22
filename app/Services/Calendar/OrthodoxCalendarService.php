@@ -23,10 +23,12 @@ class OrthodoxCalendarService
     /**
      * @return array{
      *     date: string,
+     *     old_style_date: string,
      *     pascha_date: string,
+     *     liturgical_period: string|null,
      *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
      *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool}>,
-     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
      * }
      */
     public function day(string $date): array
@@ -38,7 +40,9 @@ class OrthodoxCalendarService
 
         return [
             'date' => $day->toDateString(),
+            'old_style_date' => $day->subDays(13)->toDateString(),
             'pascha_date' => $pascha->toDateString(),
+            'liturgical_period' => $this->liturgicalPeriod($day, $pascha),
             'events' => $events,
             'fasting_events' => $events
                 ->filter(fn (array $event): bool => $event['is_fasting'])
@@ -85,7 +89,7 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>
+     * @return Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
      */
     private function readingsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
@@ -93,16 +97,23 @@ class OrthodoxCalendarService
             ->orderBy('sort_order')
             ->orderBy('reading_type')
             ->orderBy('passage_ref')
-            ->get(['id', 'reading_type', 'title', 'passage_ref', 'date_rule_type', 'month', 'day', 'offset'])
+            ->get(['id', 'reading_type', 'title', 'passage_ref', 'date_rule_type', 'month', 'day', 'offset', 'metadata_json'])
             ->filter(fn ($reading): bool => $this->readingMatchesDay($reading, $day, $pascha))
             ->values()
-            ->map(fn ($reading) => [
-                'id' => (int) $reading->id,
-                'type' => (string) $reading->reading_type,
-                'title' => $reading->title === null ? null : (string) $reading->title,
-                'passage_ref' => (string) $reading->passage_ref,
-                'date_rule_type' => (string) $reading->date_rule_type,
-            ]);
+            ->map(function ($reading): array {
+                $metadata = json_decode((string) ($reading->metadata_json ?? ''), true);
+
+                return [
+                    'id' => (int) $reading->id,
+                    'type' => (string) $reading->reading_type,
+                    'title' => $reading->title === null ? null : (string) $reading->title,
+                    'passage_ref' => (string) $reading->passage_ref,
+                    'display_ref' => is_array($metadata) && isset($metadata['raw_name'])
+                        ? (string) $metadata['raw_name']
+                        : (string) $reading->passage_ref,
+                    'date_rule_type' => (string) $reading->date_rule_type,
+                ];
+            });
     }
 
     private function readingMatchesDay(object $reading, CarbonImmutable $day, CarbonImmutable $pascha): bool
@@ -112,6 +123,41 @@ class OrthodoxCalendarService
             'pascha_relative' => $pascha->addDays((int) $reading->offset)->isSameDay($day),
             default => false,
         };
+    }
+
+    private function liturgicalPeriod(CarbonImmutable $day, CarbonImmutable $pascha): ?string
+    {
+        $daysAfterPascha = $pascha->diffInDays($day, false);
+
+        if ($daysAfterPascha === 0) {
+            return 'Светлое Христово Воскресение. Пасха';
+        }
+
+        if ($daysAfterPascha > 0 && $daysAfterPascha < 7) {
+            return 'Светлая седмица';
+        }
+
+        if ($daysAfterPascha === 39) {
+            return 'Вознесение Господне';
+        }
+
+        if ($daysAfterPascha === 49) {
+            return 'День Святой Троицы. Пятидесятница';
+        }
+
+        if ($daysAfterPascha >= 50) {
+            $week = intdiv($daysAfterPascha - 50, 7) + 1;
+
+            return "Седмица {$week}-я по Пятидесятнице";
+        }
+
+        if ($daysAfterPascha < 0) {
+            $week = intdiv(abs($daysAfterPascha), 7) + 1;
+
+            return "Седмица {$week}-я перед Пасхой";
+        }
+
+        return null;
     }
 
     private function matchesDay(object $event, CarbonImmutable $day, CarbonImmutable $pascha): bool

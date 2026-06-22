@@ -200,6 +200,7 @@ type CalendarReadingDto = {
     type: 'gospel' | 'apostle' | 'psalm' | string;
     title: string | null;
     passage_ref: string;
+    display_ref?: string;
     date_rule_type: string;
     text?: string;
 };
@@ -214,7 +215,9 @@ type CalendarEventDto = {
 
 type CalendarDayDto = {
     date: string;
+    old_style_date: string;
     pascha_date: string;
+    liturgical_period: string | null;
     events: CalendarEventDto[];
     fasting_events: CalendarEventDto[];
     readings: CalendarReadingDto[];
@@ -2206,7 +2209,8 @@ watch(activeStudyTab, (tab) => {
                     <template v-else-if="calendarDay">
                         <div class="calendar-date">
                             <strong>{{ calendarDay.date }}</strong>
-                            <span>Пасха: {{ calendarDay.pascha_date }}</span>
+                            <span>{{ calendarDay.old_style_date }} ст.ст.</span>
+                            <small v-if="calendarDay.liturgical_period">{{ calendarDay.liturgical_period }}</small>
                         </div>
                         <h3>События</h3>
                         <ul v-if="calendarDay.events.length > 0">
@@ -2219,8 +2223,8 @@ watch(activeStudyTab, (tab) => {
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
                                 <span>{{ calendarReadingTypeLabel(reading.type) }}</span>
-                                <strong>{{ reading.title || reading.passage_ref }}</strong>
-                                <p>{{ reading.passage_ref }}</p>
+                                <strong>{{ reading.title || reading.display_ref || reading.passage_ref }}</strong>
+                                <p>{{ reading.display_ref || reading.passage_ref }}</p>
                                 <pre v-if="reading.text" class="calendar-reading-text">{{ reading.text }}</pre>
                                 <p v-else>Текст для выбранного перевода не найден.</p>
                             </article>

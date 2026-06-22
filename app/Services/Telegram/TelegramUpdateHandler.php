@@ -427,11 +427,13 @@ class TelegramUpdateHandler
                 $title = $reading['title'] ? "{$reading['title']}: " : '';
                 $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 35);
 
+                $displayRef = $reading['display_ref'] ?? $reading['passage_ref'];
+
                 if ($text === '') {
-                    return "- {$title}{$reading['passage_ref']}\nТекст не найден в выбранном переводе.";
+                    return "- {$title}{$displayRef}\nТекст не найден в выбранном переводе.";
                 }
 
-                return "{$title}{$reading['passage_ref']}\n{$text}";
+                return "{$title}{$displayRef}\n{$text}";
             })
             ->implode("\n");
 
@@ -439,7 +441,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param  array{readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>}  $day
+     * @param  array{readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref?: string, date_rule_type: string}>}  $day
      * @param  array<string, mixed>  $settings
      */
     private function readingsSummary(array $day, array $settings): string
@@ -482,7 +484,7 @@ class TelegramUpdateHandler
     }
 
     /**
-     * @param  Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, date_rule_type: string}>  $readings
+     * @param  Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref?: string, date_rule_type: string}>  $readings
      */
     private function calendarReadingBlock(Collection $readings, string $type, string $translationCode): string
     {
@@ -491,12 +493,13 @@ class TelegramUpdateHandler
             ->take(2)
             ->map(function (array $reading) use ($translationCode): string {
                 $text = $this->passageText->plainText($reading['passage_ref'], $translationCode, 20);
+                $displayRef = $reading['display_ref'] ?? $reading['passage_ref'];
 
                 if ($text === '') {
-                    return $reading['passage_ref'];
+                    return $displayRef;
                 }
 
-                return $reading['passage_ref']."\n".$text;
+                return $displayRef."\n".$text;
             })
             ->implode("\n");
     }
