@@ -549,20 +549,26 @@ const readerStyle = computed(() => ({
     '--reader-font-size': `${readerFontSize.value}px`,
 }));
 
-const tools = [
+const leftTools = [
     { id: 'library', icon: 'library', title: 'Библиотека', group: 'reader' },
     { id: 'bookmarks', icon: 'bookmarks', title: 'Закладки', group: 'reader' },
-    { id: 'references', icon: 'references', title: 'Параллельные места', group: 'reader' },
-    { id: 'strong', icon: 'strong', title: 'Номера Стронга', group: 'reader' },
-    { id: 'notes', icon: 'comments', title: 'Толкования и комментарии', group: 'reader' },
-    { id: 'feed', icon: 'feed', title: 'Лента размышлений', group: 'reader' },
     { id: 'history', icon: 'history', title: 'История просмотров', group: 'reader' },
     { id: 'print', icon: 'print', title: 'Печать страницы', group: 'reader' },
+    { id: 'search', icon: 'strong', title: 'Поиск', group: 'reader' },
     { id: 'calendar', icon: 'calendar', title: 'Церковный календарь', group: 'church' },
     { id: 'prayers', icon: 'prayers', title: 'Молитвослов', group: 'church' },
-    { id: 'quizzes', icon: 'faith', title: 'Вопросы о вере', group: 'church' },
+    { id: 'materials', icon: 'faith', title: 'Полезные материалы', group: 'church' },
+    { id: 'recipes', icon: 'recipes', title: 'Постные рецепты', group: 'church' },
+    { id: 'quizzes', icon: 'quizzes', title: 'Вопросы о вере', group: 'church' },
     { id: 'tours', icon: 'tours', title: 'Храмы и монастыри 360°', group: 'church' },
-] satisfies Array<{ id: ToolId; icon: string; title: string; group: 'reader' | 'church' }>;
+] satisfies Array<{ id: LeftPanelId | 'print'; icon: string; title: string; group: 'reader' | 'church' }>;
+
+const studyTools = [
+    { id: 'strong', icon: 'strong', title: 'Номера Стронга' },
+    { id: 'references', icon: 'references', title: 'Параллельные места' },
+    { id: 'notes', icon: 'comments', title: 'Толкования и комментарии' },
+    { id: 'feed', icon: 'feed', title: 'Лента размышлений' },
+] satisfies Array<{ id: StudyToolId | 'strong'; icon: string; title: string }>;
 
 function defaultReaderFontSize(): number {
     if (typeof window === 'undefined') {
@@ -599,6 +605,12 @@ function closeReaderMenu(): void {
 function handleMobileToolClick(toolId: ToolId): void {
     handleToolClick(toolId);
     isMobileToolRailOpen.value = false;
+}
+
+function openStudyTool(toolId: StudyToolId | 'strong'): void {
+    activeStudyTab.value = toolId === 'strong' ? 'strong' : toolId;
+    isStudyPanelOpen.value = true;
+    activeLeftPanel.value = null;
 }
 
 const icons: Record<IconName, string[]> = {
@@ -2864,13 +2876,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
 
             <aside id="reader-tool-rail" class="tool-rail" aria-label="Инструменты">
                 <button
-                    v-for="tool in tools"
+                    v-for="tool in leftTools"
                     :key="tool.id"
                     type="button"
                     :data-tooltip="tool.title"
                     :class="[
                         `tool-group-${tool.group}`,
-                        { active: activeLeftPanel === tool.id || activeStudyTab === tool.id || (tool.id === 'strong' && showStrongNumbers) },
+                        { active: activeLeftPanel === tool.id },
                     ]"
                     @click="handleMobileToolClick(tool.id)"
                 >
@@ -3291,7 +3303,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </select>
                     <div class="reader-actions">
                         <button
-                            v-for="tool in tools"
+                            v-for="tool in leftTools"
                             :key="`menu-${tool.id}`"
                             type="button"
                             class="reader-menu-tool"
@@ -3299,7 +3311,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                             :data-tooltip="tool.title"
                             :class="[
                                 `tool-group-${tool.group}`,
-                                { active: activeLeftPanel === tool.id || activeStudyTab === tool.id || (tool.id === 'strong' && showStrongNumbers) },
+                                { active: activeLeftPanel === tool.id },
                             ]"
                             @click="handleToolClick(tool.id); closeReaderMenu()"
                         >
@@ -3333,15 +3345,6 @@ watch([selectedBookSlug, socialFeedScope], () => {
                             <svg aria-hidden="true" viewBox="0 0 24 24">
                                 <path
                                     v-for="path in iconPaths('hash')"
-                                    :key="path"
-                                    :d="path"
-                                />
-                            </svg>
-                        </button>
-                        <button type="button" aria-label="Печать" title="Печать" @click="printPage">
-                            <svg aria-hidden="true" viewBox="0 0 24 24">
-                                <path
-                                    v-for="path in iconPaths('printer')"
                                     :key="path"
                                     :d="path"
                                 />
@@ -3565,45 +3568,16 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </header>
 
                 <div class="analysis-tabs">
-                    <button type="button" title="Strong" :class="{ active: activeStudyTab === 'strong' }" @click="activeStudyTab = 'strong'">
-                        <svg aria-hidden="true" viewBox="0 0 24 24">
-                            <path
-                                v-for="path in iconPaths('hash')"
-                                :key="path"
-                                :d="path"
-                            />
-                        </svg>
-                        <span class="sr-only">Strong</span>
-                    </button>
-                    <button type="button" title="Параллельные места" :class="{ active: activeStudyTab === 'references' }" @click="activeStudyTab = 'references'">
-                        <svg aria-hidden="true" viewBox="0 0 24 24">
-                            <path
-                                v-for="path in iconPaths('link')"
-                                :key="path"
-                                :d="path"
-                            />
-                        </svg>
-                        <span class="sr-only">Параллельные места</span>
-                    </button>
-                    <button type="button" title="Заметки" :class="{ active: activeStudyTab === 'notes' }" @click="activeStudyTab = 'notes'">
-                        <svg aria-hidden="true" viewBox="0 0 24 24">
-                            <path
-                                v-for="path in iconPaths('note')"
-                                :key="path"
-                                :d="path"
-                            />
-                        </svg>
-                        <span class="sr-only">Заметки</span>
-                    </button>
-                    <button type="button" title="Лента" :class="{ active: activeStudyTab === 'feed' }" @click="activeStudyTab = 'feed'">
-                        <svg aria-hidden="true" viewBox="0 0 24 24">
-                            <path
-                                v-for="path in iconPaths('feed')"
-                                :key="path"
-                                :d="path"
-                            />
-                        </svg>
-                        <span class="sr-only">Лента</span>
+                    <button
+                        v-for="tool in studyTools"
+                        :key="`study-${tool.id}`"
+                        type="button"
+                        :title="tool.title"
+                        :class="{ active: activeStudyTab === tool.id }"
+                        @click="openStudyTool(tool.id)"
+                    >
+                        <img :src="toolIconUrl(tool.icon)" :alt="tool.title" />
+                        <span class="sr-only">{{ tool.title }}</span>
                     </button>
                 </div>
 

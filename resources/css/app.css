@@ -475,6 +475,20 @@ svg {
     font-weight: 700;
 }
 
+.reader-theme-dark .tool-rail button,
+.reader-theme-dark .reader-menu-tool,
+.reader-theme-dark .analysis-tabs button {
+    border-color: #344456;
+    background: #1a2632;
+}
+
+.reader-theme-dark .tool-rail button.active,
+.reader-theme-dark .reader-menu-tool.active,
+.reader-theme-dark .analysis-tabs button.active {
+    border-color: #5f86ad;
+    background: #24384b;
+}
+
 .tool-rail button[data-tooltip]::after,
 .reader-preferences button[data-tooltip]::after,
 .reader-menu-tool[data-tooltip]::after {
@@ -1516,6 +1530,12 @@ svg {
     background: #edf1f5;
     color: #8b96a5;
     padding: 0;
+}
+
+.analysis-tabs img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
 }
 
 .analysis-tabs button.active {
