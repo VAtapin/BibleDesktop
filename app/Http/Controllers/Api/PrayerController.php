@@ -32,7 +32,7 @@ class PrayerController extends Controller
                 ->orWhere('language_code', 'ru'))
             ->orderBy('sort_order')
             ->orderBy('title')
-            ->get(['id', 'language_code', 'category', 'liturgy_key', 'title', 'short_title', 'body'])
+            ->get(['id', 'language_code', 'category', 'liturgy_key', 'title', 'short_title', 'intro', 'body'])
             ->unique('id')
             ->values()
             ->map(fn ($prayer): array => [
@@ -42,7 +42,8 @@ class PrayerController extends Controller
                 'liturgy_key' => $prayer->liturgy_key === null ? null : (string) $prayer->liturgy_key,
                 'title' => (string) $prayer->title,
                 'short_title' => $prayer->short_title === null ? null : (string) $prayer->short_title,
-                'excerpt' => str($prayer->body)->stripTags()->squish()->limit(80)->toString(),
+                'intro' => $prayer->intro === null ? null : (string) $prayer->intro,
+                'excerpt' => str($prayer->intro ?: $prayer->body)->stripTags()->squish()->limit(80)->toString(),
             ]);
 
         return response()->json(['data' => $prayers]);
@@ -53,7 +54,7 @@ class PrayerController extends Controller
         $row = DB::table('prayers')
             ->where('is_public', true)
             ->where('id', $prayer)
-            ->first(['id', 'language_code', 'category', 'liturgy_key', 'title', 'short_title', 'body', 'source_url']);
+            ->first(['id', 'language_code', 'category', 'liturgy_key', 'title', 'short_title', 'intro', 'body', 'source_url']);
 
         abort_if(! $row, 404);
 
@@ -74,6 +75,7 @@ class PrayerController extends Controller
             'liturgy_key' => $row->liturgy_key === null ? null : (string) $row->liturgy_key,
             'title' => (string) $row->title,
             'short_title' => $row->short_title === null ? null : (string) $row->short_title,
+            'intro' => $row->intro === null ? null : (string) $row->intro,
             'body' => (string) $row->body,
             'source_url' => $row->source_url === null ? null : (string) $row->source_url,
             'sections' => $sections,

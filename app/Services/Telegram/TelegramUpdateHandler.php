@@ -175,9 +175,28 @@ class TelegramUpdateHandler
             }
 
             return $actions;
+        } elseif (str_starts_with($data, 'prayer_full:')) {
+            $prayerId = (int) mb_substr($data, mb_strlen('prayer_full:'));
+            $texts = $this->prayerFullTextsById($prayerId);
+
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Открываю полный текст',
+                ],
+            ];
+
+            if ($chatId) {
+                foreach ($texts as $text) {
+                    $actions[] = $this->messageAction($chatId, $text);
+                }
+            }
+
+            return $actions;
         } elseif (str_starts_with($data, 'prayer:')) {
             $prayerId = (int) mb_substr($data, mb_strlen('prayer:'));
-            $text = $this->prayerTextById($prayerId);
+            $payload = $this->prayerIntroPayloadById($prayerId);
 
             $actions[] = [
                 'method' => 'answerCallbackQuery',
@@ -188,7 +207,9 @@ class TelegramUpdateHandler
             ];
 
             if ($chatId) {
-                $actions[] = $this->messageAction($chatId, $text);
+                $actions[] = $this->messageAction($chatId, $payload['text'], [
+                    'reply_markup' => $payload['reply_markup'],
+                ]);
             }
 
             return $actions;
@@ -473,6 +494,30 @@ class TelegramUpdateHandler
     }
 
     /**
+     * Convert editor HTML into readable Telegram plain text with paragraphs preserved.
+     */
+    private function telegramHtmlText(string $html): string
+    {
+        $text = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/<\s*br\s*\/?>/iu', "\n", $text) ?? $text;
+        $text = preg_replace('/<\s*\/\s*(p|div|h[1-6]|blockquote|section|article|tr)\s*>/iu', "\n\n", $text) ?? $text;
+        $text = preg_replace('/<\s*li[^>]*>/iu', "\n• ", $text) ?? $text;
+        $text = preg_replace('/<\s*\/\s*li\s*>/iu', "\n", $text) ?? $text;
+        $text = preg_replace('/<\s*img[^>]*>/iu', "\n", $text) ?? $text;
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = StrongText::textWithoutNumbers($text);
+        $text = preg_replace("/[ \t]+\n/u", "\n", $text) ?? $text;
+        $text = preg_replace("/\n[ \t]+/u", "\n", $text) ?? $text;
+        $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
+        $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
+        $text = preg_replace('/\s+([,.;:!?»])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/([«])\s+/u', '$1', $text) ?? $text;
+
+        return trim($text);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function searchMoreKeyboard(): array
@@ -567,18 +612,89 @@ class TelegramUpdateHandler
         return $this->messageAction($chatId, $this->trimTelegramText("Полезные материалы и приложения\n{$lines}"));
     }
 
-    private function prayerTextById(int $prayerId): string
+    /**
+     * @return array{text: string, reply_markup: array<string, mixed>}
+     */
+    private function prayerIntroPayloadById(int $prayerId): array
     {
         $prayer = DB::table('prayers')
             ->where('is_public', true)
             ->where('id', $prayerId)
-            ->first(['title', 'body']);
+            ->first(['id', 'title', 'intro', 'body']);
 
         if (! $prayer) {
-            return 'Молитва не найдена.';
+            return [
+                'text' => 'Молитва не найдена.',
+                'reply_markup' => ['inline_keyboard' => []],
+            ];
         }
 
-        return $this->trimTelegramText((string) $prayer->title."\n".$this->telegramVerseText((string) $prayer->body));
+        $intro = trim($this->telegramHtmlText((string) ($prayer->intro ?: '')));
+
+        if ($intro === '') {
+            $intro = str($this->telegramHtmlText($this->firstPrayerBody((int) $prayer->id, (string) $prayer->body)))
+                ->squish()
+                ->limit(700)
+                ->toString();
+        }
+
+        return [
+            'text' => $this->trimTelegramText((string) $prayer->title."\n\n".$intro),
+            'reply_markup' => [
+                'inline_keyboard' => [
+                    [
+                        [
+                            'text' => 'Читать всю',
+                            'callback_data' => 'prayer_full:'.$prayer->id,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function prayerFullTextsById(int $prayerId): array
+    {
+        $prayer = DB::table('prayers')
+            ->where('is_public', true)
+            ->where('id', $prayerId)
+            ->first(['id', 'title', 'body']);
+
+        if (! $prayer) {
+            return ['Молитва не найдена.'];
+        }
+
+        $sections = DB::table('prayer_sections')
+            ->where('prayer_id', $prayerId)
+            ->orderBy('sort_order')
+            ->get(['title', 'body']);
+
+        $body = $sections->isEmpty()
+            ? $this->telegramHtmlText((string) $prayer->body)
+            : $sections
+                ->map(function ($section): string {
+                    $title = trim((string) ($section->title ?? ''));
+                    $body = $this->telegramHtmlText((string) $section->body);
+
+                    return trim(($title === '' ? '' : $title."\n").$body);
+                })
+                ->filter()
+                ->implode("\n\n");
+
+        return $this->splitTelegramText((string) $prayer->title."\n\n".$body);
+    }
+
+    private function firstPrayerBody(int $prayerId, string $fallback): string
+    {
+        $section = DB::table('prayer_sections')
+            ->where('prayer_id', $prayerId)
+            ->orderBy('sort_order')
+            ->first(['body']);
+
+        return $section ? (string) $section->body : $fallback;
     }
 
     private function prayerCategoryLabel(string $category): string
@@ -842,6 +958,43 @@ class TelegramUpdateHandler
         }
 
         return rtrim(mb_substr($text, 0, 3850))."\n\nТекст сокращён, полный отрывок откройте на сайте.";
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitTelegramText(string $text): array
+    {
+        $text = trim($this->appendBotLink($text));
+
+        if (mb_strlen($text) <= 3800) {
+            return [$text];
+        }
+
+        $chunks = [];
+        $remaining = $text;
+
+        while (mb_strlen($remaining) > 3800) {
+            $slice = mb_substr($remaining, 0, 3800);
+            $breakAt = max(
+                mb_strrpos($slice, "\n\n") ?: 0,
+                mb_strrpos($slice, "\n") ?: 0,
+                mb_strrpos($slice, ' ') ?: 0,
+            );
+
+            if ($breakAt < 1600) {
+                $breakAt = 3800;
+            }
+
+            $chunks[] = trim(mb_substr($remaining, 0, $breakAt));
+            $remaining = trim(mb_substr($remaining, $breakAt));
+        }
+
+        if ($remaining !== '') {
+            $chunks[] = $remaining;
+        }
+
+        return $chunks;
     }
 
     private function appendBotLink(string $text): string

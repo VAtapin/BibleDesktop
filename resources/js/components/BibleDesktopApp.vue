@@ -254,6 +254,7 @@ type PrayerDto = {
     liturgy_key: string | null;
     title: string;
     short_title: string | null;
+    intro?: string | null;
     excerpt?: string;
     body?: string;
     source_url?: string | null;
@@ -487,6 +488,7 @@ const quizzes = ref<QuizDto[]>([]);
 const selectedQuiz = ref<QuizDto | null>(null);
 const virtualTours = ref<VirtualTourDto[]>([]);
 const selectedVirtualTour = ref<VirtualTourDto | null>(null);
+const isVirtualTourOverlayOpen = ref(false);
 const contentToolsError = ref<string | null>(null);
 const isContentToolsLoading = ref(false);
 const mainContentMode = ref<MainContentMode>('chapter');
@@ -1489,7 +1491,11 @@ async function loadVirtualTours(): Promise<void> {
 
 function selectVirtualTour(tour: VirtualTourDto): void {
     selectedVirtualTour.value = tour;
-    mainContentMode.value = 'tour';
+    isVirtualTourOverlayOpen.value = true;
+}
+
+function closeVirtualTourOverlay(): void {
+    isVirtualTourOverlayOpen.value = false;
 }
 
 function prayerCategoryLabel(category: string): string {
@@ -3500,6 +3506,46 @@ watch(activeStudyTab, (tab) => {
             <strong>{{ strongTooltip.number }}</strong>
             <span>{{ strongTooltip.text }}</span>
         </div>
+
+        <section
+            v-if="isVirtualTourOverlayOpen && selectedVirtualTour"
+            class="tour-overlay"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="selectedVirtualTour.title"
+            @click.self="closeVirtualTourOverlay"
+        >
+            <article class="tour-dialog">
+                <header>
+                    <div>
+                        <span>360° тур</span>
+                        <h2>{{ selectedVirtualTour.title }}</h2>
+                    </div>
+                    <button
+                        type="button"
+                        aria-label="Закрыть 360° тур"
+                        title="Закрыть"
+                        @click="closeVirtualTourOverlay"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('close')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
+                </header>
+                <p v-if="selectedVirtualTour.description">{{ selectedVirtualTour.description }}</p>
+                <iframe
+                    class="tour-dialog-frame"
+                    :src="selectedVirtualTour.tour_url"
+                    :title="selectedVirtualTour.title"
+                    loading="lazy"
+                    allowfullscreen
+                ></iframe>
+            </article>
+        </section>
 
         <footer class="footerbar">
             <button type="button">{{ selectedLanguage }}</button>

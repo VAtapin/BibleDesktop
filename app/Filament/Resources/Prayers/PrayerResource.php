@@ -89,6 +89,15 @@ class PrayerResource extends Resource
                 TextInput::make('short_title')
                     ->label('Короткое название')
                     ->maxLength(80),
+                RichEditor::make('intro')
+                    ->label('Вступительный текст')
+                    ->helperText('Короткое описание для Telegram и карточки. Полный текст храните ниже или в частях молитвы.')
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline'],
+                        ['bulletList', 'orderedList'],
+                        ['undo', 'redo'],
+                    ])
+                    ->columnSpanFull(),
                 TextInput::make('sort_order')
                     ->label('Порядок')
                     ->numeric()

@@ -19,6 +19,11 @@
     font-family: var(--font-sans);
 }
 
+html,
+body {
+    height: 100%;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -32,6 +37,7 @@ body:has(.app-shell) {
 }
 
 #app {
+    height: 100%;
     min-height: 100vh;
 }
 
@@ -69,12 +75,15 @@ svg {
 .app-shell {
     display: grid;
     grid-template-rows: 60px 44px 42px minmax(0, 1fr) 28px;
-    min-height: 100vh;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
     background: #eef2f5;
 }
 
 .app-shell.embed-shell {
     grid-template-rows: 50px 36px minmax(0, 1fr);
+    height: 100dvh;
     min-height: 100dvh;
 }
 
@@ -730,9 +739,11 @@ svg {
 
 .content-reader {
     min-height: 0;
+    max-height: 100%;
     overflow: auto;
     background: #ffffff;
-    padding: 22px clamp(18px, 4vw, 56px);
+    padding: 22px clamp(18px, 4vw, 56px) 72px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .content-reader header {
@@ -770,6 +781,10 @@ svg {
     color: #2f3742;
     font-size: var(--reader-font-size);
     line-height: 1.62;
+}
+
+.content-body {
+    overflow-wrap: anywhere;
 }
 
 .section-tabs {
@@ -859,6 +874,73 @@ svg {
 
 .tour-frame {
     min-height: min(72vh, 760px);
+}
+
+.tour-overlay {
+    position: fixed;
+    z-index: 140;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgb(16 26 38 / 62%);
+    padding: 22px;
+}
+
+.tour-dialog {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    width: min(1480px, calc(100vw - 44px));
+    height: min(920px, calc(100dvh - 44px));
+    min-height: 0;
+    border: 1px solid #cfd9e4;
+    background: #ffffff;
+    box-shadow: 0 28px 80px rgb(0 0 0 / 34%);
+}
+
+.tour-dialog header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid #dfe6ee;
+    padding: 12px 16px;
+}
+
+.tour-dialog header span {
+    color: #557496;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tour-dialog h2 {
+    margin: 2px 0 0;
+    color: #16395f;
+    font-size: 20px;
+}
+
+.tour-dialog header button {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid #d4dce6;
+    background: #f8fafc;
+    color: #66758a;
+}
+
+.tour-dialog > p {
+    margin: 0;
+    border-bottom: 1px solid #edf1f5;
+    padding: 9px 16px;
+    color: #46515f;
+}
+
+.tour-dialog-frame {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: #111827;
 }
 
 .quiz-question-list {
@@ -977,6 +1059,12 @@ svg {
 .reader-panel {
     display: grid;
     grid-template-rows: 48px minmax(0, 1fr) 40px;
+    min-height: 0;
+}
+
+.reader-panel > .chapter,
+.reader-panel > .content-reader {
+    min-height: 0;
 }
 
 .mini-reader-bar,
@@ -2162,6 +2250,23 @@ svg {
         bottom: calc(8px + env(safe-area-inset-bottom));
         left: 8px;
         max-height: min(84dvh, 680px);
+    }
+
+    .tour-overlay {
+        padding: 8px;
+    }
+
+    .tour-dialog {
+        width: calc(100vw - 16px);
+        height: calc(100dvh - 16px);
+    }
+
+    .tour-dialog header {
+        padding: 10px 12px;
+    }
+
+    .tour-dialog h2 {
+        font-size: 17px;
     }
 
     .chapter {

@@ -28,6 +28,7 @@ class Prayer extends Model
         'liturgy_key',
         'title',
         'short_title',
+        'intro',
         'body',
         'source_url',
         'sort_order',
