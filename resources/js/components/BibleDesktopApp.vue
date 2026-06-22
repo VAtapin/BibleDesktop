@@ -290,6 +290,7 @@ declare global {
 }
 
 const readerStateKey = 'bible-desktop-reader-state';
+const readerFontSizeStateKey = 'bible-desktop-reader-font-size';
 const bookmarkStateKey = 'bible-desktop-bookmarks';
 const historyStateKey = 'bible-desktop-view-history';
 const localNotesStateKey = 'bible-desktop-local-notes';
@@ -363,6 +364,7 @@ const socialFeedError = ref<string | null>(null);
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
+const readerFontSize = ref(defaultReaderFontSize());
 const strongTooltip = ref<{ number: string; text: string; x: number; y: number } | null>(null);
 let strongTooltipTimer: number | undefined;
 let verseActionMessageTimer: number | undefined;
@@ -374,6 +376,10 @@ const compareError = ref<string | null>(null);
 const chapterCache = new Map<string, ChapterDto>();
 const studyDataCache = new Map<string, StudyDataCacheItem>();
 
+const readerStyle = computed(() => ({
+    '--reader-font-size': `${readerFontSize.value}px`,
+}));
+
 const tools = [
     { id: 'library', icon: 'book-open', title: 'Библиотека' },
     { id: 'calendar', icon: 'calendar', title: 'Календарь' },
@@ -383,6 +389,18 @@ const tools = [
     { id: 'strong', icon: 'hash', title: 'Strong' },
     { id: 'print', icon: 'printer', title: 'Печать' },
 ] satisfies Array<{ id: ToolId; icon: IconName; title: string }>;
+
+function defaultReaderFontSize(): number {
+    if (typeof window === 'undefined') {
+        return 15;
+    }
+
+    return window.matchMedia('(max-width: 760px)').matches ? 16 : 15;
+}
+
+function changeReaderFontSize(delta: number): void {
+    readerFontSize.value = Math.min(22, Math.max(13, readerFontSize.value + delta));
+}
 
 const icons: Record<IconName, string[]> = {
     'book-open': [
@@ -982,6 +1000,26 @@ function persistReaderState(): void {
         activeTabId: activeTabId.value,
         tabs: readerTabs.value,
     }));
+}
+
+function readReaderFontSize(): number {
+    if (typeof window === 'undefined') {
+        return defaultReaderFontSize();
+    }
+
+    const stored = Number(window.localStorage.getItem(readerFontSizeStateKey));
+
+    return Number.isFinite(stored) && stored >= 13 && stored <= 22
+        ? stored
+        : defaultReaderFontSize();
+}
+
+function persistReaderFontSize(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(readerFontSizeStateKey, String(readerFontSize.value));
 }
 
 function toggleLeftPanel(panel: LeftPanelId): void {
@@ -1914,6 +1952,7 @@ async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
 
 onMounted(async () => {
     try {
+        readerFontSize.value = readReaderFontSize();
         const savedState = readReaderState();
         const urlState = readUrlState();
         bookmarks.value = readBookmarks();
@@ -1978,6 +2017,10 @@ watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, select
     persistReaderState();
 });
 
+watch(readerFontSize, () => {
+    persistReaderFontSize();
+});
+
 watch(activeStudyTab, (tab) => {
     if (tab === 'feed') {
         void loadSocialFeed();
@@ -1986,7 +2029,7 @@ watch(activeStudyTab, (tab) => {
 </script>
 
 <template>
-    <div class="app-shell" :class="{ 'embed-shell': isEmbed }">
+    <div class="app-shell" :class="{ 'embed-shell': isEmbed }" :style="readerStyle">
         <header class="topbar">
             <a class="brand" href="/" aria-label="Bible Desktop - на главную">
                 <img class="brand-mark" :src="'/brand/bible-desktop-mark.png'" alt="" />
@@ -2381,6 +2424,24 @@ watch(activeStudyTab, (tab) => {
                         </option>
                     </select>
                     <div class="reader-actions">
+                        <button
+                            type="button"
+                            class="reader-font-button"
+                            aria-label="Уменьшить шрифт"
+                            title="Уменьшить шрифт"
+                            @click="changeReaderFontSize(-1)"
+                        >
+                            A-
+                        </button>
+                        <button
+                            type="button"
+                            class="reader-font-button"
+                            aria-label="Увеличить шрифт"
+                            title="Увеличить шрифт"
+                            @click="changeReaderFontSize(1)"
+                        >
+                            A+
+                        </button>
                         <button
                             type="button"
                             aria-label="Strong"
