@@ -288,7 +288,14 @@ type RecipeDto = {
     id: number;
     title: string;
     summary: string | null;
+    servings?: number;
     ingredients?: string | null;
+    ingredient_items?: Array<{
+        name: string;
+        amount: number | null;
+        unit: string | null;
+        note: string | null;
+    }>;
     cover_image_url: string | null;
     youtube_url?: string | null;
     fasting_rule: string | null;
@@ -311,13 +318,24 @@ type QuizDto = {
     questions?: Array<{
         id: number;
         question: string;
+        answer_type: string;
+        image_url: string | null;
         explanation: string | null;
+        recommendation: QuizRecommendationDto | null;
         answers: Array<{
             id: number;
             answer: string;
             is_correct: boolean;
+            recommendation: QuizRecommendationDto | null;
         }>;
     }>;
+};
+
+type QuizRecommendationDto = {
+    type: string;
+    prayer_id: number | null;
+    passage_ref: string | null;
+    text: string | null;
 };
 
 type VirtualTourDto = {
@@ -463,6 +481,7 @@ const recipeCategories = ref<RecipeCategoryDto[]>([]);
 const recipes = ref<RecipeDto[]>([]);
 const selectedRecipeCategorySlug = ref('');
 const selectedRecipe = ref<RecipeDto | null>(null);
+const selectedRecipeServings = ref(4);
 const usefulLinks = ref<UsefulLinkDto[]>([]);
 const quizzes = ref<QuizDto[]>([]);
 const selectedQuiz = ref<QuizDto | null>(null);
@@ -651,6 +670,9 @@ const visibleRecipes = computed(() => {
 
     return recipes.value.filter((recipe) => recipe.category.slug === selectedRecipeCategorySlug.value);
 });
+const selectedRecipeBaseServings = computed(() => Math.max(1, selectedRecipe.value?.servings ?? 4));
+const selectedRecipeTargetServings = computed(() => Number.isFinite(selectedRecipeServings.value) ? Math.max(1, selectedRecipeServings.value) : selectedRecipeBaseServings.value);
+const selectedRecipeServingRatio = computed(() => selectedRecipeTargetServings.value / selectedRecipeBaseServings.value);
 
 const currentBook = computed(() => {
     return books.value.find((book) => book.slug === selectedBookSlug.value) ?? books.value[0] ?? null;
@@ -1388,14 +1410,35 @@ function openFastingRecipes(): void {
 async function selectRecipe(recipe: RecipeDto): Promise<void> {
     mainContentMode.value = 'recipe';
     selectedRecipe.value = recipe;
+    selectedRecipeServings.value = Math.max(1, recipe.servings ?? 4);
     contentToolsError.value = null;
 
     try {
         const response = await loadJson<ApiResponse<RecipeDto>>(`/api/recipes/${recipe.id}`);
         selectedRecipe.value = response.data;
+        selectedRecipeServings.value = Math.max(1, response.data.servings ?? 4);
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить рецепт';
     }
+}
+
+function scaledIngredientAmount(amount: number | null): string {
+    if (amount === null) {
+        return '';
+    }
+
+    const scaled = amount * selectedRecipeServingRatio.value;
+    const rounded = Math.round(scaled * 100) / 100;
+
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+}
+
+function recipeIngredientLine(ingredient: NonNullable<RecipeDto['ingredient_items']>[number]): string {
+    const amount = scaledIngredientAmount(ingredient.amount);
+    const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
+    const note = ingredient.note ? ` (${ingredient.note})` : '';
+
+    return `${amount}${unit}${amount || unit ? ' ' : ''}${ingredient.name}${note}`;
 }
 
 async function loadQuizzes(): Promise<void> {
@@ -3129,8 +3172,19 @@ watch(activeStudyTab, (tab) => {
                         <span>{{ selectedRecipe.category.name }}</span>
                         <h2>{{ selectedRecipe.title }}</h2>
                     </header>
+                    <img v-if="selectedRecipe.cover_image_url" class="content-cover" :src="selectedRecipe.cover_image_url" alt="" />
                     <p v-if="selectedRecipe.summary">{{ selectedRecipe.summary }}</p>
-                    <pre v-if="selectedRecipe.ingredients" class="recipe-ingredients">{{ selectedRecipe.ingredients }}</pre>
+                    <label class="servings-control">
+                        <span>Порций</span>
+                        <input v-model.number="selectedRecipeServings" type="number" min="1" max="99" />
+                        <small>Базовый рецепт: {{ selectedRecipeBaseServings }}</small>
+                    </label>
+                    <ul v-if="selectedRecipe.ingredient_items?.length" class="recipe-ingredient-list">
+                        <li v-for="ingredient in selectedRecipe.ingredient_items" :key="`${ingredient.name}-${ingredient.unit}`">
+                            {{ recipeIngredientLine(ingredient) }}
+                        </li>
+                    </ul>
+                    <pre v-else-if="selectedRecipe.ingredients" class="recipe-ingredients">{{ selectedRecipe.ingredients }}</pre>
                     <section v-if="selectedRecipe.steps?.length" class="recipe-steps">
                         <article v-for="step in selectedRecipe.steps" :key="step.step_number">
                             <img v-if="step.image_url" :src="step.image_url" alt="" />
@@ -3156,12 +3210,17 @@ watch(activeStudyTab, (tab) => {
                     <section class="quiz-question-list">
                         <article v-for="(question, index) in selectedQuiz.questions" :key="question.id">
                             <strong>{{ index + 1 }}. {{ question.question }}</strong>
+                            <img v-if="question.image_url" class="quiz-question-image" :src="question.image_url" alt="" />
+                            <small>{{ question.answer_type }}</small>
                             <ul>
                                 <li v-for="answer in question.answers" :key="answer.id" :class="{ correct: answer.is_correct }">
                                     {{ answer.answer }}
+                                    <small v-if="answer.recommendation?.text">{{ answer.recommendation.text }}</small>
+                                    <small v-if="answer.recommendation?.passage_ref">Прочесть: {{ answer.recommendation.passage_ref }}</small>
                                 </li>
                             </ul>
                             <p v-if="question.explanation">{{ question.explanation }}</p>
+                            <p v-if="question.recommendation?.text">{{ question.recommendation.text }}</p>
                         </article>
                     </section>
                 </article>

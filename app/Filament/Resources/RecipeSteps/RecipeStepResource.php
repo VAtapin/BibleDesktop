@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -41,13 +42,26 @@ class RecipeStepResource extends Resource
 
     protected static ?string $navigationLabel = 'Шаги рецептов';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             Select::make('recipe_id')->label('Рецепт')->relationship('recipe', 'title')->searchable()->preload()->required(),
             TextInput::make('step_number')->label('Шаг')->numeric()->required(),
             Textarea::make('body')->label('Текст')->required()->columnSpanFull(),
-            TextInput::make('image_url')->label('Картинка шага')->maxLength(500)->columnSpanFull(),
+            FileUpload::make('image_url')
+                ->label('Картинка шага')
+                ->image()
+                ->disk('public')
+                ->directory('recipe-steps')
+                ->visibility('public')
+                ->imageResizeMode('cover')
+                ->imageCropAspectRatio('4:3')
+                ->imageResizeTargetWidth('960')
+                ->imageResizeTargetHeight('720')
+                ->maxSize(4096)
+                ->columnSpanFull(),
         ]);
     }
 

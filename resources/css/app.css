@@ -754,6 +754,16 @@ svg {
     line-height: 1.2;
 }
 
+.content-cover,
+.quiz-question-image {
+    width: min(100%, 680px);
+    max-height: 360px;
+    object-fit: cover;
+    display: block;
+    margin: 0 0 16px;
+    border: 1px solid #dbe3ed;
+}
+
 .content-reader p,
 .content-body {
     margin: 0;
@@ -789,6 +799,31 @@ svg {
     padding: 12px;
     white-space: pre-wrap;
     font: inherit;
+}
+
+.servings-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0;
+    color: #557496;
+    font-size: 13px;
+}
+
+.servings-control input {
+    width: 72px;
+    border: 1px solid #cbd8e6;
+    padding: 5px 7px;
+    color: #16395f;
+}
+
+.recipe-ingredient-list {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0 18px;
+    padding-left: 20px;
+    color: #2f3742;
+    font-size: var(--reader-font-size);
 }
 
 .recipe-steps {
@@ -846,6 +881,14 @@ svg {
 .quiz-question-list li.correct {
     color: #17643a;
     font-weight: 700;
+}
+
+.quiz-question-list li small,
+.quiz-question-list article > small {
+    display: block;
+    margin-top: 3px;
+    color: #6f7f93;
+    font-weight: 400;
 }
 
 .module-card-list img,

@@ -23,7 +23,18 @@ class QuizQuestion extends Model
     /**
      * @var list<string>
      */
-    protected $fillable = ['quiz_id', 'question', 'explanation', 'sort_order'];
+    protected $fillable = [
+        'quiz_id',
+        'question',
+        'answer_type',
+        'image_path',
+        'explanation',
+        'recommendation_type',
+        'recommended_prayer_id',
+        'recommended_passage_ref',
+        'recommendation_text',
+        'sort_order',
+    ];
 
     /**
      * @return array<string, string>
@@ -32,12 +43,18 @@ class QuizQuestion extends Model
     {
         return [
             'sort_order' => 'integer',
+            'recommended_prayer_id' => 'integer',
         ];
     }
 
     public function quiz(): BelongsTo
     {
         return $this->belongsTo(Quiz::class);
+    }
+
+    public function recommendedPrayer(): BelongsTo
+    {
+        return $this->belongsTo(Prayer::class, 'recommended_prayer_id');
     }
 
     public function answers(): HasMany

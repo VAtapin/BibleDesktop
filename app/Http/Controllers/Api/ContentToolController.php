@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ContentToolController extends Controller
 {
@@ -85,7 +86,7 @@ class ContentToolController extends Controller
                 'id' => (int) $recipe->id,
                 'title' => (string) $recipe->title,
                 'summary' => $recipe->summary === null ? null : (string) $recipe->summary,
-                'cover_image_url' => $recipe->cover_image_url === null ? null : (string) $recipe->cover_image_url,
+                'cover_image_url' => $this->publicAssetUrl($recipe->cover_image_url),
                 'fasting_rule' => $recipe->fasting_rule === null ? null : (string) $recipe->fasting_rule,
                 'category' => [
                     'slug' => (string) $recipe->category_slug,
@@ -107,6 +108,7 @@ class ContentToolController extends Controller
                 'recipes.id',
                 'recipes.title',
                 'recipes.summary',
+                'recipes.servings',
                 'recipes.ingredients',
                 'recipes.cover_image_url',
                 'recipes.youtube_url',
@@ -124,15 +126,29 @@ class ContentToolController extends Controller
             ->map(fn ($step): array => [
                 'step_number' => (int) $step->step_number,
                 'body' => (string) $step->body,
-                'image_url' => $step->image_url === null ? null : (string) $step->image_url,
+                'image_url' => $this->publicAssetUrl($step->image_url),
+            ]);
+
+        $ingredients = DB::table('recipe_ingredients')
+            ->where('recipe_id', $recipe)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['name', 'amount', 'unit', 'note'])
+            ->map(fn ($ingredient): array => [
+                'name' => (string) $ingredient->name,
+                'amount' => $ingredient->amount === null ? null : (float) $ingredient->amount,
+                'unit' => $ingredient->unit === null ? null : (string) $ingredient->unit,
+                'note' => $ingredient->note === null ? null : (string) $ingredient->note,
             ]);
 
         return response()->json(['data' => [
             'id' => (int) $row->id,
             'title' => (string) $row->title,
             'summary' => $row->summary === null ? null : (string) $row->summary,
+            'servings' => (int) $row->servings,
             'ingredients' => $row->ingredients === null ? null : (string) $row->ingredients,
-            'cover_image_url' => $row->cover_image_url === null ? null : (string) $row->cover_image_url,
+            'ingredient_items' => $ingredients,
+            'cover_image_url' => $this->publicAssetUrl($row->cover_image_url),
             'youtube_url' => $row->youtube_url === null ? null : (string) $row->youtube_url,
             'fasting_rule' => $row->fasting_rule === null ? null : (string) $row->fasting_rule,
             'category' => [
@@ -199,22 +215,36 @@ class ContentToolController extends Controller
         $questions = DB::table('quiz_questions')
             ->where('quiz_id', $quiz)
             ->orderBy('sort_order')
-            ->get(['id', 'question', 'explanation'])
+            ->get([
+                'id',
+                'question',
+                'answer_type',
+                'image_path',
+                'explanation',
+                'recommendation_type',
+                'recommended_prayer_id',
+                'recommended_passage_ref',
+                'recommendation_text',
+            ])
             ->map(function ($question): array {
                 $answers = DB::table('quiz_answers')
                     ->where('quiz_question_id', $question->id)
                     ->orderBy('sort_order')
-                    ->get(['id', 'answer', 'is_correct'])
+                    ->get(['id', 'answer', 'is_correct', 'recommendation_type', 'recommended_prayer_id', 'recommended_passage_ref', 'recommendation_text'])
                     ->map(fn ($answer): array => [
                         'id' => (int) $answer->id,
                         'answer' => (string) $answer->answer,
                         'is_correct' => (bool) $answer->is_correct,
+                        'recommendation' => $this->recommendationPayload($answer),
                     ]);
 
                 return [
                     'id' => (int) $question->id,
                     'question' => (string) $question->question,
+                    'answer_type' => (string) $question->answer_type,
+                    'image_url' => $this->publicAssetUrl($question->image_path),
                     'explanation' => $question->explanation === null ? null : (string) $question->explanation,
+                    'recommendation' => $this->recommendationPayload($question),
                     'answers' => $answers,
                 ];
             });
@@ -240,10 +270,45 @@ class ContentToolController extends Controller
                 'slug' => (string) $tour->slug,
                 'title' => (string) $tour->title,
                 'description' => $tour->description === null ? null : (string) $tour->description,
-                'cover_image_url' => $tour->cover_image_url === null ? null : (string) $tour->cover_image_url,
+                'cover_image_url' => $this->publicAssetUrl($tour->cover_image_url),
                 'tour_url' => (string) $tour->tour_url,
             ]);
 
         return response()->json(['data' => $tours]);
+    }
+
+    private function publicAssetUrl(mixed $path): ?string
+    {
+        $path = trim((string) $path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function recommendationPayload(object $row): ?array
+    {
+        $type = trim((string) ($row->recommendation_type ?? ''));
+        $hasRecommendation = $type !== '' && $type !== 'none'
+            || ! empty($row->recommended_prayer_id)
+            || ! empty($row->recommended_passage_ref)
+            || trim((string) ($row->recommendation_text ?? '')) !== '';
+
+        if (! $hasRecommendation) {
+            return null;
+        }
+
+        return [
+            'type' => $type === '' ? 'text' : $type,
+            'prayer_id' => empty($row->recommended_prayer_id) ? null : (int) $row->recommended_prayer_id,
+            'passage_ref' => empty($row->recommended_passage_ref) ? null : (string) $row->recommended_passage_ref,
+            'text' => empty($row->recommendation_text) ? null : (string) $row->recommendation_text,
+        ];
     }
 }

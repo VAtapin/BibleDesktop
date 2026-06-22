@@ -28,6 +28,7 @@ class Recipe extends Model
         'user_id',
         'title',
         'summary',
+        'servings',
         'ingredients',
         'cover_image_url',
         'youtube_url',
@@ -45,6 +46,7 @@ class Recipe extends Model
         return [
             'is_public' => 'boolean',
             'sort_order' => 'integer',
+            'servings' => 'integer',
         ];
     }
 
@@ -61,5 +63,10 @@ class Recipe extends Model
     public function steps(): HasMany
     {
         return $this->hasMany(RecipeStep::class)->orderBy('step_number');
+    }
+
+    public function ingredientItems(): HasMany
+    {
+        return $this->hasMany(RecipeIngredient::class)->orderBy('sort_order');
     }
 }

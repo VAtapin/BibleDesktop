@@ -21,6 +21,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -50,8 +52,63 @@ class RecipeResource extends Resource
             Select::make('user_id')->label('Автор')->relationship('author', 'name')->searchable()->preload(),
             TextInput::make('title')->label('Название')->required()->maxLength(220)->columnSpanFull(),
             Textarea::make('summary')->label('Кратко')->columnSpanFull(),
-            Textarea::make('ingredients')->label('Ингредиенты')->rows(6)->columnSpanFull(),
-            TextInput::make('cover_image_url')->label('Картинка')->maxLength(500)->columnSpanFull(),
+            TextInput::make('servings')->label('Базовое число порций')->numeric()->required()->default(4),
+            FileUpload::make('cover_image_url')
+                ->label('Картинка')
+                ->image()
+                ->disk('public')
+                ->directory('recipe-covers')
+                ->visibility('public')
+                ->imageResizeMode('cover')
+                ->imageCropAspectRatio('4:3')
+                ->imageResizeTargetWidth('960')
+                ->imageResizeTargetHeight('720')
+                ->maxSize(4096)
+                ->columnSpanFull(),
+            Repeater::make('ingredientItems')
+                ->label('Ингредиенты')
+                ->relationship()
+                ->schema([
+                    TextInput::make('name')->label('Ингредиент')->required()->maxLength(220)->columnSpan(4),
+                    TextInput::make('amount')->label('Количество')->numeric()->columnSpan(2),
+                    TextInput::make('unit')->label('Ед.')->maxLength(40)->columnSpan(2),
+                    TextInput::make('note')->label('Примечание')->maxLength(255)->columnSpan(3),
+                    TextInput::make('sort_order')->label('Порядок')->numeric()->default(0)->columnSpan(1),
+                ])
+                ->columns(12)
+                ->defaultItems(0)
+                ->addActionLabel('Добавить ингредиент')
+                ->reorderableWithButtons()
+                ->columnSpanFull(),
+            Textarea::make('ingredients')
+                ->label('Ингредиенты текстом, если нужно')
+                ->helperText('Резервное поле для старых или свободных рецептов. Для пересчёта порций используйте список выше.')
+                ->rows(4)
+                ->columnSpanFull(),
+            Repeater::make('steps')
+                ->label('Шаги приготовления')
+                ->relationship()
+                ->schema([
+                    TextInput::make('step_number')->label('Шаг')->numeric()->required()->columnSpan(2),
+                    Textarea::make('body')->label('Текст')->required()->columnSpan(7),
+                    FileUpload::make('image_url')
+                        ->label('Картинка шага')
+                        ->image()
+                        ->disk('public')
+                        ->directory('recipe-steps')
+                        ->visibility('public')
+                        ->imageResizeMode('cover')
+                        ->imageCropAspectRatio('4:3')
+                        ->imageResizeTargetWidth('960')
+                        ->imageResizeTargetHeight('720')
+                        ->maxSize(4096)
+                        ->columnSpan(3),
+                ])
+                ->columns(12)
+                ->defaultItems(0)
+                ->addActionLabel('Добавить шаг')
+                ->reorderableWithButtons()
+                ->columnSpanFull(),
             TextInput::make('youtube_url')->label('YouTube')->maxLength(500)->columnSpanFull(),
             Select::make('fasting_rule')->label('Тип поста')->options([
                 'dry' => 'Сухоядение',

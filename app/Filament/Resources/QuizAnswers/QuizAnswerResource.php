@@ -42,6 +42,8 @@ class QuizAnswerResource extends Resource
 
     protected static ?string $navigationLabel = 'Ответы тестов';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
