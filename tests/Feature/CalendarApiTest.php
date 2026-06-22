@@ -50,6 +50,14 @@ class CalendarApiTest extends TestCase
         <type>1</type>
     </event>
     <event>
+        <s_month>6</s_month>
+        <s_date>9</s_date>
+        <f_month>6</f_month>
+        <f_date>9</f_date>
+        <name>Прп. Кирилла, игумена Белоезерского (1427)</name>
+        <type>5</type>
+    </event>
+    <event>
         <s_month>0</s_month>
         <s_date>-48</s_date>
         <f_month>0</f_month>
@@ -65,12 +73,17 @@ XML);
 
         @unlink($path);
 
-        $this->assertSame(3, DB::table('calendar_events')->count());
+        $this->assertSame(4, DB::table('calendar_events')->count());
 
-        $this->getJson('/api/calendar/day?date=2026-01-06')
+        $this->getJson('/api/calendar/day?date=2026-01-19')
             ->assertOk()
-            ->assertJsonPath('data.date', '2026-01-06')
+            ->assertJsonPath('data.date', '2026-01-19')
             ->assertJsonPath('data.events.0.name', 'Святое Богоявление');
+
+        $this->getJson('/api/calendar/day?date=2026-06-22')
+            ->assertOk()
+            ->assertJsonPath('data.old_style_date', '2026-06-09')
+            ->assertJsonPath('data.events.0.name', 'Прп. Кирилла, игумена Белоезерского (1427)');
 
         $this->getJson('/api/calendar/day?date=2026-04-12')
             ->assertOk()

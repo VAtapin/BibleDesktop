@@ -162,13 +162,15 @@ class OrthodoxCalendarService
 
     private function matchesDay(object $event, CarbonImmutable $day, CarbonImmutable $pascha): bool
     {
+        $fixedDay = $this->fixedCalendarDay($event, $day);
+
         return match ($event->date_rule_type) {
-            'fixed' => (int) $event->start_month === $day->month && (int) $event->start_day === $day->day,
+            'fixed' => (int) $event->start_month === $fixedDay->month && (int) $event->start_day === $fixedDay->day,
             'pascha_relative' => $pascha->addDays((int) $event->start_offset)->isSameDay($day),
             'fixed_range' => $this->isBetweenInclusive(
-                $day,
-                CarbonImmutable::create($day->year, (int) $event->start_month, (int) $event->start_day, 0, 0, 0, 'UTC'),
-                CarbonImmutable::create($day->year, (int) $event->end_month, (int) $event->end_day, 0, 0, 0, 'UTC'),
+                $fixedDay,
+                CarbonImmutable::create($fixedDay->year, (int) $event->start_month, (int) $event->start_day, 0, 0, 0, 'UTC'),
+                CarbonImmutable::create($fixedDay->year, (int) $event->end_month, (int) $event->end_day, 0, 0, 0, 'UTC'),
             ),
             'pascha_relative_range' => $this->isBetweenInclusive(
                 $day,
@@ -177,6 +179,15 @@ class OrthodoxCalendarService
             ),
             default => false,
         };
+    }
+
+    private function fixedCalendarDay(object $event, CarbonImmutable $day): CarbonImmutable
+    {
+        if ($event->legacy_type === null) {
+            return $day;
+        }
+
+        return $day->subDays(13);
     }
 
     private function isBetweenInclusive(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end): bool
