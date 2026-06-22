@@ -357,6 +357,7 @@ const readerTabs = ref<ReaderTab[]>([]);
 const activeTabId = ref('');
 const activeStudyTab = ref<'strong' | 'references' | 'notes' | 'feed'>('strong');
 const isStudyPanelOpen = ref(false);
+const isReaderMenuOpen = ref(false);
 const socialPosts = ref<SocialPostDto[]>([]);
 const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
@@ -400,6 +401,10 @@ function defaultReaderFontSize(): number {
 
 function changeReaderFontSize(delta: number): void {
     readerFontSize.value = Math.min(22, Math.max(13, readerFontSize.value + delta));
+}
+
+function closeReaderMenu(): void {
+    isReaderMenuOpen.value = false;
 }
 
 const icons: Record<IconName, string[]> = {
@@ -2350,7 +2355,43 @@ watch(activeStudyTab, (tab) => {
                 </section>
             </aside>
 
-            <section class="reader-panel">
+            <section class="reader-panel" :class="{ 'reader-menu-open': isReaderMenuOpen }">
+                <div class="mini-reader-bar">
+                    <span>{{ currentTitle }}</span>
+                    <select
+                        v-model.number="selectedChapterNumber"
+                        aria-label="Глава"
+                        @change="changeChapter"
+                    >
+                        <option
+                            v-for="chapter in chapterOptions"
+                            :key="chapter"
+                            :value="chapter"
+                        >
+                            {{ chapter }}
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        aria-label="Меню чтения"
+                        @click="isReaderMenuOpen = !isReaderMenuOpen"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths(isReaderMenuOpen ? 'close' : 'menu')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
+                </div>
+                <button
+                    v-if="isReaderMenuOpen"
+                    type="button"
+                    class="reader-menu-backdrop"
+                    aria-label="Закрыть меню чтения"
+                    @click="closeReaderMenu"
+                ></button>
                 <div class="reader-toolbar">
                     <button type="button" class="bookmark" aria-label="Добавить закладку" @click="addBookmark">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -2424,6 +2465,24 @@ watch(activeStudyTab, (tab) => {
                         </option>
                     </select>
                     <div class="reader-actions">
+                        <button
+                            v-for="tool in tools"
+                            :key="`menu-${tool.id}`"
+                            type="button"
+                            class="reader-menu-tool"
+                            :aria-label="tool.title"
+                            :title="tool.title"
+                            :class="{ active: activeLeftPanel === tool.id || (tool.id === 'strong' && showStrongNumbers) }"
+                            @click="handleToolClick(tool.id); closeReaderMenu()"
+                        >
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path
+                                    v-for="path in iconPaths(tool.icon)"
+                                    :key="path"
+                                    :d="path"
+                                />
+                            </svg>
+                        </button>
                         <button
                             type="button"
                             class="reader-font-button"
