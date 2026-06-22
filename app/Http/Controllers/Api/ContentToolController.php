@@ -1,0 +1,229 @@
+<?php
+
+/**
+ * BibleDesktop - Bible study desktop and web application.
+ *
+ * @author Atapin Vladimir <atapin@gmail.com>
+ *
+ * @link https://bible-desktop.com/
+ *
+ * @copyright 2026 Atapin Vladimir / Bible Media
+ *
+ * @version 1.0.0
+ */
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class ContentToolController extends Controller
+{
+    public function recipeCategories(): JsonResponse
+    {
+        $categories = DB::table('recipe_categories')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'slug', 'name', 'description'])
+            ->map(fn ($category): array => [
+                'id' => (int) $category->id,
+                'slug' => (string) $category->slug,
+                'name' => (string) $category->name,
+                'description' => $category->description === null ? null : (string) $category->description,
+            ]);
+
+        return response()->json(['data' => $categories]);
+    }
+
+    public function recipes(Request $request): JsonResponse
+    {
+        $category = trim((string) $request->query('category', ''));
+        $fastingRule = trim((string) $request->query('fasting_rule', ''));
+
+        $recipes = DB::table('recipes')
+            ->join('recipe_categories', 'recipe_categories.id', '=', 'recipes.recipe_category_id')
+            ->where('recipes.status', 'approved')
+            ->where('recipes.is_public', true)
+            ->when($category !== '', fn ($query) => $query->where('recipe_categories.slug', $category))
+            ->when($fastingRule !== '', fn ($query) => $query->where('recipes.fasting_rule', $fastingRule))
+            ->orderBy('recipes.sort_order')
+            ->orderBy('recipes.title')
+            ->get([
+                'recipes.id',
+                'recipes.title',
+                'recipes.summary',
+                'recipes.cover_image_url',
+                'recipes.fasting_rule',
+                'recipe_categories.name as category_name',
+                'recipe_categories.slug as category_slug',
+            ])
+            ->map(fn ($recipe): array => [
+                'id' => (int) $recipe->id,
+                'title' => (string) $recipe->title,
+                'summary' => $recipe->summary === null ? null : (string) $recipe->summary,
+                'cover_image_url' => $recipe->cover_image_url === null ? null : (string) $recipe->cover_image_url,
+                'fasting_rule' => $recipe->fasting_rule === null ? null : (string) $recipe->fasting_rule,
+                'category' => [
+                    'slug' => (string) $recipe->category_slug,
+                    'name' => (string) $recipe->category_name,
+                ],
+            ]);
+
+        return response()->json(['data' => $recipes]);
+    }
+
+    public function recipe(int $recipe): JsonResponse
+    {
+        $row = DB::table('recipes')
+            ->join('recipe_categories', 'recipe_categories.id', '=', 'recipes.recipe_category_id')
+            ->where('recipes.status', 'approved')
+            ->where('recipes.is_public', true)
+            ->where('recipes.id', $recipe)
+            ->first([
+                'recipes.id',
+                'recipes.title',
+                'recipes.summary',
+                'recipes.ingredients',
+                'recipes.cover_image_url',
+                'recipes.youtube_url',
+                'recipes.fasting_rule',
+                'recipe_categories.name as category_name',
+                'recipe_categories.slug as category_slug',
+            ]);
+
+        abort_if(! $row, 404);
+
+        $steps = DB::table('recipe_steps')
+            ->where('recipe_id', $recipe)
+            ->orderBy('step_number')
+            ->get(['step_number', 'body', 'image_url'])
+            ->map(fn ($step): array => [
+                'step_number' => (int) $step->step_number,
+                'body' => (string) $step->body,
+                'image_url' => $step->image_url === null ? null : (string) $step->image_url,
+            ]);
+
+        return response()->json(['data' => [
+            'id' => (int) $row->id,
+            'title' => (string) $row->title,
+            'summary' => $row->summary === null ? null : (string) $row->summary,
+            'ingredients' => $row->ingredients === null ? null : (string) $row->ingredients,
+            'cover_image_url' => $row->cover_image_url === null ? null : (string) $row->cover_image_url,
+            'youtube_url' => $row->youtube_url === null ? null : (string) $row->youtube_url,
+            'fasting_rule' => $row->fasting_rule === null ? null : (string) $row->fasting_rule,
+            'category' => [
+                'slug' => (string) $row->category_slug,
+                'name' => (string) $row->category_name,
+            ],
+            'steps' => $steps,
+        ]]);
+    }
+
+    public function storeRecipe(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'recipe_category_id' => ['required', 'integer', 'exists:recipe_categories,id'],
+            'title' => ['required', 'string', 'max:220'],
+            'summary' => ['nullable', 'string', 'max:2000'],
+            'ingredients' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $user = Auth::user();
+        $trusted = (bool) ($user?->is_trusted_recipe_author ?? false);
+        $recipeId = DB::table('recipes')->insertGetId([
+            'recipe_category_id' => (int) $data['recipe_category_id'],
+            'user_id' => $user?->id,
+            'title' => (string) $data['title'],
+            'summary' => $data['summary'] ?? null,
+            'ingredients' => $data['ingredients'] ?? null,
+            'status' => $trusted ? 'approved' : 'pending',
+            'is_public' => $trusted,
+            'sort_order' => 1000,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['data' => ['id' => $recipeId, 'status' => $trusted ? 'approved' : 'pending']], 201);
+    }
+
+    public function quizzes(): JsonResponse
+    {
+        $quizzes = DB::table('quizzes')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get(['id', 'slug', 'title', 'description'])
+            ->map(fn ($quiz): array => [
+                'id' => (int) $quiz->id,
+                'slug' => (string) $quiz->slug,
+                'title' => (string) $quiz->title,
+                'description' => $quiz->description === null ? null : (string) $quiz->description,
+            ]);
+
+        return response()->json(['data' => $quizzes]);
+    }
+
+    public function quiz(int $quiz): JsonResponse
+    {
+        $row = DB::table('quizzes')
+            ->where('is_public', true)
+            ->where('id', $quiz)
+            ->first(['id', 'slug', 'title', 'description']);
+
+        abort_if(! $row, 404);
+
+        $questions = DB::table('quiz_questions')
+            ->where('quiz_id', $quiz)
+            ->orderBy('sort_order')
+            ->get(['id', 'question', 'explanation'])
+            ->map(function ($question): array {
+                $answers = DB::table('quiz_answers')
+                    ->where('quiz_question_id', $question->id)
+                    ->orderBy('sort_order')
+                    ->get(['id', 'answer', 'is_correct'])
+                    ->map(fn ($answer): array => [
+                        'id' => (int) $answer->id,
+                        'answer' => (string) $answer->answer,
+                        'is_correct' => (bool) $answer->is_correct,
+                    ]);
+
+                return [
+                    'id' => (int) $question->id,
+                    'question' => (string) $question->question,
+                    'explanation' => $question->explanation === null ? null : (string) $question->explanation,
+                    'answers' => $answers,
+                ];
+            });
+
+        return response()->json(['data' => [
+            'id' => (int) $row->id,
+            'slug' => (string) $row->slug,
+            'title' => (string) $row->title,
+            'description' => $row->description === null ? null : (string) $row->description,
+            'questions' => $questions,
+        ]]);
+    }
+
+    public function tours(): JsonResponse
+    {
+        $tours = DB::table('virtual_tours')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get(['id', 'slug', 'title', 'description', 'cover_image_url', 'tour_url'])
+            ->map(fn ($tour): array => [
+                'id' => (int) $tour->id,
+                'slug' => (string) $tour->slug,
+                'title' => (string) $tour->title,
+                'description' => $tour->description === null ? null : (string) $tour->description,
+                'cover_image_url' => $tour->cover_image_url === null ? null : (string) $tour->cover_image_url,
+                'tour_url' => (string) $tour->tour_url,
+            ]);
+
+        return response()->json(['data' => $tours]);
+    }
+}

@@ -18,7 +18,20 @@
 
 ## Текущее состояние
 
-Проект находится на раннем этапе реализации: создана документация, Laravel 12 skeleton, Vue 3/TypeScript frontend shell, Filament admin panel, первые миграции модели данных, seeders базового канона, admin resources, первичные legacy importers, первый перенос RST/Strong/cross reference данных, православный календарь с ручной моделью чтений дня и рабочий reader shell с выбором перевода, поиском, справочной панелью, вкладками чтения, контекстным меню стиха, параллельным переводом и первыми заметками к стихам.
+Проект уже является рабочим Laravel/Vue приложением с Filament-админкой, Telegram Bot webhook и API. Основной reader поддерживает переводы Библии, вкладки чтения, параллельный перевод, Strong-номера, параллельные места, поиск, закладки, историю, заметки, календарь, молитвы, рецепты, тесты и 360° туры.
+
+### Реализованные крупные блоки
+
+* Bible reader: переводы из BibleQuote-модулей, выбор книги/главы, параллельный перевод, вкладки.
+* Strong: номера отображаются по кнопке S#, клик открывает словарную информацию через API.
+* Поиск: быстрый и расширенный поиск по стихам, результаты открывают нужную главу и стих.
+* Календарь: события из `MemoryDays.xml`, чтения дня из `calendar_readings`, памятные даты 2026, постные события и правила трапезы.
+* Молитвы: таблица `prayers` и части длинных молитв в `prayer_sections`; список в боковой панели, текст открывается в основном окне.
+* Рецепты: категории, рецепты, шаги рецептов, модерация пользовательских рецептов.
+* Тесты: квизы, вопросы, варианты ответов; добавлены 5 стартовых тестов по 10 вопросов.
+* 360° туры: карточки туров в боковой панели, выбранный тур открывается в основном окне через iframe.
+* Telegram Bot: `/start`, `/help`, `/random`, `/search`, `/today`, `/gospel`, `/apostle`, `/fasting`, `/prayers`, `/settings`, `/ask`.
+* Admin: модули Библии, страницы Footer, пользователи, Telegram-диалоги/рассылки, типы и события календаря, молитвы, рецепты, тесты, 360° туры.
 
 Основные документы:
 
@@ -90,6 +103,8 @@ Telegram Mini App
 Canonical override seeder заполняет известные правила для Baruch/Sirach/Joel/Psalms/Esther/chapter 0 legacy cases; запускайте его до metadata import или повторите metadata import после seeding. Первичный metadata importer переносит из `OLD/bible-desktop.sql`: `library`, `book`, `chapter`, применяя безопасные `map_chapter` overrides. Verse importer переносит стихи одной legacy-библиотеки в `verses`, `verse_texts`, `legacy_verses`; по умолчанию используется RST `--library=1`, а режим `--all --missing-only` догружает все mapped legacy libraries без повторной записи уже импортированных стихов. Для 4-главного Joel (`L3_UKR`, `L5_LB`, `L325_UKH`, `L359_SCH2000NEU`) seeder добавляет verse-level rules: `Joel 3:1-5 -> Joel 2:28-32`, `Joel 4:1-21 -> Joel 3:1-21`; если эти библиотеки уже импортированы раньше, их нужно повторно прогнать без `--missing-only`. Supplemental importer переносит heading/appendix/non-canonical/requires_book_mapping legacy тексты в `legacy_supplemental_texts`, не смешивая их с canonical verses; конфликтный `L3_UKR 2Thess 4` сохраняется именно так, чтобы не перезаписать нормальную `1Tim 1`. Skipped report показывает legacy verses, которые нельзя импортировать из-за отсутствующих canonical mappings или сознательно классифицированных overrides. Strong importers переносят словари и извлекают Strong-маркеры из `verse_texts.text_raw` в `verse_strong_tokens`. Cross reference importer переносит `quote.tsk` в `cross_references`.
 Calendar importer переносит события православного календаря из `OLD/MemoryDays.xml` в `calendar_event_types` и `calendar_events`; фиксированные даты, даты относительно Пасхи и постные события `legacy_type=10` доступны через общий API. Таблица `calendar_readings` хранит ручные или импортированные чтения дня: `fixed` и `pascha_relative` правила, типы `gospel`/`apostle` и ссылку на отрывок. CSV importer `calendar:import-readings` принимает UTF-8 файл с колонками `date_rule_type,month,day,offset,reading_type,title,passage_ref,sort_order`.
 
+Памятные даты 2026 добавлены как `calendar_events.date_rule_type = fixed_year`, поэтому они привязаны к конкретному году и не повторяются автоматически в 2027+. Источник: `https://azbyka.ru/days/p-pamjatnye-daty-2026`. Постные правила добавлены отдельным типом `fasting_rule`; в `metadata_json` хранится `fasting_rule` и `meal_note` по материалу `https://azbyka.ru/days/p-kalendar-postov-i-trapez`.
+
 Frontend:
 
 ```powershell
@@ -143,6 +158,20 @@ Admin panel:
 /admin/canonical-books
 /admin/bible-modules
 /admin/translations
+/admin/calendar-events
+/admin/calendar-event-types
+/admin/prayers
+/admin/recipe-categories
+/admin/recipes
+/admin/recipe-steps
+/admin/quizzes
+/admin/quiz-questions
+/admin/quiz-answers
+/admin/virtual-tours
+/admin/pages
+/admin/users
+/admin/telegram-messages
+/admin/telegram-broadcasts
 /admin/legacy-libraries
 /admin/legacy-books
 /admin/legacy-chapters
@@ -160,6 +189,16 @@ GET /api/translations/{translationCode}/supplemental-texts?book={bookSlug}&type=
 GET /api/translations/{translationCode}/books/{bookSlug}/chapters/{chapter}
 GET /api/search/verses?q={query-or-reference}&translation={translationCode}
 GET /api/calendar/day?date=YYYY-MM-DD
+GET /api/prayers
+GET /api/prayers/{prayer}
+GET /api/prayers/{prayer}/sections/{section}
+GET /api/recipe-categories
+GET /api/recipes
+GET /api/recipes/{recipe}
+POST /api/recipes
+GET /api/quizzes
+GET /api/quizzes/{quiz}
+GET /api/virtual-tours
 GET /api/strong/{number}
 GET /api/verses/{verse}/strong-tokens
 GET /api/verses/{verse}/cross-references
@@ -167,6 +206,22 @@ GET /api/verses/{verse}/notes
 POST /api/verses/{verse}/notes
 POST /api/telegram/webhook
 ```
+
+## Сервер после обновления из Git
+
+На Plesk/Ubuntu:
+
+```sh
+cd /var/www/vhosts/bible-desktop.com/httpdocs
+git pull
+/opt/plesk/php/8.4/bin/php composer.phar install --no-dev --optimize-autoloader
+/opt/plesk/node/24/bin/npm install
+/opt/plesk/node/24/bin/npm run build
+/opt/plesk/php/8.4/bin/php artisan migrate --force
+/opt/plesk/php/8.4/bin/php artisan optimize:clear
+```
+
+Если Composer доступен как `composer`, можно заменить строку `php composer.phar` на обычный `composer`. После миграции новые разделы появятся в `/admin`.
 
 Telegram Bot skeleton:
 

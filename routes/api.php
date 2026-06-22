@@ -12,6 +12,7 @@
  * @version 1.0.0
  */
 use App\Http\Controllers\Api\CalendarController;
+use App\Http\Controllers\Api\ContentToolController;
 use App\Http\Controllers\Api\ChapterController;
 use App\Http\Controllers\Api\PrayerController;
 use App\Http\Controllers\Api\ReferenceDataController;
@@ -42,4 +43,12 @@ Route::get('/search/verses', [SearchController::class, 'verses']);
 Route::get('/calendar/day', [CalendarController::class, 'day']);
 Route::get('/prayers', [PrayerController::class, 'index']);
 Route::get('/prayers/{prayer}', [PrayerController::class, 'show'])->whereNumber('prayer');
+Route::get('/prayers/{prayer}/sections/{section}', [PrayerController::class, 'section'])->whereNumber('prayer')->whereNumber('section');
+Route::get('/recipe-categories', [ContentToolController::class, 'recipeCategories']);
+Route::get('/recipes', [ContentToolController::class, 'recipes']);
+Route::post('/recipes', [ContentToolController::class, 'storeRecipe'])->middleware('auth');
+Route::get('/recipes/{recipe}', [ContentToolController::class, 'recipe'])->whereNumber('recipe');
+Route::get('/quizzes', [ContentToolController::class, 'quizzes']);
+Route::get('/quizzes/{quiz}', [ContentToolController::class, 'quiz'])->whereNumber('quiz');
+Route::get('/virtual-tours', [ContentToolController::class, 'tours']);
 Route::post('/telegram/webhook', TelegramWebhookController::class);

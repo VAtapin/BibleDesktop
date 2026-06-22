@@ -15,24 +15,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CalendarEventType extends Model
+class QuizAnswer extends Model
 {
     /**
      * @var list<string>
      */
-    protected $fillable = [
-        'code',
-        'legacy_type',
-        'name',
-        'typicon_symbol',
-        'color',
-        'is_fasting',
-        'is_visible',
-        'description',
-        'sort_order',
-    ];
+    protected $fillable = ['quiz_question_id', 'answer', 'is_correct', 'sort_order'];
 
     /**
      * @return array<string, string>
@@ -40,15 +30,13 @@ class CalendarEventType extends Model
     protected function casts(): array
     {
         return [
-            'legacy_type' => 'integer',
-            'is_fasting' => 'boolean',
-            'is_visible' => 'boolean',
+            'is_correct' => 'boolean',
             'sort_order' => 'integer',
         ];
     }
 
-    public function events(): HasMany
+    public function question(): BelongsTo
     {
-        return $this->hasMany(CalendarEvent::class);
+        return $this->belongsTo(QuizQuestion::class, 'quiz_question_id');
     }
 }

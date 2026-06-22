@@ -15,23 +15,26 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Prayer extends Model
+class Recipe extends Model
 {
     /**
      * @var list<string>
      */
     protected $fillable = [
-        'language_code',
-        'category',
-        'liturgy_key',
+        'recipe_category_id',
+        'user_id',
         'title',
-        'short_title',
-        'body',
-        'source_url',
-        'sort_order',
+        'summary',
+        'ingredients',
+        'cover_image_url',
+        'youtube_url',
+        'fasting_rule',
+        'status',
         'is_public',
+        'sort_order',
     ];
 
     /**
@@ -45,8 +48,18 @@ class Prayer extends Model
         ];
     }
 
-    public function sections(): HasMany
+    public function category(): BelongsTo
     {
-        return $this->hasMany(PrayerSection::class)->orderBy('sort_order');
+        return $this->belongsTo(RecipeCategory::class, 'recipe_category_id');
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function steps(): HasMany
+    {
+        return $this->hasMany(RecipeStep::class)->orderBy('step_number');
     }
 }

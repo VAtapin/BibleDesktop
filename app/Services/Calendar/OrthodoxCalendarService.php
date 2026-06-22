@@ -26,8 +26,8 @@ class OrthodoxCalendarService
      *     old_style_date: string,
      *     pascha_date: string,
      *     liturgical_period: string|null,
-     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
-     *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
+     *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, metadata: array<string, mixed>, type: array<string, mixed>|null}>,
+     *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, metadata: array<string, mixed>, type: array<string, mixed>|null}>,
      *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
      * }
      */
@@ -69,7 +69,7 @@ class OrthodoxCalendarService
     }
 
     /**
-     * @return Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>
+     * @return Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, metadata: array<string, mixed>, type: array<string, mixed>|null}>
      */
     private function eventsForDay(CarbonImmutable $day, CarbonImmutable $pascha): Collection
     {
@@ -86,12 +86,15 @@ class OrthodoxCalendarService
                 'calendar_events.name',
                 'calendar_events.legacy_type',
                 'calendar_events.date_rule_type',
+                'calendar_events.start_year',
+                'calendar_events.end_year',
                 'calendar_events.start_month',
                 'calendar_events.start_day',
                 'calendar_events.start_offset',
                 'calendar_events.end_month',
                 'calendar_events.end_day',
                 'calendar_events.end_offset',
+                'calendar_events.metadata_json',
                 'calendar_event_types.code as type_code',
                 'calendar_event_types.name as type_name',
                 'calendar_event_types.typicon_symbol',
@@ -101,20 +104,25 @@ class OrthodoxCalendarService
             ])
             ->filter(fn ($event): bool => $this->matchesDay($event, $day, $pascha))
             ->values()
-            ->map(fn ($event) => [
-                'id' => (int) $event->id,
-                'name' => (string) $event->name,
-                'legacy_type' => $event->legacy_type === null ? null : (int) $event->legacy_type,
-                'date_rule_type' => (string) $event->date_rule_type,
-                'is_fasting' => (bool) $event->is_fasting || in_array((int) $event->legacy_type, [10, 20], true),
-                'type' => $event->type_code === null ? null : [
-                    'code' => (string) $event->type_code,
-                    'name' => (string) $event->type_name,
-                    'typicon_symbol' => $event->typicon_symbol === null ? null : (string) $event->typicon_symbol,
-                    'color' => $event->color === null ? null : (string) $event->color,
-                    'sort_order' => (int) $event->type_sort_order,
-                ],
-            ]);
+            ->map(function ($event): array {
+                $metadata = json_decode((string) ($event->metadata_json ?? ''), true);
+
+                return [
+                    'id' => (int) $event->id,
+                    'name' => (string) $event->name,
+                    'legacy_type' => $event->legacy_type === null ? null : (int) $event->legacy_type,
+                    'date_rule_type' => (string) $event->date_rule_type,
+                    'is_fasting' => (bool) $event->is_fasting || in_array((int) $event->legacy_type, [10, 20], true),
+                    'metadata' => is_array($metadata) ? $metadata : [],
+                    'type' => $event->type_code === null ? null : [
+                        'code' => (string) $event->type_code,
+                        'name' => (string) $event->type_name,
+                        'typicon_symbol' => $event->typicon_symbol === null ? null : (string) $event->typicon_symbol,
+                        'color' => $event->color === null ? null : (string) $event->color,
+                        'sort_order' => (int) $event->type_sort_order,
+                    ],
+                ];
+            });
     }
 
     /**
@@ -195,12 +203,11 @@ class OrthodoxCalendarService
 
         return match ($event->date_rule_type) {
             'fixed' => (int) $event->start_month === $fixedDay->month && (int) $event->start_day === $fixedDay->day,
+            'fixed_year' => (int) $event->start_year === $day->year
+                && (int) $event->start_month === $day->month
+                && (int) $event->start_day === $day->day,
             'pascha_relative' => $pascha->addDays((int) $event->start_offset)->isSameDay($day),
-            'fixed_range' => $this->isBetweenInclusive(
-                $fixedDay,
-                CarbonImmutable::create($fixedDay->year, (int) $event->start_month, (int) $event->start_day, 0, 0, 0, 'UTC'),
-                CarbonImmutable::create($fixedDay->year, (int) $event->end_month, (int) $event->end_day, 0, 0, 0, 'UTC'),
-            ),
+            'fixed_range' => $this->isFixedRangeDay($event, $fixedDay),
             'pascha_relative_range' => $this->isBetweenInclusive(
                 $day,
                 $pascha->addDays((int) $event->start_offset),
@@ -208,6 +215,18 @@ class OrthodoxCalendarService
             ),
             default => false,
         };
+    }
+
+    private function isFixedRangeDay(object $event, CarbonImmutable $fixedDay): bool
+    {
+        $start = CarbonImmutable::create($fixedDay->year, (int) $event->start_month, (int) $event->start_day, 0, 0, 0, 'UTC');
+        $end = CarbonImmutable::create($fixedDay->year, (int) $event->end_month, (int) $event->end_day, 0, 0, 0, 'UTC');
+
+        if ($end->lessThan($start) && $fixedDay->lessThanOrEqualTo($end)) {
+            $start = $start->subYear();
+        }
+
+        return $this->isBetweenInclusive($fixedDay, $start, $end);
     }
 
     private function fixedCalendarDay(object $event, CarbonImmutable $day): CarbonImmutable

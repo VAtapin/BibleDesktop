@@ -24,6 +24,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -78,6 +79,9 @@ class UserResource extends Resource
                     ->formatStateUsing(fn (mixed $state): string => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : (string) $state)
                     ->dehydrateStateUsing(fn (?string $state): ?array => $state ? json_decode($state, true) : null)
                     ->columnSpanFull(),
+                Toggle::make('is_trusted_recipe_author')
+                    ->label('Проверенный автор рецептов')
+                    ->default(false),
             ]);
     }
 
@@ -97,6 +101,10 @@ class UserResource extends Resource
                     ->searchable(),
                 TextColumn::make('telegram_id')
                     ->searchable(),
+                TextColumn::make('is_trusted_recipe_author')
+                    ->label('Автор рецептов')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'проверен' : 'обычный'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable(),

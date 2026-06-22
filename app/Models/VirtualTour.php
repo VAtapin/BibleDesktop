@@ -15,23 +15,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class CalendarEventType extends Model
+class VirtualTour extends Model
 {
     /**
      * @var list<string>
      */
     protected $fillable = [
-        'code',
-        'legacy_type',
-        'name',
-        'typicon_symbol',
-        'color',
-        'is_fasting',
-        'is_visible',
+        'slug',
+        'title',
         'description',
+        'cover_image_url',
+        'tour_url',
         'sort_order',
+        'is_public',
     ];
 
     /**
@@ -40,15 +37,8 @@ class CalendarEventType extends Model
     protected function casts(): array
     {
         return [
-            'legacy_type' => 'integer',
-            'is_fasting' => 'boolean',
-            'is_visible' => 'boolean',
             'sort_order' => 'integer',
+            'is_public' => 'boolean',
         ];
-    }
-
-    public function events(): HasMany
-    {
-        return $this->hasMany(CalendarEvent::class);
     }
 }

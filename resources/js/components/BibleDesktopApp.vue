@@ -211,6 +211,11 @@ type CalendarEventDto = {
     legacy_type: number | null;
     date_rule_type: string;
     is_fasting: boolean;
+    metadata: {
+        fasting_rule?: string;
+        meal_note?: string;
+        source?: string;
+    };
     type: {
         code: string;
         name: string;
@@ -239,6 +244,67 @@ type PrayerDto = {
     short_title: string | null;
     excerpt?: string;
     body?: string;
+    source_url?: string | null;
+    sections?: PrayerSectionDto[];
+};
+
+type PrayerSectionDto = {
+    id: number;
+    title: string | null;
+    body?: string;
+    sort_order: number;
+};
+
+type RecipeCategoryDto = {
+    id: number;
+    slug: string;
+    name: string;
+    description: string | null;
+};
+
+type RecipeDto = {
+    id: number;
+    title: string;
+    summary: string | null;
+    ingredients?: string | null;
+    cover_image_url: string | null;
+    youtube_url?: string | null;
+    fasting_rule: string | null;
+    category: {
+        slug: string;
+        name: string;
+    };
+    steps?: Array<{
+        step_number: number;
+        body: string;
+        image_url: string | null;
+    }>;
+};
+
+type QuizDto = {
+    id: number;
+    slug: string;
+    title: string;
+    description: string | null;
+    questions?: Array<{
+        id: number;
+        question: string;
+        explanation: string | null;
+        answers: Array<{
+            id: number;
+            answer: string;
+            is_correct: boolean;
+        }>;
+    }>;
+};
+
+type VirtualTourDto = {
+    id: number;
+    slug: string;
+    title: string;
+    description: string | null;
+    cover_image_url: string | null;
+    tour_url: string;
 };
 
 type ReaderTab = {
@@ -279,9 +345,10 @@ type HistoryItem = {
     openedAt: string;
 };
 
-type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers';
+type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'recipes' | 'quizzes' | 'tours';
 type ToolId = LeftPanelId | 'strong' | 'print';
-type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'search' | 'sidebar';
+type MainContentMode = 'chapter' | 'prayer' | 'recipe' | 'quiz' | 'tour';
+type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'globe' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'recipe' | 'search' | 'sidebar' | 'test';
 
 declare global {
     interface Window {
@@ -365,8 +432,22 @@ const isPrayersLoading = ref(false);
 const prayersError = ref<string | null>(null);
 const selectedPrayerId = ref<number | null>(null);
 const selectedPrayer = ref<PrayerDto | null>(null);
+const selectedPrayerSection = ref<PrayerSectionDto | null>(null);
 const isPrayerLoading = ref(false);
+const isPrayerSectionLoading = ref(false);
 const prayerBodyCache = new Map<number, PrayerDto>();
+const prayerSectionCache = new Map<number, PrayerSectionDto>();
+const recipeCategories = ref<RecipeCategoryDto[]>([]);
+const recipes = ref<RecipeDto[]>([]);
+const selectedRecipeCategorySlug = ref('');
+const selectedRecipe = ref<RecipeDto | null>(null);
+const quizzes = ref<QuizDto[]>([]);
+const selectedQuiz = ref<QuizDto | null>(null);
+const virtualTours = ref<VirtualTourDto[]>([]);
+const selectedVirtualTour = ref<VirtualTourDto | null>(null);
+const contentToolsError = ref<string | null>(null);
+const isContentToolsLoading = ref(false);
+const mainContentMode = ref<MainContentMode>('chapter');
 const bookmarks = ref<BookmarkItem[]>([]);
 const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
@@ -404,6 +485,9 @@ const tools = [
     { id: 'calendar', icon: 'calendar', title: 'Календарь' },
     { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
     { id: 'prayers', icon: 'prayer', title: 'Молитвы' },
+    { id: 'recipes', icon: 'recipe', title: 'Постные рецепты' },
+    { id: 'quizzes', icon: 'test', title: 'Тесты' },
+    { id: 'tours', icon: 'globe', title: '360° туры' },
     { id: 'history', icon: 'clock', title: 'История просмотра' },
     { id: 'search', icon: 'search', title: 'Поиск' },
     { id: 'strong', icon: 'hash', title: 'Strong' },
@@ -458,6 +542,13 @@ const icons: Record<IconName, string[]> = {
         'M8 12h8',
         'M8 15h5',
     ],
+    globe: [
+        'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+        'M3.6 9h16.8',
+        'M3.6 15h16.8',
+        'M12 3c2.5 2.4 3.75 5.4 3.75 9S14.5 18.6 12 21',
+        'M12 3c-2.5 2.4-3.75 5.4-3.75 9S9.5 18.6 12 21',
+    ],
     hash: [
         'M5 9h14',
         'M4 15h14',
@@ -494,6 +585,12 @@ const icons: Record<IconName, string[]> = {
         'M7 18h10v-5H7v5Z',
         'M6 14H5a2 2 0 0 1-2-2v-1a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v1a2 2 0 0 1-2 2h-1',
     ],
+    recipe: [
+        'M6 3h12',
+        'M8 3v7a4 4 0 0 0 8 0V3',
+        'M12 14v7',
+        'M9 21h6',
+    ],
     search: [
         'm21 21-4.35-4.35',
         'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Z',
@@ -504,6 +601,11 @@ const icons: Record<IconName, string[]> = {
         'M13 8h4',
         'M13 12h4',
         'M13 16h4',
+    ],
+    test: [
+        'M9 9a3 3 0 1 1 5.1 2.13c-.9.83-1.6 1.36-1.6 2.87',
+        'M12 17h.01',
+        'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
     ],
 };
 
@@ -517,6 +619,13 @@ const currentTranslation = computed(() => {
 });
 const compareTranslation = computed(() => {
     return translations.value.find((translation) => translation.code === compareTranslationCode.value) ?? null;
+});
+const visibleRecipes = computed(() => {
+    if (!selectedRecipeCategorySlug.value) {
+        return recipes.value;
+    }
+
+    return recipes.value.filter((recipe) => recipe.category.slug === selectedRecipeCategorySlug.value);
 });
 
 const currentBook = computed(() => {
@@ -1085,10 +1194,22 @@ function toggleLeftPanel(panel: LeftPanelId): void {
     if (activeLeftPanel.value === 'prayers') {
         void loadPrayers();
     }
+
+    if (activeLeftPanel.value === 'recipes') {
+        void loadRecipeTools();
+    }
+
+    if (activeLeftPanel.value === 'quizzes') {
+        void loadQuizzes();
+    }
+
+    if (activeLeftPanel.value === 'tours') {
+        void loadVirtualTours();
+    }
 }
 
 function handleToolClick(toolId: ToolId): void {
-    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers') {
+    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers' || toolId === 'recipes' || toolId === 'quizzes' || toolId === 'tours') {
         toggleLeftPanel(toolId);
         return;
     }
@@ -1139,11 +1260,131 @@ async function selectPrayer(prayer: PrayerDto): Promise<void> {
         const response = await loadJson<ApiResponse<PrayerDto>>(`/api/prayers/${prayer.id}`);
         selectedPrayer.value = response.data;
         prayerBodyCache.set(prayer.id, response.data);
+        mainContentMode.value = 'prayer';
+        if (response.data.sections && response.data.sections.length > 0) {
+            void selectPrayerSection(response.data.sections[0]);
+        }
     } catch (error) {
         prayersError.value = error instanceof Error ? error.message : 'Не удалось загрузить текст молитвы';
     } finally {
         isPrayerLoading.value = false;
     }
+}
+
+async function selectPrayerSection(section: PrayerSectionDto): Promise<void> {
+    selectedPrayerSection.value = section;
+    const cached = prayerSectionCache.get(section.id);
+    if (cached) {
+        selectedPrayerSection.value = cached;
+        return;
+    }
+
+    if (!selectedPrayer.value) {
+        return;
+    }
+
+    isPrayerSectionLoading.value = true;
+    try {
+        const response = await loadJson<ApiResponse<PrayerSectionDto>>(`/api/prayers/${selectedPrayer.value.id}/sections/${section.id}`);
+        selectedPrayerSection.value = response.data;
+        prayerSectionCache.set(section.id, response.data);
+    } catch (error) {
+        prayersError.value = error instanceof Error ? error.message : 'Не удалось загрузить часть молитвы';
+    } finally {
+        isPrayerSectionLoading.value = false;
+    }
+}
+
+async function loadRecipeTools(): Promise<void> {
+    if ((recipeCategories.value.length > 0 && recipes.value.length > 0) || isContentToolsLoading.value) {
+        return;
+    }
+
+    isContentToolsLoading.value = true;
+    contentToolsError.value = null;
+    try {
+        const [categoriesResponse, recipesResponse] = await Promise.all([
+            loadJson<ApiResponse<RecipeCategoryDto[]>>('/api/recipe-categories'),
+            loadJson<ApiResponse<RecipeDto[]>>('/api/recipes'),
+        ]);
+        recipeCategories.value = categoriesResponse.data;
+        recipes.value = recipesResponse.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить рецепты';
+    } finally {
+        isContentToolsLoading.value = false;
+    }
+}
+
+function openFastingRecipes(): void {
+    activeLeftPanel.value = 'recipes';
+    selectedRecipeCategorySlug.value = 'postnye-retsepty';
+    isStudyPanelOpen.value = false;
+    void loadRecipeTools();
+}
+
+async function selectRecipe(recipe: RecipeDto): Promise<void> {
+    mainContentMode.value = 'recipe';
+    selectedRecipe.value = recipe;
+    contentToolsError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<RecipeDto>>(`/api/recipes/${recipe.id}`);
+        selectedRecipe.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить рецепт';
+    }
+}
+
+async function loadQuizzes(): Promise<void> {
+    if (quizzes.value.length > 0 || isContentToolsLoading.value) {
+        return;
+    }
+
+    isContentToolsLoading.value = true;
+    contentToolsError.value = null;
+    try {
+        const response = await loadJson<ApiResponse<QuizDto[]>>('/api/quizzes');
+        quizzes.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить тесты';
+    } finally {
+        isContentToolsLoading.value = false;
+    }
+}
+
+async function selectQuiz(quiz: QuizDto): Promise<void> {
+    mainContentMode.value = 'quiz';
+    selectedQuiz.value = quiz;
+    contentToolsError.value = null;
+    try {
+        const response = await loadJson<ApiResponse<QuizDto>>(`/api/quizzes/${quiz.id}`);
+        selectedQuiz.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить тест';
+    }
+}
+
+async function loadVirtualTours(): Promise<void> {
+    if (virtualTours.value.length > 0 || isContentToolsLoading.value) {
+        return;
+    }
+
+    isContentToolsLoading.value = true;
+    contentToolsError.value = null;
+    try {
+        const response = await loadJson<ApiResponse<VirtualTourDto[]>>('/api/virtual-tours');
+        virtualTours.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить 360° туры';
+    } finally {
+        isContentToolsLoading.value = false;
+    }
+}
+
+function selectVirtualTour(tour: VirtualTourDto): void {
+    selectedVirtualTour.value = tour;
+    mainContentMode.value = 'tour';
 }
 
 function prayerCategoryLabel(category: string): string {
@@ -1153,6 +1394,7 @@ function prayerCategoryLabel(category: string): string {
         evening: 'Вечерние',
         communion_before: 'Ко Святому Причащению',
         communion_after: 'После Святого Причащения',
+        day: 'В продолжение дня',
         other: 'Другое',
     }[category] ?? category;
 }
@@ -1383,6 +1625,7 @@ async function loadBooksForSelectedTranslation(): Promise<void> {
 }
 
 async function changeTranslation(): Promise<void> {
+    mainContentMode.value = 'chapter';
     if (compareTranslationCode.value === selectedTranslationCode.value) {
         compareTranslationCode.value = '';
     }
@@ -1396,6 +1639,7 @@ async function changeTranslation(): Promise<void> {
 }
 
 function changeBook(): void {
+    mainContentMode.value = 'chapter';
     selectedChapterNumber.value = 1;
     resetVerseSelection();
     void loadChapter();
@@ -1407,6 +1651,7 @@ function changeCompareTranslation(): void {
 }
 
 function changeChapter(): void {
+    mainContentMode.value = 'chapter';
     resetVerseSelection();
     void loadChapter();
 }
@@ -1420,6 +1665,7 @@ function goChapter(delta: number): void {
     }
 
     selectedChapterNumber.value = nextChapter;
+    mainContentMode.value = 'chapter';
     resetVerseSelection();
     void loadChapter();
 }
@@ -2418,8 +2664,12 @@ watch(activeStudyTab, (tab) => {
                             <ul>
                                 <li v-for="event in calendarDay.fasting_events" :key="`fast-${event.id}`">
                                     {{ event.name }}
+                                    <small v-if="event.metadata?.meal_note">{{ event.metadata.meal_note }}</small>
                                 </li>
                             </ul>
+                            <button type="button" class="calendar-reading-link" @click="openFastingRecipes">
+                                Постные рецепты
+                            </button>
                         </template>
                         <h3>Евангелие и Апостол</h3>
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
@@ -2442,7 +2692,7 @@ watch(activeStudyTab, (tab) => {
                 <section v-else-if="activeLeftPanel === 'prayers'" class="prayer-panel">
                     <p v-if="isPrayersLoading">Загружаю молитвы...</p>
                     <p v-else-if="prayersError">{{ prayersError }}</p>
-                    <div class="prayer-list">
+                    <div class="compact-list">
                         <button
                             v-for="prayer in prayers"
                             :key="prayer.id"
@@ -2456,11 +2706,83 @@ watch(activeStudyTab, (tab) => {
                         </button>
                         <p v-if="!isPrayersLoading && prayers.length === 0">Молитвы пока не добавлены.</p>
                     </div>
-                    <article v-if="selectedPrayer" class="prayer-text">
-                        <h3>{{ selectedPrayer.title }}</h3>
-                        <p v-if="isPrayerLoading">Загружаю текст...</p>
-                        <div v-else v-html="selectedPrayer.body"></div>
-                    </article>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'recipes'" class="recipe-panel">
+                    <p v-if="isContentToolsLoading">Загружаю рецепты...</p>
+                    <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
+                    <div class="category-filter">
+                        <button
+                            type="button"
+                            :class="{ active: selectedRecipeCategorySlug === '' }"
+                            @click="selectedRecipeCategorySlug = ''"
+                        >
+                            Все
+                        </button>
+                        <button
+                            v-for="category in recipeCategories"
+                            :key="category.id"
+                            type="button"
+                            :class="{ active: selectedRecipeCategorySlug === category.slug }"
+                            @click="selectedRecipeCategorySlug = category.slug"
+                        >
+                            {{ category.name }}
+                        </button>
+                    </div>
+                    <div class="compact-list">
+                        <button
+                            v-for="recipe in visibleRecipes"
+                            :key="recipe.id"
+                            type="button"
+                            :class="{ active: selectedRecipe?.id === recipe.id }"
+                            @click="selectRecipe(recipe)"
+                        >
+                            <strong>{{ recipe.title }}</strong>
+                            <small>{{ recipe.category.name }}</small>
+                            <span>{{ recipe.summary }}</span>
+                        </button>
+                        <p v-if="!isContentToolsLoading && visibleRecipes.length === 0">Рецептов пока нет.</p>
+                    </div>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'quizzes'" class="quiz-panel">
+                    <p v-if="isContentToolsLoading">Загружаю тесты...</p>
+                    <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
+                    <div class="compact-list">
+                        <button
+                            v-for="quiz in quizzes"
+                            :key="quiz.id"
+                            type="button"
+                            :class="{ active: selectedQuiz?.id === quiz.id }"
+                            @click="selectQuiz(quiz)"
+                        >
+                            <strong>{{ quiz.title }}</strong>
+                            <span>{{ quiz.description }}</span>
+                        </button>
+                        <p v-if="!isContentToolsLoading && quizzes.length === 0">Тестов пока нет.</p>
+                    </div>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'tours'" class="tour-panel">
+                    <p v-if="isContentToolsLoading">Загружаю туры...</p>
+                    <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
+                    <div class="module-card-list">
+                        <button
+                            v-for="tour in virtualTours"
+                            :key="tour.id"
+                            type="button"
+                            :class="{ active: selectedVirtualTour?.id === tour.id }"
+                            @click="selectVirtualTour(tour)"
+                        >
+                            <img v-if="tour.cover_image_url" :src="tour.cover_image_url" alt="" />
+                            <span v-else class="module-cover-fallback">360</span>
+                            <span class="module-card-body">
+                                <strong>{{ tour.title }}</strong>
+                                <span>{{ tour.description }}</span>
+                            </span>
+                        </button>
+                        <p v-if="!isContentToolsLoading && virtualTours.length === 0">360° туры пока не добавлены.</p>
+                    </div>
                 </section>
 
                 <section v-else-if="activeLeftPanel === 'bookmarks'" class="bookmark-panel">
@@ -2689,7 +3011,86 @@ watch(activeStudyTab, (tab) => {
                     </div>
                 </div>
 
-                <article class="chapter">
+                <article v-if="mainContentMode === 'prayer' && selectedPrayer" class="content-reader prayer-reader">
+                    <header>
+                        <span>{{ prayerCategoryLabel(selectedPrayer.category) }}</span>
+                        <h2>{{ selectedPrayer.title }}</h2>
+                    </header>
+                    <div v-if="selectedPrayer.sections && selectedPrayer.sections.length > 1" class="section-tabs">
+                        <button
+                            v-for="section in selectedPrayer.sections"
+                            :key="section.id"
+                            type="button"
+                            :class="{ active: selectedPrayerSection?.id === section.id }"
+                            @click="selectPrayerSection(section)"
+                        >
+                            {{ section.title || `Часть ${section.sort_order}` }}
+                        </button>
+                    </div>
+                    <p v-if="isPrayerLoading || isPrayerSectionLoading" class="reader-status">Загружаю текст...</p>
+                    <div v-else-if="selectedPrayerSection?.body" class="content-body" v-html="selectedPrayerSection.body"></div>
+                    <div v-else class="content-body" v-html="selectedPrayer.body"></div>
+                    <a v-if="selectedPrayer.source_url" :href="selectedPrayer.source_url" target="_blank" rel="noreferrer">Источник</a>
+                </article>
+
+                <article v-else-if="mainContentMode === 'recipe' && selectedRecipe" class="content-reader recipe-reader">
+                    <header>
+                        <span>{{ selectedRecipe.category.name }}</span>
+                        <h2>{{ selectedRecipe.title }}</h2>
+                    </header>
+                    <p v-if="selectedRecipe.summary">{{ selectedRecipe.summary }}</p>
+                    <pre v-if="selectedRecipe.ingredients" class="recipe-ingredients">{{ selectedRecipe.ingredients }}</pre>
+                    <section v-if="selectedRecipe.steps?.length" class="recipe-steps">
+                        <article v-for="step in selectedRecipe.steps" :key="step.step_number">
+                            <img v-if="step.image_url" :src="step.image_url" alt="" />
+                            <strong>Шаг {{ step.step_number }}</strong>
+                            <p>{{ step.body }}</p>
+                        </article>
+                    </section>
+                    <iframe
+                        v-if="selectedRecipe.youtube_url"
+                        class="recipe-video"
+                        :src="selectedRecipe.youtube_url"
+                        title="Видео рецепта"
+                        loading="lazy"
+                    ></iframe>
+                </article>
+
+                <article v-else-if="mainContentMode === 'quiz' && selectedQuiz" class="content-reader quiz-reader">
+                    <header>
+                        <span>Тест</span>
+                        <h2>{{ selectedQuiz.title }}</h2>
+                    </header>
+                    <p v-if="selectedQuiz.description">{{ selectedQuiz.description }}</p>
+                    <section class="quiz-question-list">
+                        <article v-for="(question, index) in selectedQuiz.questions" :key="question.id">
+                            <strong>{{ index + 1 }}. {{ question.question }}</strong>
+                            <ul>
+                                <li v-for="answer in question.answers" :key="answer.id" :class="{ correct: answer.is_correct }">
+                                    {{ answer.answer }}
+                                </li>
+                            </ul>
+                            <p v-if="question.explanation">{{ question.explanation }}</p>
+                        </article>
+                    </section>
+                </article>
+
+                <article v-else-if="mainContentMode === 'tour' && selectedVirtualTour" class="content-reader tour-reader">
+                    <header>
+                        <span>360° тур</span>
+                        <h2>{{ selectedVirtualTour.title }}</h2>
+                    </header>
+                    <p v-if="selectedVirtualTour.description">{{ selectedVirtualTour.description }}</p>
+                    <iframe
+                        class="tour-frame"
+                        :src="selectedVirtualTour.tour_url"
+                        :title="selectedVirtualTour.title"
+                        loading="lazy"
+                        allowfullscreen
+                    ></iframe>
+                </article>
+
+                <article v-else class="chapter">
                     <p v-if="isChapterLoading" class="reader-status">
                         Загружаю главу...
                     </p>

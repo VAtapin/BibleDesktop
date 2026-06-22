@@ -67,6 +67,7 @@ class PrayerResource extends Resource
                         'evening' => 'Вечерние',
                         'communion_before' => 'Ко Святому Причащению',
                         'communion_after' => 'После Святого Причащения',
+                        'day' => 'В продолжение дня',
                         'other' => 'Другое',
                     ])
                     ->required()
@@ -104,6 +105,11 @@ class PrayerResource extends Resource
                         ['bulletList', 'orderedList'],
                         ['undo', 'redo'],
                     ])
+                    ->columnSpanFull(),
+                TextInput::make('source_url')
+                    ->label('Источник')
+                    ->url()
+                    ->maxLength(500)
                     ->columnSpanFull(),
             ]);
     }

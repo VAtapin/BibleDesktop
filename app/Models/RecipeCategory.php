@@ -17,22 +17,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class CalendarEventType extends Model
+class RecipeCategory extends Model
 {
     /**
      * @var list<string>
      */
-    protected $fillable = [
-        'code',
-        'legacy_type',
-        'name',
-        'typicon_symbol',
-        'color',
-        'is_fasting',
-        'is_visible',
-        'description',
-        'sort_order',
-    ];
+    protected $fillable = ['slug', 'name', 'description', 'sort_order', 'is_public'];
 
     /**
      * @return array<string, string>
@@ -40,15 +30,13 @@ class CalendarEventType extends Model
     protected function casts(): array
     {
         return [
-            'legacy_type' => 'integer',
-            'is_fasting' => 'boolean',
-            'is_visible' => 'boolean',
             'sort_order' => 'integer',
+            'is_public' => 'boolean',
         ];
     }
 
-    public function events(): HasMany
+    public function recipes(): HasMany
     {
-        return $this->hasMany(CalendarEvent::class);
+        return $this->hasMany(Recipe::class);
     }
 }

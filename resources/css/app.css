@@ -449,7 +449,8 @@ svg {
 .calendar-readings,
 .history-list,
 .module-card-list,
-.prayer-list {
+.prayer-list,
+.compact-list {
     display: grid;
     gap: 8px;
     min-height: 0;
@@ -470,7 +471,8 @@ svg {
 .bookmark-list article,
 .history-list button,
 .module-card-list button,
-.prayer-list button {
+.prayer-list button,
+.compact-list button {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
 }
@@ -479,7 +481,8 @@ svg {
 .bookmark-list article > button:first-child,
 .history-list button,
 .module-card-list button,
-.prayer-list button {
+.prayer-list button,
+.compact-list button {
     display: grid;
     gap: 4px;
     width: 100%;
@@ -506,7 +509,8 @@ svg {
 .calendar-readings strong,
 .history-list strong,
 .module-card-list strong,
-.prayer-list strong {
+.prayer-list strong,
+.compact-list strong {
     color: #557496;
     font-size: 12px;
 }
@@ -524,7 +528,9 @@ svg {
 .module-card-list span,
 .module-card-list small,
 .prayer-list span,
-.prayer-list small {
+.prayer-list small,
+.compact-list span,
+.compact-list small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -662,45 +668,167 @@ svg {
     min-height: 0;
 }
 
-.prayer-list {
-    max-height: min(34vh, 280px);
+.compact-list {
+    max-height: min(62vh, 620px);
     overflow: auto;
+    padding-right: 4px;
 }
 
-.prayer-list button {
+.compact-list button {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
+    padding: 6px 8px;
 }
 
-.prayer-list button.active {
+.compact-list button.active {
     border-color: #7fa4c8;
     background: #edf5fb;
 }
 
-.prayer-list small {
+.compact-list small {
     color: #7b8797;
     font-size: 11px;
 }
 
-.prayer-text {
-    overflow: auto;
-    border: 1px solid #e0e5eb;
-    background: #ffffff;
-    padding: 10px;
+.category-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
 }
 
-.prayer-text h3 {
-    margin: 0 0 8px;
+.category-filter button {
+    border: 1px solid #d7e2ee;
+    background: #f8fafc;
+    color: #557496;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+.category-filter button.active {
+    border-color: #6f96bd;
+    background: #edf5fb;
     color: #16395f;
-    font-size: 15px;
 }
 
-.prayer-text div,
-.prayer-text p {
+.content-reader {
+    min-height: 0;
+    overflow: auto;
+    background: #ffffff;
+    padding: 22px clamp(18px, 4vw, 56px);
+}
+
+.content-reader header {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.content-reader header span {
+    color: #557496;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.content-reader h2 {
+    margin: 0;
+    color: #16395f;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.content-reader p,
+.content-body {
     margin: 0;
     color: #2f3742;
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: var(--reader-font-size);
+    line-height: 1.62;
+}
+
+.section-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.section-tabs button {
+    border: 1px solid #d7e2ee;
+    background: #f5f8fb;
+    color: #557496;
+    padding: 6px 9px;
+}
+
+.section-tabs button.active {
+    border-color: #6f96bd;
+    background: #edf5fb;
+    color: #16395f;
+}
+
+.recipe-ingredients {
+    margin: 16px 0;
+    border: 1px solid #dbe3ed;
+    background: #f8fafc;
+    padding: 12px;
+    white-space: pre-wrap;
+    font: inherit;
+}
+
+.recipe-steps {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.recipe-steps article {
+    border-top: 1px solid #e4eaf1;
+    padding-top: 12px;
+}
+
+.recipe-steps img {
+    width: min(100%, 520px);
+    max-height: 320px;
+    object-fit: cover;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.recipe-video,
+.tour-frame {
+    width: 100%;
+    border: 1px solid #d7e0eb;
+    background: #f8fafc;
+}
+
+.recipe-video {
+    aspect-ratio: 16 / 9;
+    margin-top: 18px;
+}
+
+.tour-frame {
+    min-height: min(72vh, 760px);
+}
+
+.quiz-question-list {
+    display: grid;
+    gap: 16px;
+}
+
+.quiz-question-list article {
+    border-top: 1px solid #e4eaf1;
+    padding-top: 12px;
+}
+
+.quiz-question-list ul {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.quiz-question-list li.correct {
+    color: #17643a;
+    font-weight: 700;
 }
 
 .module-card-list img,

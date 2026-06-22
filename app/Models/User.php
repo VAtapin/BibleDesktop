@@ -42,6 +42,7 @@ class User extends Authenticatable implements FilamentUser
         'telegram_username',
         'avatar_url',
         'settings_json',
+        'is_trusted_recipe_author',
     ];
 
     /**
@@ -65,6 +66,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'settings_json' => 'array',
+            'is_trusted_recipe_author' => 'boolean',
         ];
     }
 
