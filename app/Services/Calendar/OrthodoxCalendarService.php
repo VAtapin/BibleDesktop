@@ -28,7 +28,8 @@ class OrthodoxCalendarService
      *     liturgical_period: string|null,
      *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, metadata: array<string, mixed>, type: array<string, mixed>|null}>,
      *     fasting_events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, metadata: array<string, mixed>, type: array<string, mixed>|null}>,
-     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>,
+     *     monastery_services: Collection<int, array{id: int, title: string, description: string|null, location: string|null, starts_at: string, ends_at: string|null, time_label: string, is_all_day: bool}>
      * }
      */
     public function day(string $date): array
@@ -48,6 +49,7 @@ class OrthodoxCalendarService
                 ->filter(fn (array $event): bool => $event['is_fasting'])
                 ->values(),
             'readings' => $readings,
+            'monastery_services' => $this->monasteryServicesForDay($day),
         ];
     }
 
@@ -149,6 +151,42 @@ class OrthodoxCalendarService
                         ? (string) $metadata['raw_name']
                         : (string) $reading->passage_ref,
                     'date_rule_type' => (string) $reading->date_rule_type,
+                ];
+            });
+    }
+
+    /**
+     * @return Collection<int, array{id: int, title: string, description: string|null, location: string|null, starts_at: string, ends_at: string|null, time_label: string, is_all_day: bool}>
+     */
+    private function monasteryServicesForDay(CarbonImmutable $day): Collection
+    {
+        $timezone = (string) config('services.monastery_calendar.timezone', 'Europe/Berlin');
+        $start = $day->setTimezone($timezone)->startOfDay();
+        $end = $day->setTimezone($timezone)->endOfDay();
+
+        return DB::table('monastery_services')
+            ->where('is_public', true)
+            ->whereBetween('starts_at', [$start, $end])
+            ->orderBy('starts_at')
+            ->get(['id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'is_all_day'])
+            ->map(function ($service) use ($timezone): array {
+                $startsAt = CarbonImmutable::parse((string) $service->starts_at)->setTimezone($timezone);
+                $endsAt = $service->ends_at === null ? null : CarbonImmutable::parse((string) $service->ends_at)->setTimezone($timezone);
+                $timeLabel = (bool) $service->is_all_day ? 'Весь день' : $startsAt->format('H:i');
+
+                if (! (bool) $service->is_all_day && $endsAt) {
+                    $timeLabel .= '-'.$endsAt->format('H:i');
+                }
+
+                return [
+                    'id' => (int) $service->id,
+                    'title' => (string) $service->title,
+                    'description' => $service->description === null ? null : (string) $service->description,
+                    'location' => $service->location === null ? null : (string) $service->location,
+                    'starts_at' => $startsAt->toIso8601String(),
+                    'ends_at' => $endsAt?->toIso8601String(),
+                    'time_label' => $timeLabel,
+                    'is_all_day' => (bool) $service->is_all_day,
                 ];
             });
     }

@@ -46,4 +46,9 @@ return [
         ],
     ],
 
+    'monastery_calendar' => [
+        'ics_url' => env('MONASTERY_SERVICES_ICS_URL'),
+        'timezone' => env('MONASTERY_SERVICES_TIMEZONE', 'Europe/Berlin'),
+    ],
+
 ];

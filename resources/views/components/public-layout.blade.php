@@ -19,6 +19,14 @@
         </main>
         <footer class="footerbar public-footer">
             <button type="button">Русский</button>
+            <div class="footer-credit">
+                <span>© 2026 Bible Desktop</span>
+                <span>
+                    Powered by:
+                    <a href="https://bible-media.de/" target="_blank" rel="noreferrer">Bible Media Agentur</a>
+                </span>
+                <a href="https://georg-kloster.ru/" target="_blank" rel="noreferrer">Проект для Свято-Георгиевского монастыря</a>
+            </div>
             <nav>
                 @forelse ($footerPages as $page)
                     <a href="{{ $page['url'] }}">{{ $page['title'] }}</a>

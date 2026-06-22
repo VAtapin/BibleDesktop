@@ -472,7 +472,8 @@ svg {
 .history-list button,
 .module-card-list button,
 .prayer-list button,
-.compact-list button {
+.compact-list button,
+.compact-list a {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
 }
@@ -482,7 +483,8 @@ svg {
 .history-list button,
 .module-card-list button,
 .prayer-list button,
-.compact-list button {
+.compact-list button,
+.compact-list a {
     display: grid;
     gap: 4px;
     width: 100%;
@@ -491,6 +493,7 @@ svg {
     color: #596579;
     padding: 8px 10px;
     text-align: left;
+    text-decoration: none;
 }
 
 .advanced-search-results button,
@@ -674,7 +677,8 @@ svg {
     padding-right: 4px;
 }
 
-.compact-list button {
+.compact-list button,
+.compact-list a {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
     padding: 6px 8px;
@@ -688,6 +692,19 @@ svg {
 .compact-list small {
     color: #7b8797;
     font-size: 11px;
+}
+
+.service-list strong {
+    display: inline-block;
+    min-width: 86px;
+    color: #315f95;
+}
+
+.service-list small {
+    display: block;
+    margin: 4px 0 0 86px;
+    color: #6f7f93;
+    line-height: 1.35;
 }
 
 .category-filter {
@@ -1433,12 +1450,23 @@ svg {
 
 .footerbar {
     justify-content: space-between;
+    gap: 16px;
     padding: 0 18px;
     font-size: 12px;
 }
 
+.footer-credit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 14px;
+    min-width: 0;
+}
+
 .footerbar nav {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
 }
 

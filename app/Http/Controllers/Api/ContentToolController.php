@@ -22,6 +22,26 @@ use Illuminate\Support\Facades\DB;
 
 class ContentToolController extends Controller
 {
+    public function usefulLinks(): JsonResponse
+    {
+        $links = DB::table('useful_links')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get(['id', 'slug', 'title', 'description', 'url', 'category', 'icon'])
+            ->map(fn ($link): array => [
+                'id' => (int) $link->id,
+                'slug' => (string) $link->slug,
+                'title' => (string) $link->title,
+                'description' => $link->description === null ? null : (string) $link->description,
+                'url' => (string) $link->url,
+                'category' => (string) $link->category,
+                'icon' => $link->icon === null ? null : (string) $link->icon,
+            ]);
+
+        return response()->json(['data' => $links]);
+    }
+
     public function recipeCategories(): JsonResponse
     {
         $categories = DB::table('recipe_categories')

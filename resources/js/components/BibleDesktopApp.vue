@@ -225,6 +225,17 @@ type CalendarEventDto = {
     } | null;
 };
 
+type MonasteryServiceDto = {
+    id: number;
+    title: string;
+    description: string | null;
+    location: string | null;
+    starts_at: string;
+    ends_at: string | null;
+    time_label: string;
+    is_all_day: boolean;
+};
+
 type CalendarDayDto = {
     date: string;
     old_style_date: string;
@@ -233,6 +244,7 @@ type CalendarDayDto = {
     events: CalendarEventDto[];
     fasting_events: CalendarEventDto[];
     readings: CalendarReadingDto[];
+    monastery_services: MonasteryServiceDto[];
 };
 
 type PrayerDto = {
@@ -260,6 +272,16 @@ type RecipeCategoryDto = {
     slug: string;
     name: string;
     description: string | null;
+};
+
+type UsefulLinkDto = {
+    id: number;
+    slug: string;
+    title: string;
+    description: string | null;
+    url: string;
+    category: string;
+    icon: string | null;
 };
 
 type RecipeDto = {
@@ -345,7 +367,7 @@ type HistoryItem = {
     openedAt: string;
 };
 
-type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'recipes' | 'quizzes' | 'tours';
+type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'materials' | 'recipes' | 'quizzes' | 'tours';
 type ToolId = LeftPanelId | 'strong' | 'print';
 type MainContentMode = 'chapter' | 'prayer' | 'recipe' | 'quiz' | 'tour';
 type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'globe' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'recipe' | 'search' | 'sidebar' | 'test';
@@ -441,6 +463,7 @@ const recipeCategories = ref<RecipeCategoryDto[]>([]);
 const recipes = ref<RecipeDto[]>([]);
 const selectedRecipeCategorySlug = ref('');
 const selectedRecipe = ref<RecipeDto | null>(null);
+const usefulLinks = ref<UsefulLinkDto[]>([]);
 const quizzes = ref<QuizDto[]>([]);
 const selectedQuiz = ref<QuizDto | null>(null);
 const virtualTours = ref<VirtualTourDto[]>([]);
@@ -485,6 +508,7 @@ const tools = [
     { id: 'calendar', icon: 'calendar', title: 'Календарь' },
     { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
     { id: 'prayers', icon: 'prayer', title: 'Молитвы' },
+    { id: 'materials', icon: 'link', title: 'Полезные материалы' },
     { id: 'recipes', icon: 'recipe', title: 'Постные рецепты' },
     { id: 'quizzes', icon: 'test', title: 'Тесты' },
     { id: 'tours', icon: 'globe', title: '360° туры' },
@@ -668,6 +692,22 @@ const leftPanelTitle = computed(() => {
 
     if (activeLeftPanel.value === 'prayers') {
         return 'Молитвы';
+    }
+
+    if (activeLeftPanel.value === 'materials') {
+        return 'Полезные материалы';
+    }
+
+    if (activeLeftPanel.value === 'recipes') {
+        return 'Постные рецепты';
+    }
+
+    if (activeLeftPanel.value === 'quizzes') {
+        return 'Тесты';
+    }
+
+    if (activeLeftPanel.value === 'tours') {
+        return '360° туры';
     }
 
     return 'Поиск';
@@ -1195,6 +1235,10 @@ function toggleLeftPanel(panel: LeftPanelId): void {
         void loadPrayers();
     }
 
+    if (activeLeftPanel.value === 'materials') {
+        void loadUsefulLinks();
+    }
+
     if (activeLeftPanel.value === 'recipes') {
         void loadRecipeTools();
     }
@@ -1209,7 +1253,7 @@ function toggleLeftPanel(panel: LeftPanelId): void {
 }
 
 function handleToolClick(toolId: ToolId): void {
-    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers' || toolId === 'recipes' || toolId === 'quizzes' || toolId === 'tours') {
+    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers' || toolId === 'materials' || toolId === 'recipes' || toolId === 'quizzes' || toolId === 'tours') {
         toggleLeftPanel(toolId);
         return;
     }
@@ -1292,6 +1336,24 @@ async function selectPrayerSection(section: PrayerSectionDto): Promise<void> {
         prayersError.value = error instanceof Error ? error.message : 'Не удалось загрузить часть молитвы';
     } finally {
         isPrayerSectionLoading.value = false;
+    }
+}
+
+async function loadUsefulLinks(): Promise<void> {
+    if (usefulLinks.value.length > 0 || isContentToolsLoading.value) {
+        return;
+    }
+
+    isContentToolsLoading.value = true;
+    contentToolsError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<UsefulLinkDto[]>>('/api/useful-links');
+        usefulLinks.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить материалы';
+    } finally {
+        isContentToolsLoading.value = false;
     }
 }
 
@@ -2671,6 +2733,16 @@ watch(activeStudyTab, (tab) => {
                                 Постные рецепты
                             </button>
                         </template>
+                        <template v-if="calendarDay.monastery_services.length > 0">
+                            <h3>Богослужения в монастыре</h3>
+                            <ul class="service-list">
+                                <li v-for="service in calendarDay.monastery_services" :key="service.id">
+                                    <strong>{{ service.time_label }}</strong>
+                                    <span>{{ service.title }}</span>
+                                    <small v-if="service.description">{{ service.description }}</small>
+                                </li>
+                            </ul>
+                        </template>
                         <h3>Евангелие и Апостол</h3>
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
@@ -2705,6 +2777,25 @@ watch(activeStudyTab, (tab) => {
                             <span>{{ prayer.excerpt }}</span>
                         </button>
                         <p v-if="!isPrayersLoading && prayers.length === 0">Молитвы пока не добавлены.</p>
+                    </div>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'materials'" class="materials-panel">
+                    <p v-if="isContentToolsLoading">Загружаю материалы...</p>
+                    <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
+                    <div class="compact-list">
+                        <a
+                            v-for="link in usefulLinks"
+                            :key="link.id"
+                            :href="link.url"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            <strong>{{ link.title }}</strong>
+                            <small>{{ link.category }}</small>
+                            <span>{{ link.description }}</span>
+                        </a>
+                        <p v-if="!isContentToolsLoading && usefulLinks.length === 0">Материалы пока не добавлены.</p>
                     </div>
                 </section>
 
@@ -3353,6 +3444,14 @@ watch(activeStudyTab, (tab) => {
 
         <footer class="footerbar">
             <button type="button">{{ selectedLanguage }}</button>
+            <div class="footer-credit">
+                <span>© 2026 Bible Desktop</span>
+                <span>
+                    Powered by:
+                    <a href="https://bible-media.de/" target="_blank" rel="noreferrer">Bible Media Agentur</a>
+                </span>
+                <a href="https://georg-kloster.ru/" target="_blank" rel="noreferrer">Проект для Свято-Георгиевского монастыря</a>
+            </div>
             <nav>
                 <a
                     v-for="page in footerPages"

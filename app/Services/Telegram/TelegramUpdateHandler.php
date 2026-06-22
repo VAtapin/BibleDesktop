@@ -115,6 +115,7 @@ class TelegramUpdateHandler
             '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол', $settings)),
             '/fasting' => $this->messageAction($chatId, $this->fastingText()),
             '/prayers', '/prayer' => $this->prayersAction($chatId),
+            '/materials', '/apps' => $this->materialsAction($chatId),
             '/settings' => $this->messageAction($chatId, $this->settingsText($settings), [
                 'reply_markup' => $this->settingsKeyboard($settings),
             ]),
@@ -188,6 +189,20 @@ class TelegramUpdateHandler
 
             if ($chatId) {
                 $actions[] = $this->messageAction($chatId, $text);
+            }
+
+            return $actions;
+        } elseif ($data === 'start:materials') {
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Полезные материалы',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->materialsAction($chatId);
             }
 
             return $actions;
@@ -299,7 +314,7 @@ class TelegramUpdateHandler
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/fasting - посты дня\n/prayers - молитвы\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/fasting - посты дня\n/prayers - молитвы\n/materials - полезные материалы\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
     }
 
     /**
@@ -320,7 +335,7 @@ class TelegramUpdateHandler
                     ['text' => '🙏 Молитвы', 'callback_data' => 'start:prayers'],
                 ],
                 [
-                    ['text' => '✝ Полезные материалы', 'url' => "{$appUrl}/"],
+                    ['text' => '✝ Полезные материалы', 'callback_data' => 'start:materials'],
                     ['text' => 'ℹ О боте', 'callback_data' => 'start:about'],
                 ],
             ],
@@ -525,6 +540,33 @@ class TelegramUpdateHandler
         ]);
     }
 
+    /**
+     * @return array{method: string, payload: array<string, mixed>}
+     */
+    private function materialsAction(int|string $chatId): array
+    {
+        $links = DB::table('useful_links')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->limit(10)
+            ->get(['title', 'description', 'url']);
+
+        if ($links->isEmpty()) {
+            return $this->messageAction($chatId, 'Полезные материалы пока не добавлены.');
+        }
+
+        $lines = $links
+            ->map(function ($link): string {
+                $description = $link->description ? "\n".trim((string) $link->description) : '';
+
+                return "• {$link->title}{$description}\n{$link->url}";
+            })
+            ->implode("\n\n");
+
+        return $this->messageAction($chatId, $this->trimTelegramText("Полезные материалы и приложения\n{$lines}"));
+    }
+
     private function prayerTextById(int $prayerId): string
     {
         $prayer = DB::table('prayers')
@@ -554,7 +596,8 @@ class TelegramUpdateHandler
      * @param  array{
      *     date: string,
      *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
-     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>
+     *     readings: Collection<int, array{id: int, type: string, title: string|null, passage_ref: string, display_ref: string, date_rule_type: string}>,
+     *     monastery_services: Collection<int, array{id: int, title: string, description: string|null, location: string|null, starts_at: string, ends_at: string|null, time_label: string, is_all_day: bool}>
      * }  $day
      */
     private function calendarText(array $day): string
@@ -567,7 +610,7 @@ class TelegramUpdateHandler
 
         $events = $day['events']
             ->take(8)
-            ->map(fn (array $event) => '- '.$event['name'])
+            ->map(fn (array $event) => $this->calendarEventLine($event))
             ->implode("\n");
 
         if ($events === '') {
@@ -578,10 +621,36 @@ class TelegramUpdateHandler
             ? ''
             : "\n\nПост:\n".$day['fasting_events']
                 ->take(4)
-                ->map(fn (array $event) => '- '.$event['name'])
+                ->map(fn (array $event) => $this->calendarEventLine($event))
                 ->implode("\n");
 
-        return $this->appendBotLink(trim("Календарь на {$day['date']}\n{$events}{$fasting}\n\n{$readings}"));
+        $services = $day['monastery_services']->isEmpty()
+            ? ''
+            : "\n\nБогослужения в монастыре:\n".$day['monastery_services']
+                ->take(5)
+                ->map(fn (array $service): string => trim($service['time_label'].' '.$service['title']))
+                ->implode("\n");
+
+        return $this->appendBotLink(trim("Календарь на {$day['date']}\n{$events}{$fasting}{$services}\n\n{$readings}"));
+    }
+
+    /**
+     * @param  array{name: string, legacy_type: int|null, type: array<string, mixed>|null}  $event
+     */
+    private function calendarEventLine(array $event): string
+    {
+        $symbol = trim((string) ($event['type']['typicon_symbol'] ?? ''));
+
+        if ($symbol === '') {
+            $symbol = match ((int) ($event['legacy_type'] ?? -1)) {
+                0, 1, 2 => '☦',
+                3, 4, 5, 6 => '✚',
+                7 => '✶',
+                default => '•',
+            };
+        }
+
+        return "{$symbol} {$event['name']}";
     }
 
     /**
@@ -1078,6 +1147,7 @@ class TelegramUpdateHandler
             'payload' => array_merge([
                 'chat_id' => $chatId,
                 'text' => $text,
+                'disable_web_page_preview' => true,
             ], $extra),
         ];
     }
