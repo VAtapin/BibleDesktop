@@ -52,7 +52,12 @@ class RecipeResource extends Resource
             Select::make('user_id')->label('Автор')->relationship('author', 'name')->searchable()->preload(),
             TextInput::make('title')->label('Название')->required()->maxLength(220)->columnSpanFull(),
             Textarea::make('summary')->label('Кратко')->columnSpanFull(),
-            TextInput::make('servings')->label('Базовое число порций')->numeric()->required()->default(4),
+            TextInput::make('servings')
+                ->label('Базовое число порций')
+                ->helperText('Все количества ингредиентов ниже вводятся для этого числа порций. На сайте пользователь сможет пересчитать их на 2, 8, 10 и любое другое количество.')
+                ->numeric()
+                ->required()
+                ->default(4),
             FileUpload::make('cover_image_url')
                 ->label('Картинка')
                 ->image()
@@ -70,7 +75,7 @@ class RecipeResource extends Resource
                 ->relationship()
                 ->schema([
                     TextInput::make('name')->label('Ингредиент')->required()->maxLength(220)->columnSpan(4),
-                    TextInput::make('amount')->label('Количество')->numeric()->columnSpan(2),
+                    TextInput::make('amount')->label('Количество на базовые порции')->numeric()->columnSpan(2),
                     TextInput::make('unit')->label('Ед.')->maxLength(40)->columnSpan(2),
                     TextInput::make('note')->label('Примечание')->maxLength(255)->columnSpan(3),
                     TextInput::make('sort_order')->label('Порядок')->numeric()->default(0)->columnSpan(1),

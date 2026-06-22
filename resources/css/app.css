@@ -925,11 +925,38 @@ svg {
     font: inherit;
 }
 
+.servings-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    width: min(100%, 680px);
+    margin: 16px 0 12px;
+    border: 1px solid #dbe3ed;
+    background: #f8fafc;
+    padding: 10px 12px;
+}
+
+.servings-panel > div {
+    display: grid;
+    gap: 2px;
+}
+
+.servings-panel strong {
+    color: #16395f;
+    font-size: 14px;
+}
+
+.servings-panel small {
+    color: #7b8797;
+    font-size: 12px;
+}
+
 .servings-control {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    margin: 14px 0;
+    gap: 8px;
     color: #557496;
     font-size: 13px;
 }
@@ -937,6 +964,7 @@ svg {
 .servings-control input {
     width: 72px;
     border: 1px solid #cbd8e6;
+    background: #ffffff;
     padding: 5px 7px;
     color: #16395f;
 }

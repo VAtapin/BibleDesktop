@@ -713,7 +713,11 @@ const visibleRecipes = computed(() => {
     return recipes.value.filter((recipe) => recipe.category.slug === selectedRecipeCategorySlug.value);
 });
 const selectedRecipeBaseServings = computed(() => Math.max(1, selectedRecipe.value?.servings ?? 4));
-const selectedRecipeTargetServings = computed(() => Number.isFinite(selectedRecipeServings.value) ? Math.max(1, selectedRecipeServings.value) : selectedRecipeBaseServings.value);
+const selectedRecipeTargetServings = computed(() => {
+    const servings = Number(selectedRecipeServings.value);
+
+    return Number.isFinite(servings) ? Math.max(1, Math.round(servings)) : selectedRecipeBaseServings.value;
+});
 const selectedRecipeServingRatio = computed(() => selectedRecipeTargetServings.value / selectedRecipeBaseServings.value);
 
 const currentBook = computed(() => {
@@ -1475,15 +1479,16 @@ function scaledIngredientAmount(amount: number | null): string {
     const scaled = amount * selectedRecipeServingRatio.value;
     const rounded = Math.round(scaled * 100) / 100;
 
-    return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
 }
 
 function recipeIngredientLine(ingredient: NonNullable<RecipeDto['ingredient_items']>[number]): string {
     const amount = scaledIngredientAmount(ingredient.amount);
-    const unit = ingredient.unit ? ` ${ingredient.unit}` : '';
+    const unit = ingredient.unit ? ingredient.unit : '';
     const note = ingredient.note ? ` (${ingredient.note})` : '';
+    const quantity = [amount, unit].filter(Boolean).join(' ');
 
-    return `${amount}${unit}${amount || unit ? ' ' : ''}${ingredient.name}${note}`;
+    return `${ingredient.name}${quantity ? ` - ${quantity}` : ''}${note}`;
 }
 
 async function loadQuizzes(): Promise<void> {
@@ -3350,11 +3355,16 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </header>
                     <img v-if="selectedRecipe.cover_image_url" class="content-cover" :src="selectedRecipe.cover_image_url" alt="" />
                     <p v-if="selectedRecipe.summary">{{ selectedRecipe.summary }}</p>
-                    <label class="servings-control">
-                        <span>Порций</span>
-                        <input v-model.number="selectedRecipeServings" type="number" min="1" max="99" />
-                        <small>Базовый рецепт: {{ selectedRecipeBaseServings }}</small>
-                    </label>
+                    <section class="servings-panel">
+                        <div>
+                            <strong>Расчет ингредиентов</strong>
+                            <small>Базовый рецепт: {{ selectedRecipeBaseServings }} порц.</small>
+                        </div>
+                        <label class="servings-control">
+                            <span>Нужно порций</span>
+                            <input v-model.number="selectedRecipeServings" type="number" min="1" max="99" />
+                        </label>
+                    </section>
                     <ul v-if="selectedRecipe.ingredient_items?.length" class="recipe-ingredient-list">
                         <li v-for="ingredient in selectedRecipe.ingredient_items" :key="`${ingredient.name}-${ingredient.unit}`">
                             {{ recipeIngredientLine(ingredient) }}
