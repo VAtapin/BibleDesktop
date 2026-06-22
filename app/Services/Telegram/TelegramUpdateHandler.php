@@ -84,6 +84,7 @@ class TelegramUpdateHandler
         $settings = $this->settingsFor($telegramId, $message['from'] ?? []);
         $text = trim((string) ($message['text'] ?? ''));
         $command = $this->command($text);
+        $isGroupChat = $this->isGroupChat($message);
 
         if ($command === '' && (bool) ($settings['awaiting_search'] ?? false)) {
             $settings['awaiting_search'] = false;
@@ -105,7 +106,7 @@ class TelegramUpdateHandler
         }
 
         $action = match ($command) {
-            '/start' => $this->messageAction($chatId, $this->startText()),
+            '/start' => $this->startAction($chatId),
             '/help' => $this->messageAction($chatId, $this->helpText()),
             '/search' => $this->searchAction($chatId, $telegramId, $text, $settings),
             '/ask', '/contact', '/message' => $this->contactAction($chatId, $telegramId, $text, $settings, $message),
@@ -113,14 +114,15 @@ class TelegramUpdateHandler
             '/gospel' => $this->messageAction($chatId, $this->readingText('gospel', 'Евангелие', $settings)),
             '/apostle' => $this->messageAction($chatId, $this->readingText('apostle', 'Апостол', $settings)),
             '/fasting' => $this->messageAction($chatId, $this->fastingText()),
+            '/prayers', '/prayer' => $this->prayersAction($chatId),
             '/settings' => $this->messageAction($chatId, $this->settingsText($settings), [
                 'reply_markup' => $this->settingsKeyboard($settings),
             ]),
             '/random' => $this->messageAction($chatId, $this->randomVerseText($settings, $this->scopeFromRandomCommand($text))),
-            default => $this->messageAction($chatId, $this->helpText()),
+            default => $isGroupChat ? null : $this->messageAction($chatId, $this->helpText()),
         };
 
-        return [$action];
+        return $action === null ? [] : [$action];
     }
 
     /**
@@ -172,6 +174,65 @@ class TelegramUpdateHandler
             }
 
             return $actions;
+        } elseif (str_starts_with($data, 'prayer:')) {
+            $prayerId = (int) mb_substr($data, mb_strlen('prayer:'));
+            $text = $this->prayerTextById($prayerId);
+
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Открываю молитву',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->messageAction($chatId, $text);
+            }
+
+            return $actions;
+        } elseif ($data === 'start:about') {
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'О боте',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->messageAction($chatId, "Бот «Библия» помогает читать Священное Писание, искать стихи, открывать календарь дня, молитвы и материалы Bible Desktop.\n\nПодробно: ".rtrim((string) config('app.url'), '/'));
+            }
+
+            return $actions;
+        } elseif ($data === 'start:calendar') {
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Календарь дня',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->calendarAction($chatId, $settings);
+            }
+
+            return $actions;
+        } elseif ($data === 'start:prayers') {
+            $actions[] = [
+                'method' => 'answerCallbackQuery',
+                'payload' => [
+                    'callback_query_id' => $callback['id'] ?? '',
+                    'text' => 'Молитвы',
+                ],
+            ];
+
+            if ($chatId) {
+                $actions[] = $this->prayersAction($chatId);
+            }
+
+            return $actions;
         } elseif ($data === 'search:more') {
             $query = (string) ($settings['last_search_query'] ?? '');
             $offset = (int) ($settings['last_search_offset'] ?? 0);
@@ -220,14 +281,50 @@ class TelegramUpdateHandler
         return $actions;
     }
 
-    private function startText(): string
+    /**
+     * @return array{method: string, payload: array<string, mixed>}
+     */
+    private function startAction(int|string $chatId): array
     {
-        return "Bible Desktop\n\nКоманды: /random, /search, /today, /settings, /ask, /help";
+        return [
+            'method' => 'sendPhoto',
+            'payload' => [
+                'chat_id' => $chatId,
+                'photo' => (string) config('telegram.start_image_url'),
+                'caption' => "Добро пожаловать в бот «Библия»!\n\nЗдесь можно читать Писание, искать стихи, смотреть церковный календарь, открывать молитвы и сохранять важные места.\n\nВыберите нужный раздел:",
+                'reply_markup' => $this->startKeyboard(),
+            ],
+        ];
     }
 
     private function helpText(): string
     {
-        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
+        return "Команды:\n/start - начать\n/help - помощь\n/random - случайный стих\n/random old - Ветхий Завет\n/random new - Новый Завет\n/random psalms - Псалтирь\n/search - поиск следующим сообщением\n/search текст - поиск сразу\n/today - календарь дня\n/gospel - Евангелие дня\n/apostle - Апостол дня\n/fasting - посты дня\n/prayers - молитвы\n/settings - язык, перевод и фильтры\n/ask - написать администратору";
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function startKeyboard(): array
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        return [
+            'inline_keyboard' => [
+                [
+                    ['text' => '🗓 Церковный календарь', 'callback_data' => 'start:calendar'],
+                    ['text' => '📖 Библия', 'url' => "{$appUrl}/embed?source=telegram"],
+                ],
+                [
+                    ['text' => '🔖 Закладки', 'url' => "{$appUrl}/dashboard"],
+                    ['text' => '🙏 Молитвы', 'callback_data' => 'start:prayers'],
+                ],
+                [
+                    ['text' => '✝ Полезные материалы', 'url' => "{$appUrl}/"],
+                    ['text' => 'ℹ О боте', 'callback_data' => 'start:about'],
+                ],
+            ],
+        ];
     }
 
     /**
@@ -270,7 +367,7 @@ class TelegramUpdateHandler
             (int) $verse->verse_number,
         );
 
-        return trim("{$reference}\n{$this->telegramVerseText((string) $verse->text)}");
+        return $this->appendBotLink(trim("{$reference}\n{$this->telegramVerseText((string) $verse->text)}"));
     }
 
     /**
@@ -342,9 +439,9 @@ class TelegramUpdateHandler
             return "Ничего не найдено: {$query}";
         }
 
-        return $results
+        return $this->appendBotLink($results
             ->map(fn (array $row) => "{$row['reference']} {$this->telegramVerseText((string) $row['text'])}")
-            ->implode("\n\n");
+            ->implode("\n\n"));
     }
 
     /**
@@ -397,6 +494,63 @@ class TelegramUpdateHandler
     }
 
     /**
+     * @return array{method: string, payload: array<string, mixed>}
+     */
+    private function prayersAction(int|string $chatId): array
+    {
+        $prayers = DB::table('prayers')
+            ->where('is_public', true)
+            ->where('language_code', 'ru')
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->limit(20)
+            ->get(['id', 'title', 'short_title', 'category']);
+
+        if ($prayers->isEmpty()) {
+            return $this->messageAction($chatId, 'Молитвы пока не добавлены.');
+        }
+
+        $buttons = $prayers
+            ->map(fn ($prayer): array => [[
+                'text' => trim(($prayer->short_title ?: $prayer->title).' · '.$this->prayerCategoryLabel((string) $prayer->category)),
+                'callback_data' => 'prayer:'.$prayer->id,
+            ]])
+            ->values()
+            ->all();
+
+        return $this->messageAction($chatId, 'Молитвы\nВыберите молитву:', [
+            'reply_markup' => [
+                'inline_keyboard' => $buttons,
+            ],
+        ]);
+    }
+
+    private function prayerTextById(int $prayerId): string
+    {
+        $prayer = DB::table('prayers')
+            ->where('is_public', true)
+            ->where('id', $prayerId)
+            ->first(['title', 'body']);
+
+        if (! $prayer) {
+            return 'Молитва не найдена.';
+        }
+
+        return $this->trimTelegramText((string) $prayer->title."\n".$this->telegramVerseText((string) $prayer->body));
+    }
+
+    private function prayerCategoryLabel(string $category): string
+    {
+        return match ($category) {
+            'morning' => 'утро',
+            'evening' => 'вечер',
+            'communion_before' => 'ко Причастию',
+            'communion_after' => 'после Причастия',
+            default => 'молитвы',
+        };
+    }
+
+    /**
      * @param  array{
      *     date: string,
      *     events: Collection<int, array{id: int, name: string, legacy_type: int|null, date_rule_type: string, is_fasting: bool, type: array<string, mixed>|null}>,
@@ -420,7 +574,14 @@ class TelegramUpdateHandler
             $events = 'На этот день нет включённых событий календаря.';
         }
 
-        return trim("Календарь на {$day['date']}\n{$events}\n\n{$readings}");
+        $fasting = $day['fasting_events']->isEmpty()
+            ? ''
+            : "\n\nПост:\n".$day['fasting_events']
+                ->take(4)
+                ->map(fn (array $event) => '- '.$event['name'])
+                ->implode("\n");
+
+        return $this->appendBotLink(trim("Календарь на {$day['date']}\n{$events}{$fasting}\n\n{$readings}"));
     }
 
     /**
@@ -604,6 +765,7 @@ class TelegramUpdateHandler
 
     private function trimTelegramText(string $text): string
     {
+        $text = $this->appendBotLink($text);
         $text = trim($text);
 
         if (mb_strlen($text) <= 3900) {
@@ -611,6 +773,17 @@ class TelegramUpdateHandler
         }
 
         return rtrim(mb_substr($text, 0, 3850))."\n\nТекст сокращён, полный отрывок откройте на сайте.";
+    }
+
+    private function appendBotLink(string $text): string
+    {
+        $username = trim((string) config('telegram.bot_username', ''));
+
+        if ($username === '' || str_contains($text, 't.me/'.$username)) {
+            return $text;
+        }
+
+        return rtrim($text)."\n\nBible Desktop: https://t.me/{$username}";
     }
 
     /**
@@ -845,6 +1018,17 @@ class TelegramUpdateHandler
         $chat = $message['chat'] ?? null;
 
         return is_array($chat) ? ($chat['id'] ?? null) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    private function isGroupChat(array $message): bool
+    {
+        $chat = $message['chat'] ?? null;
+        $type = is_array($chat) ? (string) ($chat['type'] ?? '') : '';
+
+        return in_array($type, ['group', 'supergroup'], true);
     }
 
     /**

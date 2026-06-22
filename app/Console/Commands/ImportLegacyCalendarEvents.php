@@ -28,14 +28,14 @@ class ImportLegacyCalendarEvents extends Command
      * @var array<int, array{code: string, name: string, symbol: string|null, color: string|null, is_fasting: bool, default_visible: bool, sort: int}>
      */
     private array $eventTypeMap = [
-        0 => ['code' => 'pascha', 'name' => 'Светлое Христово Воскресение. Пасха', 'symbol' => '☦', 'color' => 'red', 'is_fasting' => false, 'default_visible' => true, 'sort' => 0],
-        1 => ['code' => 'twelve_great_feast', 'name' => 'Двунадесятые праздники', 'symbol' => '☦', 'color' => 'red', 'is_fasting' => false, 'default_visible' => true, 'sort' => 10],
-        2 => ['code' => 'great_feast', 'name' => 'Великие праздники', 'symbol' => '☦', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 20],
-        3 => ['code' => 'vigil_feast', 'name' => 'Средние бденные праздники', 'symbol' => '✚', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 30],
-        4 => ['code' => 'polyeleos_feast', 'name' => 'Средние полиелейные праздники', 'symbol' => '✣', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 40],
-        5 => ['code' => 'doxology_feast', 'name' => 'Малые славословные праздники', 'symbol' => '✢', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 50],
-        6 => ['code' => 'six_stichera_feast', 'name' => 'Малые шестиричные праздники', 'symbol' => '✢', 'color' => 'black', 'is_fasting' => false, 'default_visible' => false, 'sort' => 60],
-        7 => ['code' => 'daily_commemoration', 'name' => 'Вседневные. Служба без знака Типикона', 'symbol' => '✶', 'color' => 'black', 'is_fasting' => false, 'default_visible' => false, 'sort' => 70],
+        0 => ['code' => 'pascha', 'name' => 'Светлое Христово Воскресение. Пасха', 'symbol' => '☦︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => true, 'sort' => 0],
+        1 => ['code' => 'twelve_great_feast', 'name' => 'Двунадесятые праздники', 'symbol' => '☦︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => true, 'sort' => 10],
+        2 => ['code' => 'great_feast', 'name' => 'Великие праздники', 'symbol' => '☦︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 20],
+        3 => ['code' => 'vigil_feast', 'name' => 'Средние бденные праздники', 'symbol' => '✚︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 30],
+        4 => ['code' => 'polyeleos_feast', 'name' => 'Средние полиелейные праздники', 'symbol' => '✣︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 40],
+        5 => ['code' => 'doxology_feast', 'name' => 'Малые славословные праздники', 'symbol' => '✢︎', 'color' => 'red', 'is_fasting' => false, 'default_visible' => false, 'sort' => 50],
+        6 => ['code' => 'six_stichera_feast', 'name' => 'Малые шестиричные праздники', 'symbol' => '✢︎', 'color' => 'black', 'is_fasting' => false, 'default_visible' => false, 'sort' => 60],
+        7 => ['code' => 'daily_commemoration', 'name' => 'Вседневные. Служба без знака Типикона', 'symbol' => '✶︎', 'color' => 'black', 'is_fasting' => false, 'default_visible' => false, 'sort' => 70],
         8 => ['code' => 'memorial_date', 'name' => 'Памятные даты', 'symbol' => null, 'color' => null, 'is_fasting' => false, 'default_visible' => false, 'sort' => 80],
         9 => ['code' => 'departed_commemoration', 'name' => 'Дни особого поминовения усопших', 'symbol' => null, 'color' => null, 'is_fasting' => false, 'default_visible' => false, 'sort' => 90],
         10 => ['code' => 'fast', 'name' => 'Посты', 'symbol' => null, 'color' => null, 'is_fasting' => true, 'default_visible' => false, 'sort' => 100],

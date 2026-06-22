@@ -230,6 +230,17 @@ type CalendarDayDto = {
     readings: CalendarReadingDto[];
 };
 
+type PrayerDto = {
+    id: number;
+    language_code: string;
+    category: string;
+    liturgy_key: string | null;
+    title: string;
+    short_title: string | null;
+    excerpt?: string;
+    body?: string;
+};
+
 type ReaderTab = {
     id: string;
     title: string;
@@ -268,9 +279,9 @@ type HistoryItem = {
     openedAt: string;
 };
 
-type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search';
+type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers';
 type ToolId = LeftPanelId | 'strong' | 'print';
-type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'hash' | 'menu' | 'plus' | 'printer' | 'search' | 'sidebar';
+type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'search' | 'sidebar';
 
 declare global {
     interface Window {
@@ -349,6 +360,13 @@ const calendarDay = ref<CalendarDayDto | null>(null);
 const isCalendarLoading = ref(false);
 const calendarError = ref<string | null>(null);
 const expandedCalendarReadings = ref<number[]>([]);
+const prayers = ref<PrayerDto[]>([]);
+const isPrayersLoading = ref(false);
+const prayersError = ref<string | null>(null);
+const selectedPrayerId = ref<number | null>(null);
+const selectedPrayer = ref<PrayerDto | null>(null);
+const isPrayerLoading = ref(false);
+const prayerBodyCache = new Map<number, PrayerDto>();
 const bookmarks = ref<BookmarkItem[]>([]);
 const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
@@ -385,6 +403,7 @@ const tools = [
     { id: 'library', icon: 'book-open', title: 'Библиотека' },
     { id: 'calendar', icon: 'calendar', title: 'Календарь' },
     { id: 'bookmarks', icon: 'bookmark', title: 'Закладки' },
+    { id: 'prayers', icon: 'prayer', title: 'Молитвы' },
     { id: 'history', icon: 'clock', title: 'История просмотра' },
     { id: 'search', icon: 'search', title: 'Поиск' },
     { id: 'strong', icon: 'hash', title: 'Strong' },
@@ -433,20 +452,42 @@ const icons: Record<IconName, string[]> = {
         'M18 6 6 18',
         'm6 6 12 12',
     ],
+    feed: [
+        'M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11Z',
+        'M8 9h8',
+        'M8 12h8',
+        'M8 15h5',
+    ],
     hash: [
         'M5 9h14',
         'M4 15h14',
         'M10 3 8 21',
         'm16 3-2 18',
     ],
+    link: [
+        'M10 13a5 5 0 0 0 7.54.54l2-2A5 5 0 0 0 12.46 8',
+        'M14 11a5 5 0 0 0-7.54-4.54l-2 2A5 5 0 0 0 11.54 16',
+    ],
     menu: [
         'M4 6h16',
         'M4 12h16',
         'M4 18h16',
     ],
+    note: [
+        'M6 4.75C6 3.78 6.78 3 7.75 3h6.75L18 6.5v12.75c0 .97-.78 1.75-1.75 1.75h-8.5C6.78 21 6 20.22 6 19.25V4.75Z',
+        'M14 3v4h4',
+        'M9 11h6',
+        'M9 15h6',
+    ],
     plus: [
         'M12 5v14',
         'M5 12h14',
+    ],
+    prayer: [
+        'M12 3v18',
+        'M7 8h10',
+        'M8.5 20h7',
+        'M12 3c1.75 1.35 2.62 2.7 2.62 4.05 0 1.2-.98 2.2-2.62 3-1.64-.8-2.62-1.8-2.62-3C9.38 5.7 10.25 4.35 12 3Z',
     ],
     printer: [
         'M7 8V4h10v4',
@@ -514,6 +555,10 @@ const leftPanelTitle = computed(() => {
 
     if (activeLeftPanel.value === 'history') {
         return 'История просмотра';
+    }
+
+    if (activeLeftPanel.value === 'prayers') {
+        return 'Молитвы';
     }
 
     return 'Поиск';
@@ -1036,10 +1081,14 @@ function toggleLeftPanel(panel: LeftPanelId): void {
     if (activeLeftPanel.value === 'calendar') {
         void loadCalendarDay();
     }
+
+    if (activeLeftPanel.value === 'prayers') {
+        void loadPrayers();
+    }
 }
 
 function handleToolClick(toolId: ToolId): void {
-    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search') {
+    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers') {
         toggleLeftPanel(toolId);
         return;
     }
@@ -1052,6 +1101,78 @@ function handleToolClick(toolId: ToolId): void {
     if (toolId === 'strong') {
         showStrongNumbers.value = !showStrongNumbers.value;
     }
+}
+
+async function loadPrayers(): Promise<void> {
+    if (prayers.value.length > 0 || isPrayersLoading.value) {
+        return;
+    }
+
+    isPrayersLoading.value = true;
+    prayersError.value = null;
+
+    try {
+        const language = selectedLanguage.value === 'Русский' ? 'ru' : 'ru';
+        const response = await loadJson<ApiResponse<PrayerDto[]>>(`/api/prayers?language=${encodeURIComponent(language)}`);
+        prayers.value = response.data;
+    } catch (error) {
+        prayersError.value = error instanceof Error ? error.message : 'Не удалось загрузить молитвы';
+    } finally {
+        isPrayersLoading.value = false;
+    }
+}
+
+async function selectPrayer(prayer: PrayerDto): Promise<void> {
+    selectedPrayerId.value = prayer.id;
+    prayersError.value = null;
+
+    const cached = prayerBodyCache.get(prayer.id);
+    if (cached) {
+        selectedPrayer.value = cached;
+        return;
+    }
+
+    selectedPrayer.value = prayer;
+    isPrayerLoading.value = true;
+
+    try {
+        const response = await loadJson<ApiResponse<PrayerDto>>(`/api/prayers/${prayer.id}`);
+        selectedPrayer.value = response.data;
+        prayerBodyCache.set(prayer.id, response.data);
+    } catch (error) {
+        prayersError.value = error instanceof Error ? error.message : 'Не удалось загрузить текст молитвы';
+    } finally {
+        isPrayerLoading.value = false;
+    }
+}
+
+function prayerCategoryLabel(category: string): string {
+    return {
+        common: 'Основные',
+        morning: 'Утренние',
+        evening: 'Вечерние',
+        communion_before: 'Ко Святому Причащению',
+        communion_after: 'После Святого Причащения',
+        other: 'Другое',
+    }[category] ?? category;
+}
+
+function typiconIconUrl(event: CalendarEventDto): string | null {
+    const icon = {
+        0: '1',
+        1: '1',
+        2: '1',
+        3: '2',
+        4: '3',
+        5: '4',
+        6: '5',
+    }[event.legacy_type ?? -1];
+
+    return icon ? `/images/typicon/${icon}.svg` : null;
+}
+
+function typiconTitle(event: CalendarEventDto): string {
+    return event.type?.name ?? 'Знак типикона';
 }
 
 async function loadCalendarDay(): Promise<void> {
@@ -2120,15 +2241,6 @@ watch(activeStudyTab, (tab) => {
         <section class="workspace-title">
             <span class="muted-icon">Чтение</span>
             <strong>{{ currentTitle }}</strong>
-            <button type="button" aria-label="Меню">
-                <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <path
-                        v-for="path in iconPaths('menu')"
-                        :key="path"
-                        :d="path"
-                    />
-                </svg>
-            </button>
         </section>
 
         <nav class="tabs" aria-label="Открытые вкладки">
@@ -2282,8 +2394,15 @@ watch(activeStudyTab, (tab) => {
                         <h3>События</h3>
                         <ul v-if="calendarDay.events.length > 0">
                             <li v-for="event in calendarDay.events" :key="event.id">
+                                <img
+                                    v-if="typiconIconUrl(event)"
+                                    class="calendar-event-icon"
+                                    :src="typiconIconUrl(event) || ''"
+                                    :alt="typiconTitle(event)"
+                                    :title="typiconTitle(event)"
+                                />
                                 <span
-                                    v-if="event.type?.typicon_symbol"
+                                    v-else-if="event.type?.typicon_symbol"
                                     class="calendar-event-symbol"
                                     :class="{ 'calendar-event-symbol-red': event.type.color === 'red' }"
                                     :title="event.type.name"
@@ -2294,6 +2413,14 @@ watch(activeStudyTab, (tab) => {
                             </li>
                         </ul>
                         <p v-else>На этот день нет включённых событий календаря.</p>
+                        <template v-if="calendarDay.fasting_events.length > 0">
+                            <h3>Пост</h3>
+                            <ul>
+                                <li v-for="event in calendarDay.fasting_events" :key="`fast-${event.id}`">
+                                    {{ event.name }}
+                                </li>
+                            </ul>
+                        </template>
                         <h3>Евангелие и Апостол</h3>
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
@@ -2310,6 +2437,30 @@ watch(activeStudyTab, (tab) => {
                         </div>
                         <p v-else>Чтения дня ещё не заданы.</p>
                     </template>
+                </section>
+
+                <section v-else-if="activeLeftPanel === 'prayers'" class="prayer-panel">
+                    <p v-if="isPrayersLoading">Загружаю молитвы...</p>
+                    <p v-else-if="prayersError">{{ prayersError }}</p>
+                    <div class="prayer-list">
+                        <button
+                            v-for="prayer in prayers"
+                            :key="prayer.id"
+                            type="button"
+                            :class="{ active: selectedPrayerId === prayer.id }"
+                            @click="selectPrayer(prayer)"
+                        >
+                            <strong>{{ prayer.short_title || prayer.title }}</strong>
+                            <small>{{ prayerCategoryLabel(prayer.category) }}</small>
+                            <span>{{ prayer.excerpt }}</span>
+                        </button>
+                        <p v-if="!isPrayersLoading && prayers.length === 0">Молитвы пока не добавлены.</p>
+                    </div>
+                    <article v-if="selectedPrayer" class="prayer-text">
+                        <h3>{{ selectedPrayer.title }}</h3>
+                        <p v-if="isPrayerLoading">Загружаю текст...</p>
+                        <div v-else v-html="selectedPrayer.body"></div>
+                    </article>
                 </section>
 
                 <section v-else-if="activeLeftPanel === 'bookmarks'" class="bookmark-panel">
@@ -2374,6 +2525,7 @@ watch(activeStudyTab, (tab) => {
                     <button
                         type="button"
                         aria-label="Меню чтения"
+                        title="Меню чтения"
                         @click="isReaderMenuOpen = !isReaderMenuOpen"
                     >
                         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -2393,7 +2545,7 @@ watch(activeStudyTab, (tab) => {
                     @click="closeReaderMenu"
                 ></button>
                 <div class="reader-toolbar">
-                    <button type="button" class="bookmark" aria-label="Добавить закладку" @click="addBookmark">
+                    <button type="button" class="bookmark" aria-label="Добавить закладку" title="Добавить закладку" @click="addBookmark">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
                                 v-for="path in iconPaths('bookmark')"
@@ -2504,6 +2656,7 @@ watch(activeStudyTab, (tab) => {
                         <button
                             type="button"
                             aria-label="Strong"
+                            title="Показать номера Strong"
                             :class="{ active: showStrongNumbers }"
                             @click="showStrongNumbers = !showStrongNumbers"
                         >
@@ -2515,7 +2668,7 @@ watch(activeStudyTab, (tab) => {
                                 />
                             </svg>
                         </button>
-                        <button type="button" aria-label="Печать" @click="printPage">
+                        <button type="button" aria-label="Печать" title="Печать" @click="printPage">
                             <svg aria-hidden="true" viewBox="0 0 24 24">
                                 <path
                                     v-for="path in iconPaths('printer')"
@@ -2524,7 +2677,7 @@ watch(activeStudyTab, (tab) => {
                                 />
                             </svg>
                         </button>
-                        <button type="button" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">
+                        <button type="button" aria-label="Закрыть справочник" title="Закрыть справочник" @click="isStudyPanelOpen = false">
                             <svg aria-hidden="true" viewBox="0 0 24 24">
                                 <path
                                     v-for="path in iconPaths('close')"
@@ -2630,7 +2783,7 @@ watch(activeStudyTab, (tab) => {
             <aside class="analysis-panel" :class="{ 'is-open': isStudyPanelOpen }">
                 <header>
                     <h2>Справочник</h2>
-                    <button type="button" class="analysis-close" aria-label="Закрыть справочник" @click="isStudyPanelOpen = false">
+                    <button type="button" class="analysis-close" aria-label="Закрыть справочник" title="Закрыть справочник" @click="isStudyPanelOpen = false">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
                                 v-for="path in iconPaths('close')"
@@ -2642,10 +2795,46 @@ watch(activeStudyTab, (tab) => {
                 </header>
 
                 <div class="analysis-tabs">
-                    <button type="button" :class="{ active: activeStudyTab === 'strong' }" @click="activeStudyTab = 'strong'">Strong</button>
-                    <button type="button" :class="{ active: activeStudyTab === 'references' }" @click="activeStudyTab = 'references'">Параллельные места</button>
-                    <button type="button" :class="{ active: activeStudyTab === 'notes' }" @click="activeStudyTab = 'notes'">Заметки</button>
-                    <button type="button" :class="{ active: activeStudyTab === 'feed' }" @click="activeStudyTab = 'feed'">Лента</button>
+                    <button type="button" title="Strong" :class="{ active: activeStudyTab === 'strong' }" @click="activeStudyTab = 'strong'">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('hash')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                        <span class="sr-only">Strong</span>
+                    </button>
+                    <button type="button" title="Параллельные места" :class="{ active: activeStudyTab === 'references' }" @click="activeStudyTab = 'references'">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('link')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                        <span class="sr-only">Параллельные места</span>
+                    </button>
+                    <button type="button" title="Заметки" :class="{ active: activeStudyTab === 'notes' }" @click="activeStudyTab = 'notes'">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('note')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                        <span class="sr-only">Заметки</span>
+                    </button>
+                    <button type="button" title="Лента" :class="{ active: activeStudyTab === 'feed' }" @click="activeStudyTab = 'feed'">
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('feed')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                        <span class="sr-only">Лента</span>
+                    </button>
                 </div>
 
                 <section class="note">

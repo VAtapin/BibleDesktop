@@ -55,6 +55,8 @@ class TelegramSetWebhook extends Command
                 ['command' => 'today', 'description' => 'Церковный календарь на сегодня'],
                 ['command' => 'gospel', 'description' => 'Евангелие дня'],
                 ['command' => 'apostle', 'description' => 'Апостол дня'],
+                ['command' => 'fasting', 'description' => 'Посты дня'],
+                ['command' => 'prayers', 'description' => 'Молитвы'],
                 ['command' => 'settings', 'description' => 'Язык, перевод и фильтры'],
                 ['command' => 'ask', 'description' => 'Написать администратору'],
             ],

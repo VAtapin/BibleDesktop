@@ -13,6 +13,7 @@
  */
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\ChapterController;
+use App\Http\Controllers\Api\PrayerController;
 use App\Http\Controllers\Api\ReferenceDataController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\StudyDataController;
@@ -39,4 +40,6 @@ Route::post('/verses/{verse}/notes', [VerseNoteController::class, 'store'])
     ->whereNumber('verse');
 Route::get('/search/verses', [SearchController::class, 'verses']);
 Route::get('/calendar/day', [CalendarController::class, 'day']);
+Route::get('/prayers', [PrayerController::class, 'index']);
+Route::get('/prayers/{prayer}', [PrayerController::class, 'show'])->whereNumber('prayer');
 Route::post('/telegram/webhook', TelegramWebhookController::class);
