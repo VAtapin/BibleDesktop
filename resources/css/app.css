@@ -1317,6 +1317,20 @@ svg {
     background: #fff8df;
 }
 
+.reader-theme-dark .chapter p.selected {
+    background: #203142;
+}
+
+.reader-theme-dark .chapter p.highlighted {
+    outline-color: #d4af37;
+    background: #24384b;
+    color: #f4f8fc;
+}
+
+.reader-theme-dark .chapter p.highlighted .verse-number {
+    color: #6fb6ff;
+}
+
 .chapter p span {
     min-width: 0;
     cursor: pointer;
