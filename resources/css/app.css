@@ -1482,7 +1482,8 @@ svg {
 
 .mini-reader-bar,
 .reader-menu-backdrop,
-.reader-menu-tool {
+.reader-menu-tool,
+.reader-bottom-menu-button {
     display: none;
 }
 
@@ -2662,6 +2663,39 @@ svg {
         color: #3d5875;
     }
 
+    .reader-bottom-menu-button,
+    .embed-shell .reader-bottom-menu-button {
+        position: fixed;
+        z-index: 89;
+        right: 16px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 40px;
+        border: 1px solid #c7d4e3;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #315171;
+        box-shadow: 0 10px 28px rgb(36 52 72 / 22%);
+    }
+
+    .reader-bottom-menu-button svg,
+    .embed-shell .reader-bottom-menu-button svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.9;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .reader-panel.reader-menu-open .reader-bottom-menu-button,
+    .embed-shell .reader-menu-open .reader-bottom-menu-button {
+        z-index: 95;
+    }
+
     .reader-toolbar {
         position: fixed;
         z-index: 94;
@@ -2754,6 +2788,12 @@ svg {
     .reader-theme-dark .reader-toolbar {
         border-color: var(--line-soft);
         background: var(--panel-bg);
+    }
+
+    .reader-theme-dark .reader-bottom-menu-button {
+        border-color: var(--line-soft);
+        background: var(--panel-bg);
+        color: var(--text-main);
     }
 
     .embed-shell .reader-toolbar {

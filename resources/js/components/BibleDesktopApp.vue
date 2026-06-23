@@ -3885,6 +3885,22 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </div>
                 </article>
 
+                <button
+                    type="button"
+                    class="reader-bottom-menu-button"
+                    aria-label="Меню чтения"
+                    title="Меню чтения"
+                    @click="isReaderMenuOpen = !isReaderMenuOpen"
+                >
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            v-for="path in iconPaths(isReaderMenuOpen ? 'close' : 'menu')"
+                            :key="path"
+                            :d="path"
+                        />
+                    </svg>
+                </button>
+
                 <div class="reader-footer">
                     <button
                         type="button"
