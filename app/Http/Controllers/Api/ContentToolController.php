@@ -34,7 +34,7 @@ class ContentToolController extends Controller
             ->where('is_public', true)
             ->orderBy('sort_order')
             ->orderBy('title')
-            ->get(['id', 'slug', 'title', 'description', 'url', 'category', 'icon'])
+            ->get(['id', 'slug', 'title', 'description', 'url', 'category', 'icon', 'cover_image_url'])
             ->map(fn ($link): array => [
                 'id' => (int) $link->id,
                 'slug' => (string) $link->slug,
@@ -43,6 +43,7 @@ class ContentToolController extends Controller
                 'url' => (string) $link->url,
                 'category' => (string) $link->category,
                 'icon' => $link->icon === null ? null : (string) $link->icon,
+                'cover_image_url' => $this->publicAssetUrl($link->cover_image_url ?? null),
             ]);
 
         return response()->json(['data' => $links]);

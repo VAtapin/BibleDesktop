@@ -28,6 +28,7 @@ class UsefulLink extends Model
         'url',
         'category',
         'icon',
+        'cover_image_url',
         'sort_order',
         'is_public',
     ];

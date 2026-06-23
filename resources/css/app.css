@@ -598,6 +598,7 @@ svg {
 .bookmark-list,
 .calendar-readings,
 .history-list,
+.materials-card-list,
 .module-card-list,
 .prayer-list,
 .compact-list {
@@ -620,6 +621,7 @@ svg {
 .advanced-search-results button,
 .bookmark-list article,
 .history-list button,
+.materials-card-list a,
 .module-card-list button,
 .prayer-list button,
 .compact-list button,
@@ -631,6 +633,7 @@ svg {
 .advanced-search-results button,
 .bookmark-list article > button:first-child,
 .history-list button,
+.materials-card-list a,
 .module-card-list button,
 .prayer-list button,
 .compact-list button,
@@ -661,6 +664,7 @@ svg {
 .bookmark-list strong,
 .calendar-readings strong,
 .history-list strong,
+.materials-card-list strong,
 .module-card-list strong,
 .prayer-list strong,
 .compact-list strong {
@@ -678,6 +682,8 @@ svg {
 .bookmark-list span,
 .calendar-readings span,
 .history-list span,
+.materials-card-list span,
+.materials-card-list small,
 .module-card-list span,
 .module-card-list small,
 .prayer-list span,
@@ -701,6 +707,52 @@ svg {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
     padding: 10px;
+}
+
+.materials-card-list a {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    border: 1px solid #dce5ee;
+    background: #f8fafc;
+}
+
+.materials-card-list img,
+.material-cover-fallback {
+    width: 64px;
+    height: 48px;
+    object-fit: cover;
+    border: 1px solid #d7e0eb;
+    background: #163a5d;
+}
+
+.material-cover-fallback {
+    display: grid;
+    place-items: center;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.material-card-body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    overflow: visible;
+    white-space: normal;
+}
+
+.materials-card-list .material-card-body > span {
+    overflow: visible;
+    color: #596579;
+    font-size: 13px;
+    line-height: 1.32;
+    white-space: normal;
+}
+
+.materials-card-list .material-card-body > small {
+    overflow: visible;
+    white-space: normal;
 }
 
 .calendar-date {

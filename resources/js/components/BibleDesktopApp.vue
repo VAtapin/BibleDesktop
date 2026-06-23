@@ -289,6 +289,7 @@ type UsefulLinkDto = {
     url: string;
     category: string;
     icon: string | null;
+    cover_image_url: string | null;
 };
 
 type FaithQuestionDto = {
@@ -3229,7 +3230,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 <section v-else-if="activeLeftPanel === 'materials'" class="materials-panel">
                     <p v-if="isContentToolsLoading">Загружаю материалы...</p>
                     <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
-                    <div class="compact-list">
+                    <div class="materials-card-list">
                         <a
                             v-for="link in usefulLinks"
                             :key="link.id"
@@ -3237,9 +3238,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
                             target="_blank"
                             rel="noreferrer"
                         >
-                            <strong>{{ link.title }}</strong>
-                            <small>{{ link.category }}</small>
-                            <span>{{ link.description }}</span>
+                            <img v-if="link.cover_image_url" :src="link.cover_image_url" alt="" />
+                            <span v-else class="material-cover-fallback">{{ link.icon || 'link' }}</span>
+                            <span class="material-card-body">
+                                <strong>{{ link.title }}</strong>
+                                <small>{{ link.category }}</small>
+                                <span>{{ link.description }}</span>
+                            </span>
                         </a>
                         <p v-if="!isContentToolsLoading && usefulLinks.length === 0">Материалы пока не добавлены.</p>
                     </div>

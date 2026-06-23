@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -50,6 +51,17 @@ class UsefulLinkResource extends Resource
             TextInput::make('title')->label('Название')->required()->maxLength(220),
             Textarea::make('description')->label('Описание')->rows(4)->columnSpanFull(),
             TextInput::make('url')->label('URL')->url()->required()->maxLength(500)->columnSpanFull(),
+            FileUpload::make('cover_image_url')
+                ->label('Картинка')
+                ->image()
+                ->disk('public')
+                ->directory('useful-links')
+                ->visibility('public')
+                ->imageResizeMode('cover')
+                ->imageResizeTargetWidth('640')
+                ->imageResizeTargetHeight('360')
+                ->maxSize(4096)
+                ->columnSpanFull(),
             Select::make('category')->label('Категория')->options([
                 'monastery' => 'Монастырь',
                 'app' => 'Приложение',
