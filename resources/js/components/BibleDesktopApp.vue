@@ -372,6 +372,7 @@ type PrintBlock = {
     body?: string;
     html?: string;
     image?: string | null;
+    kind?: 'verse' | 'section';
 };
 
 type PrintDocument = {
@@ -1897,6 +1898,7 @@ function chapterPrintDocument(): PrintDocument {
         blocks: verses.map((verse) => ({
             title: String(verse.number),
             body: displayVerseText(verse),
+            kind: 'verse',
         })),
     };
 }
@@ -4034,6 +4036,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
             v-for="(block, index) in printDocument.blocks"
             :key="`print-block-${index}`"
             class="print-block"
+            :class="{ 'print-verse': block.kind === 'verse' }"
         >
             <h2>{{ block.title }}</h2>
             <img v-if="block.image" :src="block.image" alt="" />
