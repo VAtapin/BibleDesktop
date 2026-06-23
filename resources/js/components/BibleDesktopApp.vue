@@ -388,6 +388,7 @@ type ReaderTab = {
     translationCode: string;
     bookSlug: string;
     chapterNumber: number;
+    contentMode: MainContentMode;
 };
 
 type ReaderState = {
@@ -786,7 +787,7 @@ const currentTitle = computed(() => {
 const visibleReaderTabs = computed(() => {
     return readerTabs.value.map((tab) => ({
         ...tab,
-        title: tab.id === activeTabId.value ? currentTitle.value : tab.title,
+        title: tab.id === activeTabId.value && tab.contentMode === 'chapter' ? currentTitle.value : tab.title,
         active: tab.id === activeTabId.value,
     }));
 });
@@ -1089,6 +1090,7 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
     const translationCode = state.translationCode ?? selectedTranslationCode.value;
     const bookSlug = state.bookSlug ?? selectedBookSlug.value;
     const chapterNumber = Math.max(1, Number(state.chapterNumber ?? selectedChapterNumber.value));
+    const contentMode = state.contentMode ?? 'chapter';
 
     return {
         id: state.id ?? createClientId(),
@@ -1096,6 +1098,7 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
         translationCode,
         bookSlug,
         chapterNumber,
+        contentMode,
     };
 }
 
@@ -1136,10 +1139,20 @@ function normalizeReaderTabs(tabs: unknown): ReaderTab[] {
                 translationCode: candidate.translationCode,
                 bookSlug: candidate.bookSlug,
                 chapterNumber: Number(candidate.chapterNumber),
+                contentMode: isMainContentMode(candidate.contentMode) ? candidate.contentMode : 'chapter',
             });
         })
         .filter((tab): tab is ReaderTab => tab !== null)
         .slice(0, maxReaderTabs);
+}
+
+function isMainContentMode(value: unknown): value is MainContentMode {
+    return value === 'chapter'
+        || value === 'prayer'
+        || value === 'faith-question'
+        || value === 'recipe'
+        || value === 'quiz'
+        || value === 'tour';
 }
 
 function activeReaderTab(): ReaderTab | null {
@@ -1149,7 +1162,7 @@ function activeReaderTab(): ReaderTab | null {
 function syncActiveTabFromSelection(): void {
     const tab = activeReaderTab();
 
-    if (!tab) {
+    if (!tab || tab.contentMode !== 'chapter') {
         return;
     }
 
@@ -1157,6 +1170,59 @@ function syncActiveTabFromSelection(): void {
     tab.bookSlug = selectedBookSlug.value;
     tab.chapterNumber = selectedChapterNumber.value;
     tab.title = currentTitle.value;
+}
+
+function setActiveTabContent(mode: MainContentMode, title: string | null = null): void {
+    const tab = activeReaderTab();
+
+    if (!tab) {
+        return;
+    }
+
+    tab.contentMode = mode;
+    tab.title = title ?? (mode === 'chapter' ? currentTitle.value : tab.title);
+}
+
+function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string): void {
+    syncActiveTabFromSelection();
+
+    const tab = activeReaderTab();
+    if (!tab || tab.contentMode === 'chapter' || tab.contentMode !== mode) {
+        if (readerTabs.value.length < maxReaderTabs) {
+            const contentTab = createReaderTab({
+                title,
+                contentMode: mode,
+                translationCode: selectedTranslationCode.value,
+                bookSlug: selectedBookSlug.value,
+                chapterNumber: selectedChapterNumber.value,
+            });
+            readerTabs.value.push(contentTab);
+            activeTabId.value = contentTab.id;
+        }
+    }
+
+    mainContentMode.value = mode;
+    setActiveTabContent(mode, title);
+    persistReaderState();
+}
+
+function ensureChapterTab(title: string | null = null): void {
+    const tab = activeReaderTab();
+
+    if (tab && tab.contentMode !== 'chapter' && readerTabs.value.length < maxReaderTabs) {
+        const chapterTab = createReaderTab({
+            title: title ?? currentTitle.value,
+            contentMode: 'chapter',
+            translationCode: selectedTranslationCode.value,
+            bookSlug: selectedBookSlug.value,
+            chapterNumber: selectedChapterNumber.value,
+        });
+        readerTabs.value.push(chapterTab);
+        activeTabId.value = chapterTab.id;
+    }
+
+    mainContentMode.value = 'chapter';
+    setActiveTabContent('chapter', title);
 }
 
 function readReaderState(): ReaderState | null {
@@ -1417,12 +1483,15 @@ async function loadPrayers(): Promise<void> {
 }
 
 async function selectPrayer(prayer: PrayerDto): Promise<void> {
+    openContentTab('prayer', prayer.title);
     selectedPrayerId.value = prayer.id;
     prayersError.value = null;
 
     const cached = prayerBodyCache.get(prayer.id);
     if (cached) {
         selectedPrayer.value = cached;
+        mainContentMode.value = 'prayer';
+        setActiveTabContent('prayer', cached.title);
         return;
     }
 
@@ -1434,6 +1503,7 @@ async function selectPrayer(prayer: PrayerDto): Promise<void> {
         selectedPrayer.value = response.data;
         prayerBodyCache.set(prayer.id, response.data);
         mainContentMode.value = 'prayer';
+        setActiveTabContent('prayer', response.data.title);
         if (response.data.sections && response.data.sections.length > 0) {
             void selectPrayerSection(response.data.sections[0]);
         }
@@ -1505,8 +1575,10 @@ async function loadFaithQuestions(): Promise<void> {
 }
 
 function selectFaithQuestion(question: FaithQuestionDto): void {
+    openContentTab('faith-question', question.question);
     selectedFaithQuestion.value = question;
     mainContentMode.value = 'faith-question';
+    setActiveTabContent('faith-question', question.question);
 }
 
 async function loadRecipeTools(): Promise<void> {
@@ -1538,6 +1610,7 @@ function openFastingRecipes(): void {
 }
 
 async function selectRecipe(recipe: RecipeDto): Promise<void> {
+    openContentTab('recipe', recipe.title);
     mainContentMode.value = 'recipe';
     selectedRecipe.value = recipe;
     selectedRecipeServings.value = Math.max(1, recipe.servings ?? 4);
@@ -1547,6 +1620,7 @@ async function selectRecipe(recipe: RecipeDto): Promise<void> {
         const response = await loadJson<ApiResponse<RecipeDto>>(`/api/recipes/${recipe.id}`);
         selectedRecipe.value = response.data;
         selectedRecipeServings.value = Math.max(1, response.data.servings ?? 4);
+        setActiveTabContent('recipe', response.data.title);
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить рецепт';
     }
@@ -1590,6 +1664,7 @@ async function loadQuizzes(): Promise<void> {
 }
 
 async function selectQuiz(quiz: QuizDto): Promise<void> {
+    openContentTab('quiz', quiz.title);
     mainContentMode.value = 'quiz';
     selectedQuiz.value = quiz;
     selectedQuizQuestionIndex.value = 0;
@@ -1599,6 +1674,7 @@ async function selectQuiz(quiz: QuizDto): Promise<void> {
     try {
         const response = await loadJson<ApiResponse<QuizDto>>(`/api/quizzes/${quiz.id}`);
         selectedQuiz.value = response.data;
+        setActiveTabContent('quiz', response.data.title);
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить тест';
     }
@@ -1724,8 +1800,10 @@ async function loadVirtualTours(): Promise<void> {
 }
 
 function selectVirtualTour(tour: VirtualTourDto): void {
+    openContentTab('tour', tour.title);
     selectedVirtualTour.value = tour;
     isVirtualTourOverlayOpen.value = true;
+    setActiveTabContent('tour', tour.title);
 }
 
 function closeVirtualTourOverlay(): void {
@@ -2064,12 +2142,12 @@ async function loadBooksForSelectedTranslation(): Promise<void> {
 }
 
 async function changeTranslation(): Promise<void> {
-    mainContentMode.value = 'chapter';
     if (compareTranslationCode.value === selectedTranslationCode.value) {
         compareTranslationCode.value = '';
     }
 
     selectedChapterNumber.value = 1;
+    ensureChapterTab();
     resetVerseSelection();
     await loadBooksForSelectedTranslation();
     await loadChapter();
@@ -2078,8 +2156,8 @@ async function changeTranslation(): Promise<void> {
 }
 
 function changeBook(): void {
-    mainContentMode.value = 'chapter';
     selectedChapterNumber.value = 1;
+    ensureChapterTab();
     resetVerseSelection();
     void loadChapter();
 }
@@ -2090,7 +2168,7 @@ function changeCompareTranslation(): void {
 }
 
 function changeChapter(): void {
-    mainContentMode.value = 'chapter';
+    ensureChapterTab();
     resetVerseSelection();
     void loadChapter();
 }
@@ -2104,7 +2182,7 @@ function goChapter(delta: number): void {
     }
 
     selectedChapterNumber.value = nextChapter;
-    mainContentMode.value = 'chapter';
+    ensureChapterTab();
     resetVerseSelection();
     void loadChapter();
 }
@@ -2165,9 +2243,11 @@ function addBookmark(): void {
 }
 
 async function openBookmark(bookmark: BookmarkItem): Promise<void> {
+    syncActiveTabFromSelection();
     selectedTranslationCode.value = bookmark.translationCode;
     selectedBookSlug.value = bookmark.bookSlug;
     selectedChapterNumber.value = bookmark.chapterNumber;
+    ensureChapterTab(bookmark.reference);
     highlightedVerseNumbers.value = [bookmark.verseNumber];
 
     await loadBooksForSelectedTranslation();
@@ -2201,9 +2281,11 @@ function recordHistory(verseNumber: number | null = null): void {
 }
 
 async function openHistoryItem(item: HistoryItem): Promise<void> {
+    syncActiveTabFromSelection();
     selectedTranslationCode.value = item.translationCode;
     selectedBookSlug.value = item.bookSlug;
     selectedChapterNumber.value = item.chapterNumber;
+    ensureChapterTab(item.title);
     highlightedVerseNumbers.value = item.verseNumber ? [item.verseNumber] : [];
 
     await loadBooksForSelectedTranslation();
@@ -2218,13 +2300,18 @@ function clearHistory(): void {
 }
 
 async function openLibraryTranslation(translation: TranslationDto): Promise<void> {
-    if (translation.code === selectedTranslationCode.value) {
+    const isSameTranslation = translation.code === selectedTranslationCode.value;
+    const isChapterTab = activeReaderTab()?.contentMode === 'chapter';
+
+    if (isSameTranslation && isChapterTab) {
         activeLeftPanel.value = null;
         return;
     }
 
+    syncActiveTabFromSelection();
     selectedTranslationCode.value = translation.code;
     selectedChapterNumber.value = 1;
+    ensureChapterTab(translation.name);
     highlightedVerseNumbers.value = [];
 
     await loadBooksForSelectedTranslation();
@@ -2248,6 +2335,12 @@ async function switchReaderTab(tabId: string): Promise<void> {
     selectedTranslationCode.value = tab.translationCode;
     selectedBookSlug.value = tab.bookSlug;
     selectedChapterNumber.value = tab.chapterNumber;
+    mainContentMode.value = tab.contentMode;
+
+    if (tab.contentMode !== 'chapter') {
+        persistReaderState();
+        return;
+    }
 
     await loadBooksForSelectedTranslation();
     await loadChapter();
@@ -2284,6 +2377,12 @@ async function closeReaderTab(tabId: string): Promise<void> {
     selectedTranslationCode.value = nextTab.translationCode;
     selectedBookSlug.value = nextTab.bookSlug;
     selectedChapterNumber.value = nextTab.chapterNumber;
+    mainContentMode.value = nextTab.contentMode;
+
+    if (nextTab.contentMode !== 'chapter') {
+        persistReaderState();
+        return;
+    }
 
     await loadBooksForSelectedTranslation();
     await loadChapter();
@@ -2479,8 +2578,8 @@ async function openSocialPost(post: SocialPostDto): Promise<void> {
 
     selectedBookSlug.value = post.book_slug;
     selectedChapterNumber.value = post.chapter_number;
+    ensureChapterTab(`${post.book_slug} ${post.chapter_number}:${post.verse_number}`);
     highlightedVerseNumbers.value = [post.verse_number];
-    mainContentMode.value = 'chapter';
 
     await loadBooksForSelectedTranslation();
     await loadChapter(post.verse_number);
@@ -2738,8 +2837,10 @@ async function runAdvancedSearch(): Promise<void> {
 }
 
 async function openSearchResult(result: SearchResultDto): Promise<void> {
+    syncActiveTabFromSelection();
     selectedBookSlug.value = result.book.slug;
     selectedChapterNumber.value = result.chapter_number;
+    ensureChapterTab(searchResultReference(result));
     highlightedVerseNumbers.value = [result.verse_number];
     searchQuery.value = searchResultReference(result);
     showSearchResults.value = false;
@@ -2776,6 +2877,7 @@ async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
 
     selectedBookSlug.value = bookSlug;
     selectedChapterNumber.value = reference.target.chapter_number;
+    ensureChapterTab(crossReferenceLabel(reference));
     highlightedVerseNumbers.value = [reference.target.verse_number];
     isStudyPanelOpen.value = false;
     activeLeftPanel.value = null;
