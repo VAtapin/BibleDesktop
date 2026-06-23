@@ -14,16 +14,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SocialPost extends Model
+class Bookmark extends Model
 {
     protected $fillable = [
         'user_id',
         'verse_id',
-        'visibility',
-        'body',
+        'start_verse_id',
+        'end_verse_id',
+        'module_book_id',
+        'module_chapter_id',
+        'title',
+        'description',
         'metadata_json',
     ];
 

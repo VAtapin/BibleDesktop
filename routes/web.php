@@ -42,6 +42,12 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::put('/dashboard/notes/{note}', [DashboardController::class, 'updateNote'])->whereNumber('note')->name('dashboard.notes.update');
+    Route::delete('/dashboard/notes/{note}', [DashboardController::class, 'deleteNote'])->whereNumber('note')->name('dashboard.notes.delete');
+    Route::put('/dashboard/bookmarks/{bookmark}', [DashboardController::class, 'updateBookmark'])->whereNumber('bookmark')->name('dashboard.bookmarks.update');
+    Route::delete('/dashboard/bookmarks/{bookmark}', [DashboardController::class, 'deleteBookmark'])->whereNumber('bookmark')->name('dashboard.bookmarks.delete');
+    Route::put('/dashboard/posts/{post}', [DashboardController::class, 'updatePost'])->whereNumber('post')->name('dashboard.posts.update');
+    Route::delete('/dashboard/posts/{post}', [DashboardController::class, 'deletePost'])->whereNumber('post')->name('dashboard.posts.delete');
     Route::get('/reader/verses/{verse}/notes', [ReaderDataController::class, 'notes'])->whereNumber('verse');
     Route::post('/reader/verses/{verse}/notes', [ReaderDataController::class, 'storeNote'])->whereNumber('verse');
     Route::get('/reader/bookmarks', [ReaderDataController::class, 'bookmarks']);

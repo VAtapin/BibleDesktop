@@ -14,14 +14,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SocialPost extends Model
+class Note extends Model
 {
     protected $fillable = [
         'user_id',
+        'group_id',
         'verse_id',
+        'start_verse_id',
+        'end_verse_id',
         'visibility',
         'body',
         'metadata_json',

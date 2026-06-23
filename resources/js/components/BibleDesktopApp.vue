@@ -4011,6 +4011,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </section>
 
                 <form v-if="activeStudyTab === 'notes'" class="comment-form" @submit.prevent="submitVerseNote">
+                    <p class="note-private-hint">Заметки видите только вы. Это личный комментарий к выбранному стиху.</p>
                     <div v-if="!currentUser" class="guest-warning">
                         Заметки сохраняются только в этом браузере. Для постоянного хранения войдите или зарегистрируйтесь.
                         <a :href="appConfig.auth.login_url">Войти</a>
@@ -4032,7 +4033,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         placeholder="Напишите свой комментарий"
                         :disabled="!selectedVerse?.id || isNotesLoading"
                     ></textarea>
-                    <button type="submit" :disabled="!selectedVerse?.id || noteBody.trim().length === 0 || isNotesLoading">Написать</button>
+                    <button
+                        type="submit"
+                        class="note-submit"
+                        :disabled="!selectedVerse?.id || noteBody.trim().length === 0 || isNotesLoading"
+                    >
+                        Написать
+                    </button>
                 </form>
 
                 <section v-if="activeStudyTab === 'feed'" class="social-feed">
