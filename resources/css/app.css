@@ -958,14 +958,25 @@ svg {
     line-height: 1.2;
 }
 
-.content-cover,
-.quiz-question-image {
+.content-cover {
     width: min(100%, 680px);
     max-height: 360px;
     object-fit: cover;
     display: block;
     margin: 0 0 16px;
     border: 1px solid #dbe3ed;
+}
+
+.quiz-question-image {
+    display: block;
+    width: min(100%, 680px);
+    height: auto;
+    max-height: min(52vh, 460px);
+    margin: 0 0 16px;
+    border: 1px solid #dbe3ed;
+    background: #f1f5f9;
+    object-fit: contain;
+    object-position: center center;
 }
 
 .content-reader p,
