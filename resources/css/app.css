@@ -1978,18 +1978,35 @@ svg {
 }
 
 .feed-compose-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     width: 100%;
-    border: 1px solid #d7dee7;
-    background: #edf5fb;
-    color: #2f6f9f;
-    padding: 9px 10px;
+    min-height: 38px;
+    border: 1px solid #2f6f9f;
+    border-radius: 4px;
+    background: #2f6f9f;
+    color: #ffffff;
+    padding: 8px 12px;
     font-weight: 700;
-    text-align: left;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(22, 57, 95, 0.18);
 }
 
 .feed-compose-open:hover {
-    border-color: #9fb8d2;
-    background: #e4f0f8;
+    border-color: #255d87;
+    background: #255d87;
+}
+
+.feed-compose-open svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .feed-scope {
@@ -2158,6 +2175,12 @@ svg {
     border-color: #344456;
     background: #1a2632;
     color: #dce6f2;
+}
+
+.reader-theme-dark .feed-compose-open {
+    border-color: #5f86ad;
+    background: #315f89;
+    color: #ffffff;
 }
 
 .reader-theme-dark .feed-compose-open:hover,

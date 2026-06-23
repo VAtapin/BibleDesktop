@@ -4047,7 +4047,14 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         class="feed-compose-open"
                         @click="openSocialComposer"
                     >
-                        Написать в ленту
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('plus')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                        <span>Написать в ленту</span>
                     </button>
                     <div v-if="currentUser" class="feed-scope">
                         <button
