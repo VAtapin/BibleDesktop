@@ -579,7 +579,7 @@ const leftTools = [
     { id: 'calendar', icon: 'calendar', title: 'Церковный календарь', group: 'church' },
     { id: 'prayers', icon: 'prayers', title: 'Молитвослов', group: 'church' },
     { id: 'faith', icon: 'faith', title: 'Вопросы веры', group: 'church' },
-    { id: 'materials', icon: 'faith', title: 'Полезные материалы', group: 'church' },
+    { id: 'materials', icon: 'materials', title: 'Полезные материалы', group: 'church' },
     { id: 'recipes', icon: 'recipes', title: 'Постные рецепты', group: 'church' },
     { id: 'quizzes', icon: 'quizzes', title: 'Тесты', group: 'church' },
     { id: 'tours', icon: 'tours', title: 'Храмы и монастыри 360°', group: 'church' },
