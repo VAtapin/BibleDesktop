@@ -1743,6 +1743,12 @@ function prayerCategoryLabel(category: string): string {
 }
 
 function typiconIconUrl(event: CalendarEventDto): string | null {
+    const configuredIcon = event.type?.typicon_symbol?.trim();
+
+    if (configuredIcon && /^[1-5]$/.test(configuredIcon)) {
+        return `/images/typicon/${configuredIcon}.svg`;
+    }
+
     const icon = {
         0: '1',
         1: '1',

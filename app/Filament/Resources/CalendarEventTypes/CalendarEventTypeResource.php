@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -30,6 +31,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 class CalendarEventTypeResource extends Resource
@@ -61,9 +63,11 @@ class CalendarEventTypeResource extends Resource
                     ->label('Название')
                     ->required()
                     ->maxLength(160),
-                TextInput::make('typicon_symbol')
-                    ->label('Знак типикона')
-                    ->maxLength(20),
+                Select::make('typicon_symbol')
+                    ->label('Иконка типикона')
+                    ->options(self::typiconIconOptions())
+                    ->nullable()
+                    ->helperText('Номер SVG-файла из public/images/typicon. Если пусто, событие выводится без знака.'),
                 TextInput::make('color')
                     ->label('Цвет')
                     ->maxLength(20),
@@ -92,7 +96,9 @@ class CalendarEventTypeResource extends Resource
                     ->label('XML')
                     ->sortable(),
                 TextColumn::make('typicon_symbol')
-                    ->label('Знак'),
+                    ->label('Иконка')
+                    ->formatStateUsing(fn (?string $state): HtmlString|string => self::typiconIconPreview($state))
+                    ->html(),
                 TextColumn::make('name')
                     ->label('Название')
                     ->searchable()
@@ -128,5 +134,38 @@ class CalendarEventTypeResource extends Resource
         return [
             'index' => ManageCalendarEventTypes::route('/'),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function typiconIconOptions(): array
+    {
+        return [
+            '1' => '1 - Пасха, двунадесятые и великие праздники',
+            '2' => '2 - Средний бденный праздник',
+            '3' => '3 - Средний полиелейный праздник',
+            '4' => '4 - Малый славословный праздник',
+            '5' => '5 - Малый шестиричный праздник',
+        ];
+    }
+
+    private static function typiconIconPreview(?string $state): HtmlString|string
+    {
+        if ($state === null || trim($state) === '') {
+            return '—';
+        }
+
+        $icon = trim($state);
+
+        if (preg_match('/^[1-5]$/', $icon) === 1) {
+            return new HtmlString(sprintf(
+                '<img src="/images/typicon/%s.svg" alt="Типикон %s" style="width:18px;height:18px;object-fit:contain;vertical-align:middle" />',
+                e($icon),
+                e($icon),
+            ));
+        }
+
+        return $icon;
     }
 }

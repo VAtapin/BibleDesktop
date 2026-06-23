@@ -853,6 +853,13 @@ class TelegramUpdateHandler
     {
         $symbol = trim((string) ($event['type']['typicon_symbol'] ?? ''));
 
+        if (preg_match('/^[1-5]$/', $symbol) === 1) {
+            $symbol = match ($symbol) {
+                '1' => '☦',
+                '2', '3', '4', '5' => '✚',
+            };
+        }
+
         if ($symbol === '') {
             $symbol = match ((int) ($event['legacy_type'] ?? -1)) {
                 0, 1, 2 => '☦',
