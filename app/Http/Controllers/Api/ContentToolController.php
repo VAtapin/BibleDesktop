@@ -48,6 +48,29 @@ class ContentToolController extends Controller
         return response()->json(['data' => $links]);
     }
 
+    public function faithQuestions(): JsonResponse
+    {
+        if (! Schema::hasTable('faith_questions')) {
+            return response()->json(['data' => []]);
+        }
+
+        $questions = DB::table('faith_questions')
+            ->where('is_public', true)
+            ->orderBy('sort_order')
+            ->orderBy('question')
+            ->get(['id', 'slug', 'category', 'question', 'answer_html', 'source_url'])
+            ->map(fn ($question): array => [
+                'id' => (int) $question->id,
+                'slug' => (string) $question->slug,
+                'category' => (string) $question->category,
+                'question' => (string) $question->question,
+                'answer_html' => (string) $question->answer_html,
+                'source_url' => $question->source_url === null ? null : (string) $question->source_url,
+            ]);
+
+        return response()->json(['data' => $questions]);
+    }
+
     public function recipeCategories(): JsonResponse
     {
         if (! Schema::hasTable('recipe_categories')) {

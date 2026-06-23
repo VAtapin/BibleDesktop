@@ -291,6 +291,15 @@ type UsefulLinkDto = {
     icon: string | null;
 };
 
+type FaithQuestionDto = {
+    id: number;
+    slug: string;
+    category: string;
+    question: string;
+    answer_html: string;
+    source_url: string | null;
+};
+
 type RecipeDto = {
     id: number;
     title: string;
@@ -322,20 +331,24 @@ type QuizDto = {
     slug: string;
     title: string;
     description: string | null;
-    questions?: Array<{
-        id: number;
-        question: string;
-        answer_type: string;
-        image_url: string | null;
-        explanation: string | null;
-        recommendation: QuizRecommendationDto | null;
-        answers: Array<{
-            id: number;
-            answer: string;
-            is_correct: boolean;
-            recommendation: QuizRecommendationDto | null;
-        }>;
-    }>;
+    questions?: QuizQuestionDto[];
+};
+
+type QuizQuestionDto = {
+    id: number;
+    question: string;
+    answer_type: string;
+    image_url: string | null;
+    explanation: string | null;
+    recommendation: QuizRecommendationDto | null;
+    answers: QuizAnswerDto[];
+};
+
+type QuizAnswerDto = {
+    id: number;
+    answer: string;
+    is_correct: boolean;
+    recommendation: QuizRecommendationDto | null;
 };
 
 type QuizRecommendationDto = {
@@ -405,10 +418,10 @@ type HistoryItem = {
     openedAt: string;
 };
 
-type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'materials' | 'recipes' | 'quizzes' | 'tours';
+type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'faith' | 'materials' | 'recipes' | 'quizzes' | 'tours';
 type StudyToolId = 'references' | 'notes' | 'feed';
 type ToolId = LeftPanelId | StudyToolId | 'strong' | 'print';
-type MainContentMode = 'chapter' | 'prayer' | 'recipe' | 'quiz' | 'tour';
+type MainContentMode = 'chapter' | 'prayer' | 'faith-question' | 'recipe' | 'quiz' | 'tour';
 type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'globe' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'recipe' | 'search' | 'sidebar' | 'test';
 type ReaderTheme = 'light' | 'dark';
 
@@ -506,8 +519,13 @@ const selectedRecipeCategorySlug = ref('');
 const selectedRecipe = ref<RecipeDto | null>(null);
 const selectedRecipeServings = ref(4);
 const usefulLinks = ref<UsefulLinkDto[]>([]);
+const faithQuestions = ref<FaithQuestionDto[]>([]);
+const selectedFaithQuestion = ref<FaithQuestionDto | null>(null);
 const quizzes = ref<QuizDto[]>([]);
 const selectedQuiz = ref<QuizDto | null>(null);
+const selectedQuizQuestionIndex = ref(0);
+const quizAnswers = ref<Record<number, number[] | string>>({});
+const quizSubmitted = ref(false);
 const virtualTours = ref<VirtualTourDto[]>([]);
 const selectedVirtualTour = ref<VirtualTourDto | null>(null);
 const isVirtualTourOverlayOpen = ref(false);
@@ -557,9 +575,10 @@ const leftTools = [
     { id: 'search', icon: 'strong', title: 'Поиск', group: 'reader' },
     { id: 'calendar', icon: 'calendar', title: 'Церковный календарь', group: 'church' },
     { id: 'prayers', icon: 'prayers', title: 'Молитвослов', group: 'church' },
+    { id: 'faith', icon: 'faith', title: 'Вопросы веры', group: 'church' },
     { id: 'materials', icon: 'faith', title: 'Полезные материалы', group: 'church' },
     { id: 'recipes', icon: 'recipes', title: 'Постные рецепты', group: 'church' },
-    { id: 'quizzes', icon: 'quizzes', title: 'Вопросы о вере', group: 'church' },
+    { id: 'quizzes', icon: 'quizzes', title: 'Тесты', group: 'church' },
     { id: 'tours', icon: 'tours', title: 'Храмы и монастыри 360°', group: 'church' },
 ] satisfies Array<{ id: LeftPanelId | 'print'; icon: string; title: string; group: 'reader' | 'church' }>;
 
@@ -737,6 +756,17 @@ const selectedRecipeTargetServings = computed(() => {
     return Number.isFinite(servings) ? Math.max(1, Math.round(servings)) : selectedRecipeBaseServings.value;
 });
 const selectedRecipeServingRatio = computed(() => selectedRecipeTargetServings.value / selectedRecipeBaseServings.value);
+const selectedQuizQuestions = computed(() => selectedQuiz.value?.questions ?? []);
+const selectedQuizQuestion = computed(() => selectedQuizQuestions.value[selectedQuizQuestionIndex.value] ?? null);
+const quizScorableQuestions = computed(() => {
+    return selectedQuizQuestions.value.filter((question) => question.answer_type !== 'text');
+});
+const quizCorrectAnswerCount = computed(() => {
+    return quizScorableQuestions.value.filter((question) => isQuizQuestionCorrect(question)).length;
+});
+const quizAnsweredCount = computed(() => {
+    return selectedQuizQuestions.value.filter((question) => isQuizQuestionAnswered(question)).length;
+});
 
 const currentBook = computed(() => {
     return books.value.find((book) => book.slug === selectedBookSlug.value) ?? books.value[0] ?? null;
@@ -778,6 +808,10 @@ const leftPanelTitle = computed(() => {
 
     if (activeLeftPanel.value === 'prayers') {
         return 'Молитвы';
+    }
+
+    if (activeLeftPanel.value === 'faith') {
+        return 'Вопросы веры';
     }
 
     if (activeLeftPanel.value === 'materials') {
@@ -1314,6 +1348,10 @@ function toggleLeftPanel(panel: LeftPanelId): void {
         void loadPrayers();
     }
 
+    if (activeLeftPanel.value === 'faith') {
+        void loadFaithQuestions();
+    }
+
     if (activeLeftPanel.value === 'materials') {
         void loadUsefulLinks();
     }
@@ -1332,7 +1370,7 @@ function toggleLeftPanel(panel: LeftPanelId): void {
 }
 
 function handleToolClick(toolId: ToolId): void {
-    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers' || toolId === 'materials' || toolId === 'recipes' || toolId === 'quizzes' || toolId === 'tours') {
+    if (toolId === 'library' || toolId === 'calendar' || toolId === 'bookmarks' || toolId === 'history' || toolId === 'search' || toolId === 'prayers' || toolId === 'faith' || toolId === 'materials' || toolId === 'recipes' || toolId === 'quizzes' || toolId === 'tours') {
         toggleLeftPanel(toolId);
         return;
     }
@@ -1446,6 +1484,29 @@ async function loadUsefulLinks(): Promise<void> {
     }
 }
 
+async function loadFaithQuestions(): Promise<void> {
+    if (faithQuestions.value.length > 0 || isContentToolsLoading.value) {
+        return;
+    }
+
+    isContentToolsLoading.value = true;
+    contentToolsError.value = null;
+
+    try {
+        const response = await loadJson<ApiResponse<FaithQuestionDto[]>>('/api/faith-questions');
+        faithQuestions.value = response.data;
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить вопросы веры';
+    } finally {
+        isContentToolsLoading.value = false;
+    }
+}
+
+function selectFaithQuestion(question: FaithQuestionDto): void {
+    selectedFaithQuestion.value = question;
+    mainContentMode.value = 'faith-question';
+}
+
 async function loadRecipeTools(): Promise<void> {
     if ((recipeCategories.value.length > 0 && recipes.value.length > 0) || isContentToolsLoading.value) {
         return;
@@ -1529,6 +1590,9 @@ async function loadQuizzes(): Promise<void> {
 async function selectQuiz(quiz: QuizDto): Promise<void> {
     mainContentMode.value = 'quiz';
     selectedQuiz.value = quiz;
+    selectedQuizQuestionIndex.value = 0;
+    quizAnswers.value = {};
+    quizSubmitted.value = false;
     contentToolsError.value = null;
     try {
         const response = await loadJson<ApiResponse<QuizDto>>(`/api/quizzes/${quiz.id}`);
@@ -1536,6 +1600,108 @@ async function selectQuiz(quiz: QuizDto): Promise<void> {
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить тест';
     }
+}
+
+function quizQuestionTypeLabel(question: QuizQuestionDto): string {
+    if (question.answer_type === 'multiple') {
+        return 'Можно выбрать несколько ответов';
+    }
+
+    if (question.answer_type === 'text') {
+        return 'Ответ своими словами';
+    }
+
+    if (question.answer_type === 'yes_no') {
+        return 'Да / Нет';
+    }
+
+    if (question.answer_type === 'scale') {
+        return 'Оценка по шкале';
+    }
+
+    return 'Один ответ';
+}
+
+function selectedQuizAnswerIds(question: QuizQuestionDto): number[] {
+    const answer = quizAnswers.value[question.id];
+
+    return Array.isArray(answer) ? answer : [];
+}
+
+function quizTextAnswer(question: QuizQuestionDto): string {
+    const answer = quizAnswers.value[question.id];
+
+    return typeof answer === 'string' ? answer : '';
+}
+
+function isQuizAnswerSelected(question: QuizQuestionDto, answer: QuizAnswerDto): boolean {
+    return selectedQuizAnswerIds(question).includes(answer.id);
+}
+
+function toggleQuizAnswer(question: QuizQuestionDto, answer: QuizAnswerDto): void {
+    if (quizSubmitted.value) {
+        return;
+    }
+
+    if (question.answer_type === 'multiple') {
+        const selected = selectedQuizAnswerIds(question);
+        quizAnswers.value[question.id] = selected.includes(answer.id)
+            ? selected.filter((answerId) => answerId !== answer.id)
+            : [...selected, answer.id];
+        return;
+    }
+
+    quizAnswers.value[question.id] = [answer.id];
+}
+
+function updateQuizTextAnswer(question: QuizQuestionDto, event: Event): void {
+    quizAnswers.value[question.id] = (event.target as HTMLTextAreaElement).value;
+}
+
+function isQuizQuestionAnswered(question: QuizQuestionDto): boolean {
+    if (question.answer_type === 'text') {
+        return quizTextAnswer(question).trim().length > 0;
+    }
+
+    return selectedQuizAnswerIds(question).length > 0;
+}
+
+function isQuizQuestionCorrect(question: QuizQuestionDto): boolean {
+    if (question.answer_type === 'text') {
+        return false;
+    }
+
+    const selected = [...selectedQuizAnswerIds(question)].sort((left, right) => left - right);
+    const correct = question.answers
+        .filter((answer) => answer.is_correct)
+        .map((answer) => answer.id)
+        .sort((left, right) => left - right);
+
+    return selected.length === correct.length && selected.every((answerId, index) => answerId === correct[index]);
+}
+
+function quizAnswerClass(question: QuizQuestionDto, answer: QuizAnswerDto): Record<string, boolean> {
+    const selected = isQuizAnswerSelected(question, answer);
+
+    return {
+        selected,
+        correct: quizSubmitted.value && answer.is_correct,
+        wrong: quizSubmitted.value && selected && !answer.is_correct,
+    };
+}
+
+function goToQuizQuestion(index: number): void {
+    selectedQuizQuestionIndex.value = Math.min(Math.max(index, 0), Math.max(selectedQuizQuestions.value.length - 1, 0));
+}
+
+function submitQuiz(): void {
+    quizSubmitted.value = true;
+}
+
+function resetQuiz(): void {
+    selectedQuizQuestionIndex.value = 0;
+    quizAnswers.value = {};
+    quizSubmitted.value = false;
 }
 
 async function loadVirtualTours(): Promise<void> {
@@ -3071,6 +3237,24 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </div>
                 </section>
 
+                <section v-else-if="activeLeftPanel === 'faith'" class="faith-panel">
+                    <p v-if="isContentToolsLoading">Загружаю вопросы веры...</p>
+                    <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
+                    <div class="compact-list">
+                        <button
+                            v-for="question in faithQuestions"
+                            :key="question.id"
+                            type="button"
+                            :class="{ active: selectedFaithQuestion?.id === question.id }"
+                            @click="selectFaithQuestion(question)"
+                        >
+                            <strong>{{ question.question }}</strong>
+                            <small>{{ question.category }}</small>
+                        </button>
+                        <p v-if="!isContentToolsLoading && faithQuestions.length === 0">Вопросов пока нет.</p>
+                    </div>
+                </section>
+
                 <section v-else-if="activeLeftPanel === 'recipes'" class="recipe-panel">
                     <p v-if="isContentToolsLoading">Загружаю рецепты...</p>
                     <p v-else-if="contentToolsError">{{ contentToolsError }}</p>
@@ -3423,28 +3607,81 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     ></iframe>
                 </article>
 
+                <article v-else-if="mainContentMode === 'faith-question' && selectedFaithQuestion" class="content-reader faith-reader">
+                    <header>
+                        <span>{{ selectedFaithQuestion.category }}</span>
+                        <h2>{{ selectedFaithQuestion.question }}</h2>
+                    </header>
+                    <div class="content-body" v-html="selectedFaithQuestion.answer_html"></div>
+                    <a v-if="selectedFaithQuestion.source_url" :href="selectedFaithQuestion.source_url" target="_blank" rel="noreferrer">Источник</a>
+                </article>
+
                 <article v-else-if="mainContentMode === 'quiz' && selectedQuiz" class="content-reader quiz-reader">
                     <header>
                         <span>Тест</span>
                         <h2>{{ selectedQuiz.title }}</h2>
                     </header>
                     <p v-if="selectedQuiz.description">{{ selectedQuiz.description }}</p>
-                    <section class="quiz-question-list">
-                        <article v-for="(question, index) in selectedQuiz.questions" :key="question.id">
-                            <strong>{{ index + 1 }}. {{ question.question }}</strong>
-                            <img v-if="question.image_url" class="quiz-question-image" :src="question.image_url" alt="" />
-                            <small>{{ question.answer_type }}</small>
-                            <ul>
-                                <li v-for="answer in question.answers" :key="answer.id" :class="{ correct: answer.is_correct }">
-                                    {{ answer.answer }}
-                                    <small v-if="answer.recommendation?.text">{{ answer.recommendation.text }}</small>
-                                    <small v-if="answer.recommendation?.passage_ref">Прочесть: {{ answer.recommendation.passage_ref }}</small>
-                                </li>
-                            </ul>
-                            <p v-if="question.explanation">{{ question.explanation }}</p>
-                            <p v-if="question.recommendation?.text">{{ question.recommendation.text }}</p>
+                    <section v-if="selectedQuizQuestion" class="quiz-play">
+                        <div class="quiz-progress">
+                            <span>Вопрос {{ selectedQuizQuestionIndex + 1 }} из {{ selectedQuizQuestions.length }}</span>
+                            <span>Отвечено: {{ quizAnsweredCount }}</span>
+                        </div>
+                        <article class="quiz-question-card">
+                            <small>{{ quizQuestionTypeLabel(selectedQuizQuestion) }}</small>
+                            <strong>{{ selectedQuizQuestion.question }}</strong>
+                            <img v-if="selectedQuizQuestion.image_url" class="quiz-question-image" :src="selectedQuizQuestion.image_url" alt="" />
+                            <div v-if="selectedQuizQuestion.answer_type === 'text'" class="quiz-text-answer">
+                                <textarea
+                                    :value="quizTextAnswer(selectedQuizQuestion)"
+                                    :disabled="quizSubmitted"
+                                    placeholder="Напишите ответ"
+                                    @input="updateQuizTextAnswer(selectedQuizQuestion, $event)"
+                                ></textarea>
+                            </div>
+                            <div v-else class="quiz-answer-list">
+                                <button
+                                    v-for="answer in selectedQuizQuestion.answers"
+                                    :key="answer.id"
+                                    type="button"
+                                    :class="quizAnswerClass(selectedQuizQuestion, answer)"
+                                    :disabled="quizSubmitted"
+                                    @click="toggleQuizAnswer(selectedQuizQuestion, answer)"
+                                >
+                                    <span aria-hidden="true"></span>
+                                    <span>{{ answer.answer }}</span>
+                                </button>
+                            </div>
+                            <div v-if="quizSubmitted" class="quiz-feedback">
+                                <strong v-if="selectedQuizQuestion.answer_type !== 'text'">
+                                    {{ isQuizQuestionCorrect(selectedQuizQuestion) ? 'Верно' : 'Нужно повторить' }}
+                                </strong>
+                                <p v-if="selectedQuizQuestion.explanation">{{ selectedQuizQuestion.explanation }}</p>
+                                <p v-if="selectedQuizQuestion.recommendation?.text">{{ selectedQuizQuestion.recommendation.text }}</p>
+                                <p v-if="selectedQuizQuestion.recommendation?.passage_ref">Прочесть: {{ selectedQuizQuestion.recommendation.passage_ref }}</p>
+                                <template v-for="answer in selectedQuizQuestion.answers" :key="`rec-${answer.id}`">
+                                    <p v-if="isQuizAnswerSelected(selectedQuizQuestion, answer) && answer.recommendation?.text">{{ answer.recommendation.text }}</p>
+                                    <p v-if="isQuizAnswerSelected(selectedQuizQuestion, answer) && answer.recommendation?.passage_ref">Прочесть: {{ answer.recommendation.passage_ref }}</p>
+                                </template>
+                            </div>
                         </article>
+                        <div class="quiz-actions">
+                            <button type="button" :disabled="selectedQuizQuestionIndex === 0" @click="goToQuizQuestion(selectedQuizQuestionIndex - 1)">Назад</button>
+                            <button
+                                v-if="selectedQuizQuestionIndex < selectedQuizQuestions.length - 1"
+                                type="button"
+                                @click="goToQuizQuestion(selectedQuizQuestionIndex + 1)"
+                            >
+                                Далее
+                            </button>
+                            <button v-else-if="!quizSubmitted" type="button" class="primary" @click="submitQuiz">Проверить</button>
+                            <button v-else type="button" class="primary" @click="resetQuiz">Пройти ещё раз</button>
+                        </div>
+                        <div v-if="quizSubmitted" class="quiz-result">
+                            Результат: {{ quizCorrectAnswerCount }} из {{ quizScorableQuestions.length }}
+                        </div>
                     </section>
+                    <p v-else class="reader-status">В этом тесте пока нет вопросов.</p>
                 </article>
 
                 <article v-else-if="mainContentMode === 'tour' && selectedVirtualTour" class="content-reader tour-reader">

@@ -45,6 +45,7 @@ Route::get('/prayers', [PrayerController::class, 'index']);
 Route::get('/prayers/{prayer}', [PrayerController::class, 'show'])->whereNumber('prayer');
 Route::get('/prayers/{prayer}/sections/{section}', [PrayerController::class, 'section'])->whereNumber('prayer')->whereNumber('section');
 Route::get('/useful-links', [ContentToolController::class, 'usefulLinks']);
+Route::get('/faith-questions', [ContentToolController::class, 'faithQuestions']);
 Route::get('/recipe-categories', [ContentToolController::class, 'recipeCategories']);
 Route::get('/recipes', [ContentToolController::class, 'recipes']);
 Route::post('/recipes', [ContentToolController::class, 'storeRecipe'])->middleware('auth');
