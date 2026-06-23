@@ -550,6 +550,7 @@ const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
 const socialFeedError = ref<string | null>(null);
 const socialFeedScope = ref<'book' | 'all'>('book');
+const isSocialComposerOpen = ref(false);
 const verseMenu = ref<{ verse: Verse; x: number; y: number } | null>(null);
 const verseActionMessage = ref('');
 const showStrongNumbers = ref(false);
@@ -2587,6 +2588,22 @@ async function openSocialPost(post: SocialPostDto): Promise<void> {
     persistReaderState();
 }
 
+function openSocialComposer(): void {
+    if (!currentUser.value) {
+        return;
+    }
+
+    isSocialComposerOpen.value = true;
+}
+
+function closeSocialComposer(): void {
+    if (isSocialFeedLoading.value) {
+        return;
+    }
+
+    isSocialComposerOpen.value = false;
+}
+
 async function submitSocialPost(): Promise<void> {
     const body = socialPostBody.value.trim();
 
@@ -2604,6 +2621,7 @@ async function submitSocialPost(): Promise<void> {
             visibility: 'followers',
         });
         socialPostBody.value = '';
+        isSocialComposerOpen.value = false;
         await loadSocialFeed();
     } catch (error) {
         socialFeedError.value = error instanceof Error ? error.message : 'Не удалось опубликовать';
@@ -4023,12 +4041,14 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         <a :href="appConfig.auth.login_url">Войти</a>
                         <a :href="appConfig.auth.register_url">Регистрация</a>
                     </div>
-                    <form v-else @submit.prevent="submitSocialPost">
-                        <textarea v-model="socialPostBody" placeholder="Напишите публикацию"></textarea>
-                        <button type="submit" :disabled="socialPostBody.trim().length === 0 || isSocialFeedLoading">
-                            Опубликовать
-                        </button>
-                    </form>
+                    <button
+                        v-else
+                        type="button"
+                        class="feed-compose-open"
+                        @click="openSocialComposer"
+                    >
+                        Написать в ленту
+                    </button>
                     <div v-if="currentUser" class="feed-scope">
                         <button
                             type="button"
@@ -4084,6 +4104,54 @@ watch([selectedBookSlug, socialFeedScope], () => {
             <strong>{{ strongTooltip.number }}</strong>
             <span>{{ strongTooltip.text }}</span>
         </div>
+
+        <section
+            v-if="isSocialComposerOpen"
+            class="social-composer-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Новая публикация в ленту"
+            @click.self="closeSocialComposer"
+        >
+            <form class="social-composer-dialog" @submit.prevent="submitSocialPost">
+                <header>
+                    <div>
+                        <span>Лента размышлений</span>
+                        <h2>Новая публикация</h2>
+                        <p v-if="selectedVerse">{{ verseReference(selectedVerse) }}</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="social-composer-close"
+                        aria-label="Закрыть редактор"
+                        @click="closeSocialComposer"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('close')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
+                </header>
+                <textarea
+                    v-model="socialPostBody"
+                    autofocus
+                    placeholder="Напишите публикацию"
+                ></textarea>
+                <footer>
+                    <button type="button" class="secondary" @click="closeSocialComposer">Отмена</button>
+                    <button
+                        type="submit"
+                        class="primary"
+                        :disabled="socialPostBody.trim().length === 0 || isSocialFeedLoading"
+                    >
+                        Опубликовать
+                    </button>
+                </footer>
+            </form>
+        </section>
 
         <section
             v-if="isVirtualTourOverlayOpen && selectedVirtualTour"

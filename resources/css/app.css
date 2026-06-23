@@ -1977,27 +1977,19 @@ svg {
     padding: 12px;
 }
 
-.social-feed form {
-    display: grid;
-    gap: 8px;
-}
-
-.social-feed textarea {
-    min-height: 90px;
-    resize: vertical;
-}
-
-.social-feed textarea,
-.social-feed form button {
+.feed-compose-open {
+    width: 100%;
     border: 1px solid #d7dee7;
-    padding: 9px 10px;
-}
-
-.social-feed form button {
     background: #edf5fb;
     color: #2f6f9f;
+    padding: 9px 10px;
     font-weight: 700;
     text-align: left;
+}
+
+.feed-compose-open:hover {
+    border-color: #9fb8d2;
+    background: #e4f0f8;
 }
 
 .feed-scope {
@@ -2060,6 +2052,156 @@ svg {
     margin: 0;
     color: #46515f;
     line-height: 1.45;
+}
+
+.social-composer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(10, 20, 35, 0.46);
+}
+
+.social-composer-dialog {
+    display: grid;
+    gap: 14px;
+    width: min(680px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    border: 1px solid #cfd8e3;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 18px 60px rgba(15, 23, 42, 0.28);
+    padding: 18px;
+}
+
+.social-composer-dialog header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.social-composer-dialog h2 {
+    margin: 2px 0 0;
+    color: #16395f;
+    font-size: 22px;
+}
+
+.social-composer-dialog span,
+.social-composer-dialog p {
+    margin: 0;
+    color: #6f7f91;
+    font-size: 13px;
+}
+
+.social-composer-dialog textarea {
+    min-height: 220px;
+    border: 1px solid #cfd8e3;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #14233a;
+    padding: 12px;
+    font: inherit;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+.social-composer-dialog footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.social-composer-dialog footer button,
+.social-composer-close {
+    border: 1px solid #cfd8e3;
+    background: #f8fafc;
+    color: #315477;
+    padding: 8px 12px;
+    font-weight: 700;
+}
+
+.social-composer-dialog footer button.primary {
+    border-color: #7fa4c8;
+    background: #2f6f9f;
+    color: #ffffff;
+}
+
+.social-composer-dialog footer button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.social-composer-close {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+}
+
+.social-composer-close svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.reader-theme-dark .feed-compose-open,
+.reader-theme-dark .feed-scope button,
+.reader-theme-dark .feed-post {
+    border-color: #344456;
+    background: #1a2632;
+    color: #dce6f2;
+}
+
+.reader-theme-dark .feed-compose-open:hover,
+.reader-theme-dark .feed-post:not(:disabled):hover,
+.reader-theme-dark .feed-scope button.active {
+    border-color: #5f86ad;
+    background: #24384b;
+    color: #ffffff;
+}
+
+.reader-theme-dark .feed-note,
+.reader-theme-dark .feed-post strong,
+.reader-theme-dark .feed-post small,
+.reader-theme-dark .feed-post p {
+    color: #a9b6c6;
+}
+
+.reader-theme-dark .social-composer-dialog {
+    border-color: #344456;
+    background: #17212b;
+    color: #e7edf4;
+}
+
+.reader-theme-dark .social-composer-dialog h2 {
+    color: #ffffff;
+}
+
+.reader-theme-dark .social-composer-dialog span,
+.reader-theme-dark .social-composer-dialog p {
+    color: #a9b6c6;
+}
+
+.reader-theme-dark .social-composer-dialog textarea,
+.reader-theme-dark .social-composer-dialog footer button,
+.reader-theme-dark .social-composer-close {
+    border-color: #344456;
+    background: #101820;
+    color: #e7edf4;
+}
+
+.reader-theme-dark .social-composer-dialog footer button.primary {
+    border-color: #5f86ad;
+    background: #315f89;
+    color: #ffffff;
 }
 
 .footerbar {
