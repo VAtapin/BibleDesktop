@@ -23,7 +23,9 @@ class SocialPost extends Model
         'user_id',
         'verse_id',
         'visibility',
+        'status',
         'body',
+        'moderation_comment',
         'metadata_json',
     ];
 

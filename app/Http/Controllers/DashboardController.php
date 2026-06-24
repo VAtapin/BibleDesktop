@@ -23,8 +23,17 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $userId = (int) $request->user()->id;
+        $activeSection = in_array($request->query('section'), ['notes', 'bookmarks', 'posts'], true)
+            ? (string) $request->query('section')
+            : 'bookmarks';
 
-        $notes = DB::table('notes')
+        $counts = [
+            'notes' => DB::table('notes')->where('user_id', $userId)->count(),
+            'bookmarks' => DB::table('bookmarks')->where('user_id', $userId)->count(),
+            'posts' => DB::table('social_posts')->where('user_id', $userId)->count(),
+        ];
+
+        $notes = $activeSection === 'notes' ? DB::table('notes')
             ->leftJoin('verses', 'verses.id', '=', 'notes.verse_id')
             ->leftJoin('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('notes.user_id', $userId)
@@ -38,9 +47,9 @@ class DashboardController extends Controller
                 'canonical_books.osis_code',
                 'verses.chapter_number',
                 'verses.verse_number',
-            ], 'notes_page');
+            ], 'notes_page') : null;
 
-        $bookmarks = DB::table('bookmarks')
+        $bookmarks = $activeSection === 'bookmarks' ? DB::table('bookmarks')
             ->leftJoin('verses', 'verses.id', '=', 'bookmarks.verse_id')
             ->leftJoin('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('bookmarks.user_id', $userId)
@@ -54,12 +63,12 @@ class DashboardController extends Controller
                 'canonical_books.osis_code',
                 'verses.chapter_number',
                 'verses.verse_number',
-            ], 'bookmarks_page');
+            ], 'bookmarks_page') : null;
 
-        $posts = DB::table('social_posts')
+        $posts = $activeSection === 'posts' ? DB::table('social_posts')
             ->where('user_id', $userId)
             ->orderByDesc('created_at')
-            ->paginate(20, ['id', 'body', 'visibility', 'created_at'], 'posts_page');
+            ->paginate(20, ['id', 'body', 'visibility', 'created_at'], 'posts_page') : null;
 
         $socialStats = [
             'followers' => DB::table('user_follows')->where('followed_id', $userId)->count(),
@@ -74,6 +83,8 @@ class DashboardController extends Controller
             'notes' => $notes,
             'bookmarks' => $bookmarks,
             'posts' => $posts,
+            'counts' => $counts,
+            'activeSection' => $activeSection,
             'socialStats' => $socialStats,
         ]);
     }

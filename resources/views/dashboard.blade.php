@@ -21,6 +21,19 @@
             <span>Друзья: <strong>{{ $socialStats['friends'] }}</strong></span>
         </div>
 
+        <nav class="dashboard-tabs" aria-label="Разделы личного кабинета">
+            <a @class(['active' => $activeSection === 'bookmarks']) href="{{ route('dashboard', ['section' => 'bookmarks']) }}">
+                Закладки <span>{{ $counts['bookmarks'] }}</span>
+            </a>
+            <a @class(['active' => $activeSection === 'notes']) href="{{ route('dashboard', ['section' => 'notes']) }}">
+                Заметки <span>{{ $counts['notes'] }}</span>
+            </a>
+            <a @class(['active' => $activeSection === 'posts']) href="{{ route('dashboard', ['section' => 'posts']) }}">
+                Публикации <span>{{ $counts['posts'] }}</span>
+            </a>
+        </nav>
+
+        @if ($activeSection === 'notes')
         <article class="dashboard-section">
             <h2>Заметки</h2>
             <div class="dashboard-table-wrap">
@@ -64,7 +77,9 @@
             </div>
             {{ $notes->withQueryString()->links() }}
         </article>
+        @endif
 
+        @if ($activeSection === 'bookmarks')
         <article class="dashboard-section">
             <h2>Закладки</h2>
             <div class="dashboard-table-wrap">
@@ -101,7 +116,9 @@
             </div>
             {{ $bookmarks->withQueryString()->links() }}
         </article>
+        @endif
 
+        @if ($activeSection === 'posts')
         <article class="dashboard-section">
             <h2>Публикации</h2>
             <div class="dashboard-table-wrap">
@@ -151,5 +168,6 @@
             </div>
             {{ $posts->withQueryString()->links() }}
         </article>
+        @endif
     </section>
 </x-public-layout>

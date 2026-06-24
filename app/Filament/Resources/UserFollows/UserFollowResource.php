@@ -34,6 +34,8 @@ class UserFollowResource extends Resource
 {
     protected static ?string $model = UserFollow::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
     protected static string|UnitEnum|null $navigationGroup = 'Пользователи';

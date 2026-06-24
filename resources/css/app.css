@@ -2414,6 +2414,43 @@ svg {
     font-size: 13px;
 }
 
+.dashboard-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    border-bottom: 1px solid #d7dee7;
+}
+
+.dashboard-tabs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d7dee7;
+    border-bottom: 0;
+    background: #f8fafc;
+    color: #557496;
+    padding: 9px 12px;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.dashboard-tabs a.active {
+    background: #ffffff;
+    color: #163a5d;
+    box-shadow: inset 0 3px 0 #2f6f9f;
+}
+
+.dashboard-tabs span {
+    min-width: 24px;
+    border-radius: 999px;
+    background: #edf5fb;
+    color: #2f6f9f;
+    padding: 2px 7px;
+    text-align: center;
+    font-size: 12px;
+}
+
 .dashboard-table-wrap {
     overflow-x: auto;
 }

@@ -43,6 +43,10 @@ class User extends Authenticatable implements FilamentUser
         'avatar_url',
         'settings_json',
         'is_trusted_recipe_author',
+        'is_blocked',
+        'blocked_at',
+        'block_reason',
+        'is_trusted_feed_author',
     ];
 
     /**
@@ -67,6 +71,9 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'settings_json' => 'array',
             'is_trusted_recipe_author' => 'boolean',
+            'is_blocked' => 'boolean',
+            'blocked_at' => 'datetime',
+            'is_trusted_feed_author' => 'boolean',
         ];
     }
 
