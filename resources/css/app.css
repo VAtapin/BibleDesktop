@@ -2380,29 +2380,17 @@ svg {
     padding-bottom: 16px;
 }
 
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 16px;
-}
-
-.dashboard-grid article {
+.dashboard-section {
     border: 1px solid #e0e5eb;
     background: #f8fafc;
+    margin-top: 16px;
     padding: 14px;
 }
 
-.dashboard-grid h2 {
+.dashboard-section h2 {
     margin: 0 0 10px;
     color: #557496;
     font-size: 16px;
-}
-
-.dashboard-grid p {
-    display: grid;
-    gap: 4px;
-    margin: 0 0 10px;
 }
 
 .dashboard-status {
@@ -2426,26 +2414,62 @@ svg {
     font-size: 13px;
 }
 
-.dashboard-item-form {
-    display: grid;
-    gap: 8px;
-    border-top: 1px solid #e0e5eb;
-    padding: 10px 0;
+.dashboard-table-wrap {
+    overflow-x: auto;
 }
 
-.dashboard-item-form:first-of-type {
-    border-top: 0;
-    padding-top: 0;
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    font-size: 14px;
 }
 
-.dashboard-item-form strong {
+.dashboard-table th,
+.dashboard-table td {
+    border-bottom: 1px solid #e0e5eb;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.dashboard-table th {
     color: #355a80;
     font-size: 13px;
+    font-weight: 700;
 }
 
-.dashboard-item-form input,
-.dashboard-item-form select,
-.dashboard-item-form textarea {
+.dashboard-table td:last-child {
+    width: 150px;
+}
+
+.dashboard-text-cell {
+    max-width: 520px;
+    color: #596579;
+    line-height: 1.35;
+}
+
+.dashboard-row-editor {
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.dashboard-row-editor summary {
+    cursor: pointer;
+    color: #2f6f9f;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.dashboard-row-editor form {
+    display: grid;
+    gap: 8px;
+    min-width: 280px;
+    margin-top: 8px;
+}
+
+.dashboard-row-editor select,
+.dashboard-row-editor textarea {
     width: 100%;
     border: 1px solid #cfd7e1;
     background: #ffffff;
@@ -2454,17 +2478,42 @@ svg {
     font: inherit;
 }
 
-.dashboard-item-form div {
-    display: flex;
-    gap: 8px;
-}
-
-.dashboard-card .dashboard-item-form button {
+.dashboard-card .dashboard-row-editor button {
     padding: 7px 10px;
     font-size: 13px;
 }
 
-.dashboard-card .dashboard-item-form button.danger {
+.dashboard-card .dashboard-delete {
+    min-width: 28px;
+    border-color: #d47b7b;
+    background: #fff1f1;
+    color: #9a2e2e;
+    padding: 4px 9px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.dashboard-section nav {
+    margin-top: 10px;
+}
+
+.dashboard-section nav > div:first-child {
+    display: none;
+}
+
+.dashboard-section nav span,
+.dashboard-section nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    border: 1px solid #d7dee7;
+    background: #ffffff;
+    color: #557496;
+    padding: 4px 9px;
+    text-decoration: none;
+}
+
+.dashboard-card .dashboard-row-editor button.danger {
     border-color: #d47b7b;
     background: #fff1f1;
     color: #9a2e2e;

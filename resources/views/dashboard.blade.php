@@ -21,99 +21,135 @@
             <span>Друзья: <strong>{{ $socialStats['friends'] }}</strong></span>
         </div>
 
-        <div class="dashboard-grid">
-            <article>
-                <h2>Заметки</h2>
-                @forelse ($notes as $note)
-                    <form method="post" action="{{ route('dashboard.notes.update', $note->id) }}" class="dashboard-item-form">
-                        @csrf
-                        @method('PUT')
-                        <strong>{{ $note->osis_code }} {{ $note->chapter_number }}:{{ $note->verse_number }}</strong>
-                        <textarea name="body" rows="3">{{ $note->body }}</textarea>
-                        <div>
-                            <button type="submit">Сохранить</button>
-                            <button
-                                type="submit"
-                                form="delete-note-{{ $note->id }}"
-                                class="danger"
-                                onclick="return confirm('Удалить заметку?')"
-                            >
-                                Удалить
-                            </button>
-                        </div>
-                    </form>
-                    <form id="delete-note-{{ $note->id }}" method="post" action="{{ route('dashboard.notes.delete', $note->id) }}" hidden>
-                        @csrf
-                        @method('DELETE')
-                    </form>
-                @empty
-                    <p>Заметок пока нет.</p>
-                @endforelse
-            </article>
+        <article class="dashboard-section">
+            <h2>Заметки</h2>
+            <div class="dashboard-table-wrap">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Место</th>
+                            <th>Текст</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($notes as $note)
+                            <tr>
+                                <td>{{ $note->osis_code }} {{ $note->chapter_number }}:{{ $note->verse_number }}</td>
+                                <td class="dashboard-text-cell">{{ $note->body }}</td>
+                                <td>{{ \Illuminate\Support\Carbon::parse($note->created_at)->format('d.m.Y H:i') }}</td>
+                                <td>
+                                    <details class="dashboard-row-editor">
+                                        <summary>Редактировать</summary>
+                                        <form method="post" action="{{ route('dashboard.notes.update', $note->id) }}">
+                                            @csrf
+                                            @method('PUT')
+                                            <textarea name="body" rows="4">{{ $note->body }}</textarea>
+                                            <button type="submit">Сохранить</button>
+                                        </form>
+                                    </details>
+                                    <form method="post" action="{{ route('dashboard.notes.delete', $note->id) }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="dashboard-delete" type="submit" onclick="return confirm('Удалить заметку?')">×</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4">Заметок пока нет.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            {{ $notes->withQueryString()->links() }}
+        </article>
 
-            <article>
-                <h2>Закладки</h2>
-                @forelse ($bookmarks as $bookmark)
-                    <form method="post" action="{{ route('dashboard.bookmarks.update', $bookmark->id) }}" class="dashboard-item-form">
-                        @csrf
-                        @method('PUT')
-                        <strong>{{ $bookmark->title ?: trim(($bookmark->osis_code ?? '').' '.($bookmark->chapter_number ?? '').':'.($bookmark->verse_number ?? ''), ' :') }}</strong>
-                        <input name="title" value="{{ $bookmark->title }}" placeholder="Название">
-                        <textarea name="description" rows="2" placeholder="Описание">{{ $bookmark->description }}</textarea>
-                        <div>
-                            <button type="submit">Сохранить</button>
-                            <button
-                                type="submit"
-                                form="delete-bookmark-{{ $bookmark->id }}"
-                                class="danger"
-                                onclick="return confirm('Удалить закладку?')"
-                            >
-                                Удалить
-                            </button>
-                        </div>
-                    </form>
-                    <form id="delete-bookmark-{{ $bookmark->id }}" method="post" action="{{ route('dashboard.bookmarks.delete', $bookmark->id) }}" hidden>
-                        @csrf
-                        @method('DELETE')
-                    </form>
-                @empty
-                    <p>Закладок пока нет.</p>
-                @endforelse
-            </article>
+        <article class="dashboard-section">
+            <h2>Закладки</h2>
+            <div class="dashboard-table-wrap">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Место</th>
+                            <th>Название</th>
+                            <th>Описание</th>
+                            <th>Дата</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($bookmarks as $bookmark)
+                            <tr>
+                                <td>{{ $bookmark->osis_code }} {{ $bookmark->chapter_number }}:{{ $bookmark->verse_number }}</td>
+                                <td>{{ $bookmark->title ?: 'Закладка' }}</td>
+                                <td class="dashboard-text-cell">{{ $bookmark->description }}</td>
+                                <td>{{ \Illuminate\Support\Carbon::parse($bookmark->created_at)->format('d.m.Y H:i') }}</td>
+                                <td>
+                                    <form method="post" action="{{ route('dashboard.bookmarks.delete', $bookmark->id) }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="dashboard-delete" type="submit" aria-label="Удалить закладку" onclick="return confirm('Удалить закладку?')">×</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5">Закладок пока нет.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            {{ $bookmarks->withQueryString()->links() }}
+        </article>
 
-            <article>
-                <h2>Публикации</h2>
-                @forelse ($posts as $post)
-                    <form method="post" action="{{ route('dashboard.posts.update', $post->id) }}" class="dashboard-item-form">
-                        @csrf
-                        @method('PUT')
-                        <select name="visibility">
-                            <option value="private" @selected($post->visibility === 'private')>Только я</option>
-                            <option value="followers" @selected($post->visibility === 'followers')>Подписчики</option>
-                            <option value="friends" @selected($post->visibility === 'friends')>Друзья</option>
-                            <option value="public" @selected($post->visibility === 'public')>Все</option>
-                        </select>
-                        <textarea name="body" rows="3">{{ $post->body }}</textarea>
-                        <div>
-                            <button type="submit">Сохранить</button>
-                            <button
-                                type="submit"
-                                form="delete-post-{{ $post->id }}"
-                                class="danger"
-                                onclick="return confirm('Удалить публикацию?')"
-                            >
-                                Удалить
-                            </button>
-                        </div>
-                    </form>
-                    <form id="delete-post-{{ $post->id }}" method="post" action="{{ route('dashboard.posts.delete', $post->id) }}" hidden>
-                        @csrf
-                        @method('DELETE')
-                    </form>
-                @empty
-                    <p>Публикаций пока нет.</p>
-                @endforelse
-            </article>
-        </div>
+        <article class="dashboard-section">
+            <h2>Публикации</h2>
+            <div class="dashboard-table-wrap">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Видимость</th>
+                            <th>Текст</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($posts as $post)
+                            <tr>
+                                <td>{{ ['private' => 'Только я', 'followers' => 'Подписчики', 'friends' => 'Друзья', 'public' => 'Все'][$post->visibility] ?? $post->visibility }}</td>
+                                <td class="dashboard-text-cell">{{ $post->body }}</td>
+                                <td>{{ \Illuminate\Support\Carbon::parse($post->created_at)->format('d.m.Y H:i') }}</td>
+                                <td>
+                                    <details class="dashboard-row-editor">
+                                        <summary>Редактировать</summary>
+                                        <form method="post" action="{{ route('dashboard.posts.update', $post->id) }}">
+                                            @csrf
+                                            @method('PUT')
+                                            <select name="visibility">
+                                                <option value="private" @selected($post->visibility === 'private')>Только я</option>
+                                                <option value="followers" @selected($post->visibility === 'followers')>Подписчики</option>
+                                                <option value="friends" @selected($post->visibility === 'friends')>Друзья</option>
+                                                <option value="public" @selected($post->visibility === 'public')>Все</option>
+                                            </select>
+                                            <textarea name="body" rows="4">{{ $post->body }}</textarea>
+                                            <button type="submit">Сохранить</button>
+                                        </form>
+                                    </details>
+                                    <form method="post" action="{{ route('dashboard.posts.delete', $post->id) }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="dashboard-delete" type="submit" onclick="return confirm('Удалить публикацию?')">×</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4">Публикаций пока нет.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            {{ $posts->withQueryString()->links() }}
+        </article>
     </section>
 </x-public-layout>

@@ -29,8 +29,7 @@ class DashboardController extends Controller
             ->leftJoin('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('notes.user_id', $userId)
             ->orderByDesc('notes.created_at')
-            ->limit(50)
-            ->get([
+            ->paginate(20, [
                 'notes.id',
                 'notes.body',
                 'notes.visibility',
@@ -39,15 +38,14 @@ class DashboardController extends Controller
                 'canonical_books.osis_code',
                 'verses.chapter_number',
                 'verses.verse_number',
-            ]);
+            ], 'notes_page');
 
         $bookmarks = DB::table('bookmarks')
             ->leftJoin('verses', 'verses.id', '=', 'bookmarks.verse_id')
             ->leftJoin('canonical_books', 'canonical_books.id', '=', 'verses.canonical_book_id')
             ->where('bookmarks.user_id', $userId)
             ->orderByDesc('bookmarks.created_at')
-            ->limit(50)
-            ->get([
+            ->paginate(20, [
                 'bookmarks.id',
                 'bookmarks.title',
                 'bookmarks.description',
@@ -56,13 +54,12 @@ class DashboardController extends Controller
                 'canonical_books.osis_code',
                 'verses.chapter_number',
                 'verses.verse_number',
-            ]);
+            ], 'bookmarks_page');
 
         $posts = DB::table('social_posts')
             ->where('user_id', $userId)
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get(['id', 'body', 'visibility', 'created_at']);
+            ->paginate(20, ['id', 'body', 'visibility', 'created_at'], 'posts_page');
 
         $socialStats = [
             'followers' => DB::table('user_follows')->where('followed_id', $userId)->count(),
