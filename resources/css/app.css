@@ -3055,6 +3055,12 @@ svg {
         background: #edf5fb;
     }
 
+    .verse-study-actions button.active {
+        border-radius: 6px;
+        background: #dceaf6;
+        color: #1f5f90;
+    }
+
     .verse-study-actions img {
         width: 18px;
         height: 18px;
@@ -3086,6 +3092,11 @@ svg {
     .reader-theme-dark .verse-study-actions button:hover,
     .reader-theme-dark .verse-study-actions button:focus-visible {
         background: var(--panel-muted);
+    }
+
+    .reader-theme-dark .verse-study-actions button.active {
+        background: rgb(74 144 226 / 25%);
+        color: var(--text-main);
     }
 
     .reader-bottom-menu-button svg,

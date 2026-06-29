@@ -602,6 +602,14 @@ function defaultReaderFontSize(): number {
     return window.matchMedia('(max-width: 760px)').matches ? 16 : 15;
 }
 
+function isCompactReaderViewport(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    return window.matchMedia('(max-width: 760px), (max-width: 980px) and (max-height: 520px)').matches;
+}
+
 function defaultReaderTheme(): ReaderTheme {
     if (typeof window === 'undefined') {
         return 'light';
@@ -643,7 +651,14 @@ function openVerseStudyTool(toolId: StudyToolId | 'strong'): void {
     }
 
     if (toolId === 'strong') {
-        showStrongNumbers.value = true;
+        showStrongNumbers.value = !showStrongNumbers.value;
+        hideStrongTooltip();
+
+        if (!showStrongNumbers.value) {
+            selectedStrongEntry.value = null;
+        }
+
+        return;
     }
 
     openStudyTool(toolId);
@@ -1057,7 +1072,7 @@ function scrollSelectedVerseIntoView(): void {
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function strongTooltipPosition(event: MouseEvent | FocusEvent): { x: number; y: number } {
+function strongTooltipPosition(event: Event): { x: number; y: number } {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const rect = target?.getBoundingClientRect();
     const rawX = rect ? rect.left + 10 : 12;
@@ -1069,7 +1084,7 @@ function strongTooltipPosition(event: MouseEvent | FocusEvent): { x: number; y: 
     };
 }
 
-function showStrongTooltip(event: MouseEvent | FocusEvent, verse: Verse, strongNumber: string): void {
+function showStrongTooltip(event: Event, verse: Verse, strongNumber: string): void {
     hideStrongTooltip();
 
     const position = strongTooltipPosition(event);
@@ -1090,6 +1105,44 @@ function showStrongTooltip(event: MouseEvent | FocusEvent, verse: Verse, strongN
             };
         }
     }, 220);
+}
+
+async function showStrongTooltipNow(event: Event, verse: Verse, strongNumber: string): Promise<void> {
+    hideStrongTooltip();
+
+    const position = strongTooltipPosition(event);
+
+    try {
+        const verseQuery = verse.id ? `?verse=${verse.id}` : '';
+        const response = await loadJson<ApiResponse<StrongEntryDto>>(`/api/strong/${strongNumber}${verseQuery}`);
+        strongTooltip.value = {
+            number: response.data.number,
+            text: strongEntrySummary(response.data) || 'Strong: данные найдены.',
+            ...position,
+        };
+    } catch {
+        strongTooltip.value = {
+            number: strongNumber,
+            text: 'Strong: нет данных в словаре.',
+            ...position,
+        };
+    }
+}
+
+function showStrongTooltipForPointer(event: Event, verse: Verse, strongNumber: string): void {
+    if (isCompactReaderViewport()) {
+        return;
+    }
+
+    showStrongTooltip(event, verse, strongNumber);
+}
+
+function hideStrongTooltipForPointer(): void {
+    if (isCompactReaderViewport()) {
+        return;
+    }
+
+    hideStrongTooltip();
 }
 
 function hideStrongTooltip(): void {
@@ -2571,8 +2624,14 @@ async function selectInlineStrongToken(verse: Verse, token: StrongTokenDto): Pro
     await selectInlineStrongNumber(verse, token.strong_number, token);
 }
 
-async function selectInlineStrongNumber(verse: Verse, strongNumber: string, token: StrongTokenDto | null = null): Promise<void> {
+async function selectInlineStrongNumber(
+    verse: Verse,
+    strongNumber: string,
+    token: StrongTokenDto | null = null,
+    event: Event | null = null,
+): Promise<void> {
     const previousVerseId = selectedVerse.value?.id;
+    const resolvedStrongNumber = token?.strong_number ?? strongNumber;
 
     selectedVerse.value = verse;
     highlightedVerseNumbers.value = [verse.number];
@@ -2583,7 +2642,17 @@ async function selectInlineStrongNumber(verse: Verse, strongNumber: string, toke
         await loadStudyData(verse);
     }
 
-    await selectStrongNumber(token?.strong_number ?? strongNumber, verse);
+    if (isCompactReaderViewport()) {
+        isStudyPanelOpen.value = false;
+
+        if (event) {
+            await showStrongTooltipNow(event, verse, resolvedStrongNumber);
+        }
+
+        return;
+    }
+
+    await selectStrongNumber(resolvedStrongNumber, verse);
 }
 
 async function loadVerseNotes(verseId: number): Promise<void> {
@@ -3977,11 +4046,11 @@ watch([selectedBookSlug, socialFeedScope], () => {
                                     type="button"
                                     class="strong-inline-number"
                                     :class="{ 'words-of-jesus': part.isRed }"
-                                    @click.stop="selectInlineStrongNumber(verse, part.strongNumber, part.strongToken)"
-                                    @mouseenter="showStrongTooltip($event, verse, part.strongNumber)"
-                                    @mouseleave="hideStrongTooltip"
-                                    @focus="showStrongTooltip($event, verse, part.strongNumber)"
-                                    @blur="hideStrongTooltip"
+                                    @click.stop="selectInlineStrongNumber(verse, part.strongNumber, part.strongToken, $event)"
+                                    @mouseenter="showStrongTooltipForPointer($event, verse, part.strongNumber)"
+                                    @mouseleave="hideStrongTooltipForPointer"
+                                    @focus="showStrongTooltipForPointer($event, verse, part.strongNumber)"
+                                    @blur="hideStrongTooltipForPointer"
                                 >
                                     {{ part.strongNumber }}
                                 </button>
@@ -4027,6 +4096,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         type="button"
                         :aria-label="tool.title"
                         :data-tooltip="tool.title"
+                        :class="{ active: tool.id === 'strong' && showStrongNumbers }"
                         @click="openVerseStudyTool(tool.id)"
                     >
                         <img :src="toolIconUrl(tool.icon)" alt="" />
