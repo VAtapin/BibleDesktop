@@ -2941,6 +2941,11 @@ svg {
         box-shadow: none;
     }
 
+    .reader-panel.content-mode,
+    .embed-shell .reader-panel.content-mode {
+        grid-template-rows: 44px minmax(0, 1fr);
+    }
+
     .embed-shell .reader-panel {
         grid-template-rows: 44px minmax(0, 1fr);
         min-height: 100dvh;
@@ -2988,6 +2993,16 @@ svg {
         padding: 0 6px;
     }
 
+    .mini-content-bar,
+    .embed-shell .mini-content-bar {
+        grid-template-columns: minmax(0, 1fr) 40px 40px;
+    }
+
+    .mini-content-bar .mini-tab-select,
+    .embed-shell .mini-content-bar .mini-tab-select {
+        width: 100%;
+    }
+
     .mini-reader-bar button,
     .embed-shell .mini-reader-bar button {
         display: grid;
@@ -2997,6 +3012,11 @@ svg {
         border: 1px solid #d5dee9;
         background: #f4f8fc;
         color: #3d5875;
+    }
+
+    .mini-reader-bar button:disabled,
+    .embed-shell .mini-reader-bar button:disabled {
+        opacity: 0.45;
     }
 
     .reader-bottom-menu-button,

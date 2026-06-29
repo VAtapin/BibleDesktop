@@ -2513,6 +2513,16 @@ async function switchReaderTab(tabId: string): Promise<void> {
     persistReaderState();
 }
 
+function changeReaderTabFromSelect(event: Event): void {
+    const target = event.target instanceof HTMLSelectElement ? event.target : null;
+
+    if (!target) {
+        return;
+    }
+
+    void switchReaderTab(target.value);
+}
+
 async function closeReaderTab(tabId: string): Promise<void> {
     if (readerTabs.value.length <= 1) {
         return;
@@ -3726,6 +3736,51 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
                                 v-for="path in iconPaths(isReaderMenuOpen ? 'close' : 'menu')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
+                </div>
+                <div v-else class="mini-reader-bar mini-content-bar">
+                    <select
+                        :value="activeTabId"
+                        class="mini-tab-select"
+                        aria-label="Открытые вкладки"
+                        @change="changeReaderTabFromSelect"
+                    >
+                        <option
+                            v-for="tab in readerTabs"
+                            :key="`mini-tab-${tab.id}`"
+                            :value="tab.id"
+                        >
+                            {{ tab.title }}
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        :disabled="readerTabs.length <= 1"
+                        aria-label="Закрыть вкладку"
+                        title="Закрыть вкладку"
+                        @click="closeReaderTab(activeTabId)"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths('close')"
+                                :key="path"
+                                :d="path"
+                            />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="Инструменты"
+                        title="Инструменты"
+                        @click="isMobileToolRailOpen = !isMobileToolRailOpen"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path
+                                v-for="path in iconPaths(isMobileToolRailOpen ? 'close' : 'menu')"
                                 :key="path"
                                 :d="path"
                             />
