@@ -3615,7 +3615,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </section>
             </aside>
 
-            <section class="reader-panel" :class="{ 'reader-menu-open': isReaderMenuOpen }">
+            <section
+                class="reader-panel"
+                :class="{
+                    'reader-menu-open': isReaderMenuOpen,
+                    'content-mode': mainContentMode !== 'chapter',
+                }"
+            >
                 <div v-if="mainContentMode === 'chapter'" class="mini-reader-bar">
                     <span>{{ currentTitle }}</span>
                     <select

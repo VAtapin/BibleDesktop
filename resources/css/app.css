@@ -1475,6 +1475,10 @@ svg {
     min-height: 0;
 }
 
+.reader-panel.content-mode {
+    grid-template-rows: minmax(0, 1fr);
+}
+
 .reader-panel > .chapter,
 .reader-panel > .content-reader {
     min-height: 0;
