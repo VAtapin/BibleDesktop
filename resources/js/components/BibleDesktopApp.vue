@@ -389,6 +389,7 @@ type ReaderTab = {
     bookSlug: string;
     chapterNumber: number;
     contentMode: MainContentMode;
+    contentId: number | null;
 };
 
 type ReaderState = {
@@ -797,6 +798,7 @@ const currentTitle = computed(() => {
 
     return `${bookName} ${selectedChapterNumber.value}`;
 });
+const workspaceTitle = computed(() => activeReaderTab()?.title ?? currentTitle.value);
 const visibleReaderTabs = computed(() => {
     return readerTabs.value.map((tab) => ({
         ...tab,
@@ -1104,6 +1106,7 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
     const bookSlug = state.bookSlug ?? selectedBookSlug.value;
     const chapterNumber = Math.max(1, Number(state.chapterNumber ?? selectedChapterNumber.value));
     const contentMode = state.contentMode ?? 'chapter';
+    const contentId = contentMode === 'chapter' ? null : state.contentId ?? null;
 
     return {
         id: state.id ?? createClientId(),
@@ -1112,6 +1115,7 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
         bookSlug,
         chapterNumber,
         contentMode,
+        contentId,
     };
 }
 
@@ -1146,13 +1150,23 @@ function normalizeReaderTabs(tabs: unknown): ReaderTab[] {
                 return null;
             }
 
+            const contentMode = isMainContentMode(candidate.contentMode) ? candidate.contentMode : 'chapter';
+            const contentId = typeof candidate.contentId === 'number' && candidate.contentId > 0
+                ? candidate.contentId
+                : null;
+
+            if (contentMode !== 'chapter' && contentId === null) {
+                return null;
+            }
+
             return createReaderTab({
                 id: typeof candidate.id === 'string' && candidate.id !== '' ? candidate.id : undefined,
                 title: typeof candidate.title === 'string' && candidate.title !== '' ? candidate.title : undefined,
                 translationCode: candidate.translationCode,
                 bookSlug: candidate.bookSlug,
                 chapterNumber: Number(candidate.chapterNumber),
-                contentMode: isMainContentMode(candidate.contentMode) ? candidate.contentMode : 'chapter',
+                contentMode,
+                contentId,
             });
         })
         .filter((tab): tab is ReaderTab => tab !== null)
@@ -1185,7 +1199,7 @@ function syncActiveTabFromSelection(): void {
     tab.title = currentTitle.value;
 }
 
-function setActiveTabContent(mode: MainContentMode, title: string | null = null): void {
+function setActiveTabContent(mode: MainContentMode, title: string | null = null, contentId: number | null = null): void {
     const tab = activeReaderTab();
 
     if (!tab) {
@@ -1194,9 +1208,10 @@ function setActiveTabContent(mode: MainContentMode, title: string | null = null)
 
     tab.contentMode = mode;
     tab.title = title ?? (mode === 'chapter' ? currentTitle.value : tab.title);
+    tab.contentId = mode === 'chapter' ? null : contentId ?? tab.contentId;
 }
 
-function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string): void {
+function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string, contentId: number): void {
     syncActiveTabFromSelection();
 
     const tab = activeReaderTab();
@@ -1208,6 +1223,7 @@ function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string
                 translationCode: selectedTranslationCode.value,
                 bookSlug: selectedBookSlug.value,
                 chapterNumber: selectedChapterNumber.value,
+                contentId,
             });
             readerTabs.value.push(contentTab);
             activeTabId.value = contentTab.id;
@@ -1215,8 +1231,80 @@ function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string
     }
 
     mainContentMode.value = mode;
-    setActiveTabContent(mode, title);
+    setActiveTabContent(mode, title, contentId);
+    isStudyPanelOpen.value = false;
+    closeReaderMenu();
     persistReaderState();
+}
+
+async function restoreContentTab(tab: ReaderTab): Promise<void> {
+    if (tab.contentMode === 'chapter' || tab.contentId === null) {
+        return;
+    }
+
+    mainContentMode.value = tab.contentMode;
+    isStudyPanelOpen.value = false;
+    closeReaderMenu();
+    contentToolsError.value = null;
+
+    try {
+        if (tab.contentMode === 'prayer') {
+            const cached = prayerBodyCache.get(tab.contentId);
+            const prayer = cached
+                ?? (await loadJson<ApiResponse<PrayerDto>>(`/api/prayers/${tab.contentId}`)).data;
+
+            prayerBodyCache.set(prayer.id, prayer);
+            selectedPrayerId.value = prayer.id;
+            selectedPrayer.value = prayer;
+            selectedPrayerSection.value = null;
+            setActiveTabContent('prayer', prayer.title, prayer.id);
+
+            if (prayer.sections?.[0]) {
+                await selectPrayerSection(prayer.sections[0]);
+            }
+            return;
+        }
+
+        if (tab.contentMode === 'recipe') {
+            const recipe = (await loadJson<ApiResponse<RecipeDto>>(`/api/recipes/${tab.contentId}`)).data;
+            selectedRecipe.value = recipe;
+            selectedRecipeServings.value = Math.max(1, recipe.servings ?? 4);
+            setActiveTabContent('recipe', recipe.title, recipe.id);
+            return;
+        }
+
+        if (tab.contentMode === 'quiz') {
+            const quiz = (await loadJson<ApiResponse<QuizDto>>(`/api/quizzes/${tab.contentId}`)).data;
+            selectedQuiz.value = quiz;
+            selectedQuizQuestionIndex.value = 0;
+            quizAnswers.value = {};
+            quizSubmitted.value = false;
+            setActiveTabContent('quiz', quiz.title, quiz.id);
+            return;
+        }
+
+        if (tab.contentMode === 'faith-question') {
+            await loadFaithQuestions();
+            const question = faithQuestions.value.find((item) => item.id === tab.contentId) ?? null;
+            selectedFaithQuestion.value = question;
+
+            if (question) {
+                setActiveTabContent('faith-question', question.question, question.id);
+            }
+            return;
+        }
+
+        await loadVirtualTours();
+        const tour = virtualTours.value.find((item) => item.id === tab.contentId) ?? null;
+        selectedVirtualTour.value = tour;
+        isVirtualTourOverlayOpen.value = false;
+
+        if (tour) {
+            setActiveTabContent('tour', tour.title, tour.id);
+        }
+    } catch (error) {
+        contentToolsError.value = error instanceof Error ? error.message : 'Не удалось восстановить содержимое вкладки';
+    }
 }
 
 function ensureChapterTab(title: string | null = null): void {
@@ -1235,7 +1323,7 @@ function ensureChapterTab(title: string | null = null): void {
     }
 
     mainContentMode.value = 'chapter';
-    setActiveTabContent('chapter', title);
+    setActiveTabContent('chapter', title, null);
 }
 
 function readReaderState(): ReaderState | null {
@@ -1496,7 +1584,7 @@ async function loadPrayers(): Promise<void> {
 }
 
 async function selectPrayer(prayer: PrayerDto): Promise<void> {
-    openContentTab('prayer', prayer.title);
+    openContentTab('prayer', prayer.title, prayer.id);
     selectedPrayerId.value = prayer.id;
     prayersError.value = null;
 
@@ -1504,7 +1592,7 @@ async function selectPrayer(prayer: PrayerDto): Promise<void> {
     if (cached) {
         selectedPrayer.value = cached;
         mainContentMode.value = 'prayer';
-        setActiveTabContent('prayer', cached.title);
+        setActiveTabContent('prayer', cached.title, cached.id);
         return;
     }
 
@@ -1516,7 +1604,7 @@ async function selectPrayer(prayer: PrayerDto): Promise<void> {
         selectedPrayer.value = response.data;
         prayerBodyCache.set(prayer.id, response.data);
         mainContentMode.value = 'prayer';
-        setActiveTabContent('prayer', response.data.title);
+        setActiveTabContent('prayer', response.data.title, response.data.id);
         if (response.data.sections && response.data.sections.length > 0) {
             void selectPrayerSection(response.data.sections[0]);
         }
@@ -1588,10 +1676,10 @@ async function loadFaithQuestions(): Promise<void> {
 }
 
 function selectFaithQuestion(question: FaithQuestionDto): void {
-    openContentTab('faith-question', question.question);
+    openContentTab('faith-question', question.question, question.id);
     selectedFaithQuestion.value = question;
     mainContentMode.value = 'faith-question';
-    setActiveTabContent('faith-question', question.question);
+    setActiveTabContent('faith-question', question.question, question.id);
 }
 
 async function loadRecipeTools(): Promise<void> {
@@ -1623,7 +1711,7 @@ function openFastingRecipes(): void {
 }
 
 async function selectRecipe(recipe: RecipeDto): Promise<void> {
-    openContentTab('recipe', recipe.title);
+    openContentTab('recipe', recipe.title, recipe.id);
     mainContentMode.value = 'recipe';
     selectedRecipe.value = recipe;
     selectedRecipeServings.value = Math.max(1, recipe.servings ?? 4);
@@ -1633,7 +1721,7 @@ async function selectRecipe(recipe: RecipeDto): Promise<void> {
         const response = await loadJson<ApiResponse<RecipeDto>>(`/api/recipes/${recipe.id}`);
         selectedRecipe.value = response.data;
         selectedRecipeServings.value = Math.max(1, response.data.servings ?? 4);
-        setActiveTabContent('recipe', response.data.title);
+        setActiveTabContent('recipe', response.data.title, response.data.id);
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить рецепт';
     }
@@ -1677,7 +1765,7 @@ async function loadQuizzes(): Promise<void> {
 }
 
 async function selectQuiz(quiz: QuizDto): Promise<void> {
-    openContentTab('quiz', quiz.title);
+    openContentTab('quiz', quiz.title, quiz.id);
     mainContentMode.value = 'quiz';
     selectedQuiz.value = quiz;
     selectedQuizQuestionIndex.value = 0;
@@ -1687,7 +1775,7 @@ async function selectQuiz(quiz: QuizDto): Promise<void> {
     try {
         const response = await loadJson<ApiResponse<QuizDto>>(`/api/quizzes/${quiz.id}`);
         selectedQuiz.value = response.data;
-        setActiveTabContent('quiz', response.data.title);
+        setActiveTabContent('quiz', response.data.title, response.data.id);
     } catch (error) {
         contentToolsError.value = error instanceof Error ? error.message : 'Не удалось загрузить тест';
     }
@@ -1813,10 +1901,10 @@ async function loadVirtualTours(): Promise<void> {
 }
 
 function selectVirtualTour(tour: VirtualTourDto): void {
-    openContentTab('tour', tour.title);
+    openContentTab('tour', tour.title, tour.id);
     selectedVirtualTour.value = tour;
     isVirtualTourOverlayOpen.value = true;
-    setActiveTabContent('tour', tour.title);
+    setActiveTabContent('tour', tour.title, tour.id);
 }
 
 function closeVirtualTourOverlay(): void {
@@ -2351,6 +2439,7 @@ async function switchReaderTab(tabId: string): Promise<void> {
     mainContentMode.value = tab.contentMode;
 
     if (tab.contentMode !== 'chapter') {
+        await restoreContentTab(tab);
         persistReaderState();
         return;
     }
@@ -2393,6 +2482,7 @@ async function closeReaderTab(tabId: string): Promise<void> {
     mainContentMode.value = nextTab.contentMode;
 
     if (nextTab.contentMode !== 'chapter') {
+        await restoreContentTab(nextTab);
         persistReaderState();
         return;
     }
@@ -2962,14 +3052,19 @@ onMounted(async () => {
             selectedTranslationCode.value = initialTab.translationCode;
             selectedBookSlug.value = initialTab.bookSlug;
             selectedChapterNumber.value = initialTab.chapterNumber;
+            mainContentMode.value = initialTab.contentMode;
         }
 
-        await loadBooksForSelectedTranslation();
-        if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
-            selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
+        if (initialTab && initialTab.contentMode !== 'chapter') {
+            await restoreContentTab(initialTab);
+        } else {
+            await loadBooksForSelectedTranslation();
+            if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
+                selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
+            }
+            await loadChapter(highlightedVerseNumbers.value[0] ?? null);
+            syncActiveTabFromSelection();
         }
-        await loadChapter(highlightedVerseNumbers.value[0] ?? null);
-        syncActiveTabFromSelection();
         persistReaderState();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
@@ -3117,8 +3212,8 @@ watch([selectedBookSlug, socialFeedScope], () => {
         </header>
 
         <section class="workspace-title">
-            <span class="muted-icon">Чтение</span>
-            <strong>{{ currentTitle }}</strong>
+            <span class="muted-icon">{{ mainContentMode === 'chapter' ? 'Чтение' : 'Открыто' }}</span>
+            <strong>{{ workspaceTitle }}</strong>
         </section>
 
         <nav class="tabs" aria-label="Открытые вкладки">
@@ -3521,7 +3616,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </aside>
 
             <section class="reader-panel" :class="{ 'reader-menu-open': isReaderMenuOpen }">
-                <div class="mini-reader-bar">
+                <div v-if="mainContentMode === 'chapter'" class="mini-reader-bar">
                     <span>{{ currentTitle }}</span>
                     <select
                         v-model.number="selectedChapterNumber"
@@ -3552,13 +3647,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </button>
                 </div>
                 <button
-                    v-if="isReaderMenuOpen"
+                    v-if="mainContentMode === 'chapter' && isReaderMenuOpen"
                     type="button"
                     class="reader-menu-backdrop"
                     aria-label="Закрыть меню чтения"
                     @click="closeReaderMenu"
                 ></button>
-                <div class="reader-toolbar">
+                <div v-if="mainContentMode === 'chapter'" class="reader-toolbar">
                     <button type="button" class="bookmark" aria-label="Добавить закладку" title="Добавить закладку" @click="addBookmark">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
@@ -3935,6 +4030,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </nav>
 
                 <button
+                    v-if="mainContentMode === 'chapter'"
                     type="button"
                     class="reader-bottom-menu-button"
                     aria-label="Меню чтения"
@@ -3950,7 +4046,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </svg>
                 </button>
 
-                <div class="reader-footer">
+                <div v-if="mainContentMode === 'chapter'" class="reader-footer">
                     <button
                         type="button"
                         :disabled="selectedChapterNumber <= 1"
@@ -3971,6 +4067,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </section>
 
             <aside
+                v-if="mainContentMode === 'chapter'"
                 class="analysis-panel"
                 :class="{
                     'is-open': isStudyPanelOpen,
