@@ -546,6 +546,8 @@ const activeStudyTab = ref<'strong' | 'references' | 'notes' | 'feed'>('strong')
 const isStudyPanelOpen = ref(false);
 const isReaderMenuOpen = ref(false);
 const isMobileToolRailOpen = ref(false);
+const isMobileLeftPanelCollapsed = ref(false);
+const isMobileLeftPanelPulsing = ref(false);
 const socialPosts = ref<SocialPostDto[]>([]);
 const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
@@ -608,6 +610,90 @@ function isCompactReaderViewport(): boolean {
     }
 
     return window.matchMedia('(max-width: 760px), (max-width: 980px) and (max-height: 520px)').matches;
+}
+
+let mobileLeftPanelAutoTimer: number | undefined;
+let mobileLeftPanelPulseTimer: number | undefined;
+let mobileLeftPanelTouchStartX = 0;
+let mobileLeftPanelTouchStartY = 0;
+let chapterSwipeStartX = 0;
+let chapterSwipeStartY = 0;
+let chapterSwipeStartTime = 0;
+
+function clearMobileLeftPanelHint(): void {
+    if (mobileLeftPanelAutoTimer !== undefined) {
+        window.clearTimeout(mobileLeftPanelAutoTimer);
+        mobileLeftPanelAutoTimer = undefined;
+    }
+
+    if (mobileLeftPanelPulseTimer !== undefined) {
+        window.clearTimeout(mobileLeftPanelPulseTimer);
+        mobileLeftPanelPulseTimer = undefined;
+    }
+
+    isMobileLeftPanelPulsing.value = false;
+}
+
+function scheduleMobileLeftPanelHint(): void {
+    clearMobileLeftPanelHint();
+
+    if (!isCompactReaderViewport()) {
+        isMobileLeftPanelCollapsed.value = false;
+        return;
+    }
+
+    isMobileLeftPanelCollapsed.value = false;
+    isMobileLeftPanelPulsing.value = true;
+
+    mobileLeftPanelPulseTimer = window.setTimeout(() => {
+        isMobileLeftPanelPulsing.value = false;
+    }, 1200);
+
+    mobileLeftPanelAutoTimer = window.setTimeout(() => {
+        if (activeLeftPanel.value !== null && isCompactReaderViewport()) {
+            isMobileLeftPanelCollapsed.value = true;
+        }
+    }, 1900);
+}
+
+function closeLeftPanel(): void {
+    activeLeftPanel.value = null;
+    isMobileLeftPanelCollapsed.value = false;
+    clearMobileLeftPanelHint();
+}
+
+function toggleMobileLeftPanelCollapsed(): void {
+    clearMobileLeftPanelHint();
+    isMobileLeftPanelCollapsed.value = !isMobileLeftPanelCollapsed.value;
+}
+
+function startMobileLeftPanelSwipe(event: TouchEvent): void {
+    const touch = event.touches[0];
+
+    if (!touch) {
+        return;
+    }
+
+    mobileLeftPanelTouchStartX = touch.clientX;
+    mobileLeftPanelTouchStartY = touch.clientY;
+}
+
+function endMobileLeftPanelSwipe(event: TouchEvent): void {
+    const touch = event.changedTouches[0];
+
+    if (!touch || !isCompactReaderViewport()) {
+        return;
+    }
+
+    const deltaX = touch.clientX - mobileLeftPanelTouchStartX;
+    const deltaY = touch.clientY - mobileLeftPanelTouchStartY;
+
+    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+        return;
+    }
+
+    clearMobileLeftPanelHint();
+    isMobileLeftPanelCollapsed.value = deltaX < 0;
 }
 
 function defaultReaderTheme(): ReaderTheme {
@@ -1571,7 +1657,15 @@ function persistReaderTheme(): void {
 }
 
 function toggleLeftPanel(panel: LeftPanelId): void {
-    activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel;
+    const shouldOpen = activeLeftPanel.value !== panel;
+
+    if (!shouldOpen) {
+        closeLeftPanel();
+        return;
+    }
+
+    activeLeftPanel.value = panel;
+    scheduleMobileLeftPanelHint();
     if (activeLeftPanel.value !== null) {
         isStudyPanelOpen.value = false;
     }
@@ -2330,6 +2424,54 @@ function changeBook(): void {
 function changeCompareTranslation(): void {
     void loadCompareChapter();
     persistReaderState();
+}
+
+function isInteractiveSwipeTarget(target: EventTarget | null): boolean {
+    return target instanceof HTMLElement
+        && Boolean(target.closest('button, a, input, select, textarea, [role="button"], .left-panel, .analysis-panel, .reader-toolbar, .mini-reader-bar, .verse-study-actions'));
+}
+
+function startChapterSwipe(event: TouchEvent): void {
+    if (mainContentMode.value !== 'chapter' || (activeLeftPanel.value !== null && !isMobileLeftPanelCollapsed.value) || isReaderMenuOpen.value || isInteractiveSwipeTarget(event.target)) {
+        chapterSwipeStartX = 0;
+        chapterSwipeStartY = 0;
+        chapterSwipeStartTime = 0;
+        return;
+    }
+
+    const touch = event.touches[0];
+
+    if (!touch) {
+        return;
+    }
+
+    chapterSwipeStartX = touch.clientX;
+    chapterSwipeStartY = touch.clientY;
+    chapterSwipeStartTime = Date.now();
+}
+
+function endChapterSwipe(event: TouchEvent): void {
+    if (mainContentMode.value !== 'chapter' || chapterSwipeStartTime === 0 || isInteractiveSwipeTarget(event.target)) {
+        return;
+    }
+
+    const touch = event.changedTouches[0];
+
+    if (!touch) {
+        return;
+    }
+
+    const deltaX = touch.clientX - chapterSwipeStartX;
+    const deltaY = touch.clientY - chapterSwipeStartY;
+    const elapsed = Date.now() - chapterSwipeStartTime;
+
+    chapterSwipeStartTime = 0;
+
+    if (elapsed > 900 || Math.abs(deltaX) < 72 || Math.abs(deltaX) < Math.abs(deltaY) * 1.35) {
+        return;
+    }
+
+    goChapter(deltaX > 0 ? 1 : -1);
 }
 
 function changeChapter(): void {
@@ -3353,7 +3495,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </button>
         </nav>
 
-        <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen }">
+            <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen, 'mobile-left-panel-collapsed': isMobileLeftPanelCollapsed }">
             <button
                 type="button"
                 class="mobile-tool-toggle"
@@ -3383,10 +3525,26 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </button>
             </aside>
 
-            <aside v-if="activeLeftPanel" class="left-panel">
-                <header>
-                    <h2>{{ leftPanelTitle }}</h2>
-                    <button type="button" aria-label="Закрыть" @click="activeLeftPanel = null">
+                <aside
+                    v-if="activeLeftPanel"
+                    class="left-panel"
+                    :class="{ 'is-collapsed': isMobileLeftPanelCollapsed, 'is-pulsing': isMobileLeftPanelPulsing }"
+                    @touchstart.passive="startMobileLeftPanelSwipe"
+                    @touchend.passive="endMobileLeftPanelSwipe"
+                >
+                    <header>
+                        <h2>{{ leftPanelTitle }}</h2>
+                        <button
+                            type="button"
+                            class="mobile-left-panel-handle"
+                            :aria-label="isMobileLeftPanelCollapsed ? 'Показать панель' : 'Скрыть панель'"
+                            @click="toggleMobileLeftPanelCollapsed"
+                            @touchstart.passive="startMobileLeftPanelSwipe"
+                            @touchend.passive="endMobileLeftPanelSwipe"
+                        >
+                            {{ isMobileLeftPanelCollapsed ? '›' : '‹' }}
+                        </button>
+                        <button type="button" aria-label="Закрыть" @click="closeLeftPanel">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
                                 v-for="path in iconPaths('close')"
@@ -3706,7 +3864,9 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </aside>
 
             <section
-                class="reader-panel"
+                    class="reader-panel"
+                    @touchstart.passive="startChapterSwipe"
+                    @touchend.passive="endChapterSwipe"
                 :class="{
                     'reader-menu-open': isReaderMenuOpen,
                     'content-mode': mainContentMode !== 'chapter',
@@ -3932,6 +4092,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                         <span>{{ prayerCategoryLabel(selectedPrayer.category) }}</span>
                         <h2>{{ selectedPrayer.title }}</h2>
                     </header>
+
                     <div v-if="selectedPrayer.sections && selectedPrayer.sections.length > 1" class="section-tabs">
                         <button
                             v-for="section in selectedPrayer.sections"

@@ -3631,3 +3631,133 @@ svg {
         font-size: 8pt;
     }
 }
+@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
+    .reader-layout.has-left-panel .left-panel {
+        position: fixed;
+        top: 54px;
+        right: auto;
+        bottom: calc(78px + env(safe-area-inset-bottom));
+        left: 8px;
+        z-index: 45;
+        width: min(334px, calc(100vw - 58px));
+        height: auto;
+        max-height: calc(100dvh - 148px - env(safe-area-inset-bottom));
+        transform: translateX(0);
+        overflow: visible;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .reader-layout.has-left-panel .left-panel.is-collapsed {
+        transform: translateX(calc(-100% + 36px));
+        box-shadow: none;
+    }
+
+    .reader-layout.has-left-panel .left-panel > :not(header):not(.mobile-left-panel-handle) {
+        overflow: auto;
+        min-height: 0;
+    }
+
+    .mobile-left-panel-handle {
+        position: absolute;
+        top: 50%;
+        right: -34px;
+        display: grid;
+        width: 34px;
+        height: 70px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-left: 0;
+        border-radius: 0 12px 12px 0;
+        background: var(--panel-bg);
+        color: var(--text-color);
+        box-shadow: 8px 0 18px rgba(15, 35, 55, 0.16);
+        font-size: 28px;
+        line-height: 1;
+        transform: translateY(-50%);
+        touch-action: pan-y;
+    }
+
+    .left-panel header .mobile-left-panel-handle {
+        top: calc(50dvh - 74px);
+    }
+
+    .left-panel.is-pulsing {
+        animation: mobile-left-panel-pulse 0.58s ease-in-out 2;
+    }
+
+    .reader-layout.mobile-left-panel-collapsed .reader-panel {
+        min-width: 0;
+    }
+}
+
+@media (min-width: 761px) and (min-height: 521px) {
+    .mobile-left-panel-handle {
+        display: none;
+    }
+}
+
+@keyframes mobile-left-panel-pulse {
+    0%,
+    100% {
+        border-color: var(--border-color);
+        box-shadow: var(--panel-shadow, 0 8px 22px rgba(15, 35, 55, 0.12));
+    }
+
+    50% {
+        border-color: #2f74ad;
+        box-shadow: 0 0 0 3px rgba(47, 116, 173, 0.18), 0 14px 30px rgba(15, 35, 55, 0.18);
+    }
+}
+/* Mobile reader drawer overrides live at the end so they win over the base responsive sheet. */
+@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
+    .reader-layout.has-left-panel .left-panel {
+        position: fixed;
+        top: 54px;
+        right: auto;
+        bottom: calc(78px + env(safe-area-inset-bottom));
+        left: 8px;
+        z-index: 45;
+        width: min(334px, calc(100vw - 58px));
+        height: auto;
+        max-height: calc(100dvh - 148px - env(safe-area-inset-bottom));
+        transform: translateX(0);
+        overflow: visible;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .reader-layout.has-left-panel .left-panel.is-collapsed {
+        transform: translateX(calc(-100% + 36px));
+        box-shadow: none;
+    }
+
+    .reader-layout.has-left-panel .left-panel > :not(header):not(.mobile-left-panel-handle) {
+        overflow: auto;
+        min-height: 0;
+    }
+
+    .mobile-left-panel-handle {
+        position: absolute;
+        top: 50%;
+        right: -34px;
+        display: grid;
+        width: 34px;
+        height: 70px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-left: 0;
+        border-radius: 0 12px 12px 0;
+        background: var(--panel-bg);
+        color: var(--text-color);
+        box-shadow: 8px 0 18px rgba(15, 35, 55, 0.16);
+        font-size: 28px;
+        line-height: 1;
+        transform: translateY(-50%);
+        touch-action: pan-y;
+    }
+
+    .left-panel.is-pulsing {
+        animation: mobile-left-panel-pulse 0.58s ease-in-out 2;
+    }
+}
