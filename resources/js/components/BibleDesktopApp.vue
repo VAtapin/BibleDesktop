@@ -636,6 +636,18 @@ function openStudyTool(toolId: StudyToolId | 'strong'): void {
     activeLeftPanel.value = null;
 }
 
+function openVerseStudyTool(toolId: StudyToolId | 'strong'): void {
+    if (!selectedVerse.value) {
+        return;
+    }
+
+    if (toolId === 'strong') {
+        showStrongNumbers.value = true;
+    }
+
+    openStudyTool(toolId);
+}
+
 const icons: Record<IconName, string[]> = {
     'book-open': [
         'M4 19.5V5.75A2.75 2.75 0 0 1 6.75 3H20v16H7.25A3.25 3.25 0 0 0 4 22V19.5Z',
@@ -3903,6 +3915,25 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </div>
                 </article>
 
+                <nav
+                    v-if="mainContentMode === 'chapter' && selectedVerse && !isStudyPanelOpen && !isReaderMenuOpen"
+                    class="verse-study-actions"
+                    aria-label="Инструменты выбранного стиха"
+                >
+                    <button
+                        v-for="tool in studyTools"
+                        :key="`verse-study-${tool.id}`"
+                        type="button"
+                        :aria-label="tool.title"
+                        :data-tooltip="tool.title"
+                        @click="openVerseStudyTool(tool.id)"
+                    >
+                        <img :src="toolIconUrl(tool.icon)" alt="" />
+                        <span>{{ tool.id === 'references' ? 'Ссылки' : tool.id === 'notes' ? 'Заметка' : tool.id === 'feed' ? 'Лента' : 'Strong' }}</span>
+                        <small v-if="tool.id === 'references' && crossReferences.length > 0">{{ crossReferences.length }}</small>
+                    </button>
+                </nav>
+
                 <button
                     type="button"
                     class="reader-bottom-menu-button"
@@ -3939,7 +3970,13 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 </div>
             </section>
 
-            <aside class="analysis-panel" :class="{ 'is-open': isStudyPanelOpen }">
+            <aside
+                class="analysis-panel"
+                :class="{
+                    'is-open': isStudyPanelOpen,
+                    'is-reference-sheet': activeStudyTab === 'references',
+                }"
+            >
                 <header>
                     <h2>Справочник</h2>
                     <button type="button" class="analysis-close" aria-label="Закрыть справочник" title="Закрыть справочник" @click="isStudyPanelOpen = false">
