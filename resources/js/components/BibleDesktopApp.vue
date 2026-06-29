@@ -645,19 +645,33 @@ function openStudyTool(toolId: StudyToolId | 'strong'): void {
     activeLeftPanel.value = null;
 }
 
+function toggleStrongNumbers(openPanel = false): void {
+    showStrongNumbers.value = !showStrongNumbers.value;
+    hideStrongTooltip();
+
+    if (!showStrongNumbers.value) {
+        selectedStrongEntry.value = null;
+    }
+
+    if (isCompactReaderViewport()) {
+        isStudyPanelOpen.value = false;
+        return;
+    }
+
+    if (openPanel && showStrongNumbers.value) {
+        activeStudyTab.value = 'strong';
+        isStudyPanelOpen.value = true;
+        activeLeftPanel.value = null;
+    }
+}
+
 function openVerseStudyTool(toolId: StudyToolId | 'strong'): void {
     if (!selectedVerse.value) {
         return;
     }
 
     if (toolId === 'strong') {
-        showStrongNumbers.value = !showStrongNumbers.value;
-        hideStrongTooltip();
-
-        if (!showStrongNumbers.value) {
-            selectedStrongEntry.value = null;
-        }
-
+        toggleStrongNumbers(false);
         return;
     }
 
@@ -1075,6 +1089,14 @@ function scrollSelectedVerseIntoView(): void {
 function strongTooltipPosition(event: Event): { x: number; y: number } {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const rect = target?.getBoundingClientRect();
+
+    if (isCompactReaderViewport()) {
+        return {
+            x: 16,
+            y: 86,
+        };
+    }
+
     const rawX = rect ? rect.left + 10 : 12;
     const rawY = rect ? rect.bottom + 8 : 12;
 
@@ -1130,18 +1152,10 @@ async function showStrongTooltipNow(event: Event, verse: Verse, strongNumber: st
 }
 
 function showStrongTooltipForPointer(event: Event, verse: Verse, strongNumber: string): void {
-    if (isCompactReaderViewport()) {
-        return;
-    }
-
     showStrongTooltip(event, verse, strongNumber);
 }
 
 function hideStrongTooltipForPointer(): void {
-    if (isCompactReaderViewport()) {
-        return;
-    }
-
     hideStrongTooltip();
 }
 
@@ -1610,10 +1624,7 @@ function handleToolClick(toolId: ToolId): void {
     }
 
     if (toolId === 'strong') {
-        showStrongNumbers.value = !showStrongNumbers.value;
-        activeStudyTab.value = 'strong';
-        isStudyPanelOpen.value = true;
-        activeLeftPanel.value = null;
+        toggleStrongNumbers(true);
     }
 }
 
@@ -3839,7 +3850,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                             aria-label="Strong"
                             title="Показать номера Strong"
                             :class="{ active: showStrongNumbers }"
-                            @click="showStrongNumbers = !showStrongNumbers"
+                            @click="toggleStrongNumbers(false)"
                         >
                             <svg aria-hidden="true" viewBox="0 0 24 24">
                                 <path
