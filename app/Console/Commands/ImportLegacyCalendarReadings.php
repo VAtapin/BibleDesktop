@@ -267,6 +267,18 @@ class ImportLegacyCalendarReadings extends Command
         $value = str_replace(["\u{00A0}", '–', '—'], [' ', '-', '-'], $value);
         $value = preg_replace('/\s+/u', '', $value) ?? $value;
 
+        if (preg_match('/^([1-3]?\p{L}+)\.?(\d+)[:.,](\d+)-(\d+)[:.,](\d+)-(\d+)$/u', $value, $matches)) {
+            $book = $this->bookMap[$matches[1]] ?? null;
+
+            if (! $book) {
+                return null;
+            }
+
+            $chapter = (int) $matches[2];
+
+            return "{$book}.{$chapter}.{$matches[3]}-{$matches[4]}; {$book}.{$chapter}.{$matches[5]}-{$matches[6]}";
+        }
+
         if (preg_match('/^([1-3]?\p{L}+)\.?(\\d+)-(\\d+)$/u', $value, $matches)) {
             $book = $this->bookMap[$matches[1]] ?? null;
 

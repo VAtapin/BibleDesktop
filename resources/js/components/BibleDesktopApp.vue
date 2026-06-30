@@ -506,7 +506,6 @@ const advancedSearchError = ref<string | null>(null);
 const calendarDay = ref<CalendarDayDto | null>(null);
 const isCalendarLoading = ref(false);
 const calendarError = ref<string | null>(null);
-const expandedCalendarReadings = ref<number[]>([]);
 const prayers = ref<PrayerDto[]>([]);
 const isPrayersLoading = ref(false);
 const prayersError = ref<string | null>(null);
@@ -2121,18 +2120,50 @@ async function loadCalendarDay(): Promise<void> {
     }
 }
 
-function toggleCalendarReading(readingId: number): void {
-    expandedCalendarReadings.value = expandedCalendarReadings.value.includes(readingId)
-        ? expandedCalendarReadings.value.filter((id) => id !== readingId)
-        : [...expandedCalendarReadings.value, readingId];
-}
-
-function isCalendarReadingExpanded(readingId: number): boolean {
-    return expandedCalendarReadings.value.includes(readingId);
-}
-
 function calendarReadingTypeLabel(type: string): string {
     return matchCalendarReadingType(type);
+}
+
+function parseCalendarPassageTarget(passageRef: string): { bookOsis: string; chapter: number; verse: number | null } | null {
+    const firstReference = passageRef.split(';')[0]?.trim() ?? '';
+    const match = firstReference.match(/^([1-3]?[A-Za-z]+)\.(\d+)(?:\.(\d+))?/);
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        bookOsis: match[1],
+        chapter: Number(match[2]),
+        verse: match[3] ? Number(match[3]) : null,
+    };
+}
+
+async function openCalendarReading(reading: CalendarReadingDto): Promise<void> {
+    const target = parseCalendarPassageTarget(reading.passage_ref);
+
+    if (!target) {
+        return;
+    }
+
+    await loadBooksForSelectedTranslation();
+
+    const book = books.value.find((item) => item.canonical_book?.osis_code === target.bookOsis);
+
+    if (!book) {
+        return;
+    }
+
+    syncActiveTabFromSelection();
+    selectedBookSlug.value = book.slug;
+    selectedChapterNumber.value = target.chapter;
+    ensureChapterTab(reading.display_ref || reading.passage_ref);
+    highlightedVerseNumbers.value = target.verse ? [target.verse] : [];
+    closeReaderMenu();
+
+    await loadChapter(target.verse);
+    syncActiveTabFromSelection();
+    persistReaderState();
 }
 
 function matchCalendarReadingType(type: string): string {
@@ -3305,7 +3336,6 @@ onMounted(async () => {
 
 watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
     calendarDay.value = null;
-    expandedCalendarReadings.value = [];
     syncActiveTabFromSelection();
     persistReaderState();
 });
@@ -3656,18 +3686,14 @@ watch([selectedBookSlug, socialFeedScope], () => {
                                 </li>
                             </ul>
                         </template>
-                        <h3>Евангелие и Апостол</h3>
+                        <h3>Чтения дня</h3>
                         <div v-if="calendarDay.readings.length > 0" class="calendar-readings">
                             <article v-for="reading in calendarDay.readings" :key="reading.id">
                                 <span>{{ calendarReadingTypeLabel(reading.type) }}</span>
                                 <strong>{{ reading.title || reading.display_ref || reading.passage_ref }}</strong>
-                                <button type="button" class="calendar-reading-link" @click="toggleCalendarReading(reading.id)">
+                                <button type="button" class="calendar-reading-link" @click="openCalendarReading(reading)">
                                     {{ reading.display_ref || reading.passage_ref }}
                                 </button>
-                                <template v-if="isCalendarReadingExpanded(reading.id)">
-                                    <pre v-if="reading.text" class="calendar-reading-text">{{ reading.text }}</pre>
-                                    <p v-else>Текст для выбранного перевода не найден.</p>
-                                </template>
                             </article>
                         </div>
                         <p v-else>Чтения дня ещё не заданы.</p>

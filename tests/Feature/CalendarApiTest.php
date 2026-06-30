@@ -168,4 +168,60 @@ XML);
             ->assertJsonPath('data.readings.0.type', 'apostle')
             ->assertJsonPath('data.readings.0.passage_ref', 'Acts.1.1-8');
     }
+
+    public function test_legacy_reading_import_keeps_apostle_gospel_and_psalter(): void
+    {
+        $path = storage_path('app/calendar-readings-test.xml');
+
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+
+        file_put_contents($path, <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<MemoryDays>
+    <event>
+        <s_month>0</s_month>
+        <s_date>79</s_date>
+        <f_month>0</f_month>
+        <f_date>79</f_date>
+        <name>Рим.14:9-18</name>
+        <type>204</type>
+    </event>
+    <event>
+        <s_month>0</s_month>
+        <s_date>79</s_date>
+        <f_month>0</f_month>
+        <f_date>79</f_date>
+        <name>Мф.12:14-16:22-30</name>
+        <type>207</type>
+    </event>
+    <event>
+        <s_month>0</s_month>
+        <s_date>79</s_date>
+        <f_month>0</f_month>
+        <f_date>79</f_date>
+        <name>Пс.46-54; Пс.55-63</name>
+        <type>302</type>
+    </event>
+</MemoryDays>
+XML);
+
+        $this->artisan('calendar:legacy:import-readings', [
+            '--path' => 'storage/app/calendar-readings-test.xml',
+            '--truncate' => true,
+        ])->assertSuccessful();
+
+        @unlink($path);
+
+        $this->getJson('/api/calendar/day?date=2026-06-30')
+            ->assertOk()
+            ->assertJsonCount(3, 'data.readings')
+            ->assertJsonPath('data.readings.0.type', 'apostle')
+            ->assertJsonPath('data.readings.0.passage_ref', 'Rom.14.9-18')
+            ->assertJsonPath('data.readings.1.type', 'gospel')
+            ->assertJsonPath('data.readings.1.passage_ref', 'Matt.12.14-16; Matt.12.22-30')
+            ->assertJsonPath('data.readings.2.type', 'psalm')
+            ->assertJsonPath('data.readings.2.passage_ref', 'Ps.46.1-54.999; Ps.55.1-63.999');
+    }
 }
