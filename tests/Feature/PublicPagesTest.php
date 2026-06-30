@@ -79,5 +79,7 @@ class PublicPagesTest extends TestCase
     public function test_legacy_mini_app_route_redirects_to_standard_reader(): void
     {
         $this->get('/mini-app')->assertRedirect('/');
+        $this->get('/mini-app?vk_app_id=123&vk_platform=desktop_web')
+            ->assertRedirect('/?vk_app_id=123&vk_platform=desktop_web');
     }
 }
