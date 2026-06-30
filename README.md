@@ -135,8 +135,11 @@ npm run build
 /embed               совместимый alias для /webview
 ```
 
-Старый маршрут `/mini-app` удалён. Стандартная страница и WebView не загружают
-`telegram.org`; Telegram SDK подключается только на `/telegramm-mini-app`.
+Старый маршрут `/mini-app` перенаправляет на стандартную страницу `/`.
+Стандартная страница и WebView не загружают `telegram.org`; Telegram SDK
+подключается только на `/telegramm-mini-app`. При запуске внутри VK официальный
+VK Bridge загружается из локальной Vite-сборки и отправляет `VKWebAppInit`;
+в обычном браузере, OK и WebView этот модуль не загружается.
 
 Docker services:
 

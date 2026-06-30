@@ -76,8 +76,8 @@ class PublicPagesTest extends TestCase
             ->assertDontSee('https://telegram.org/js/telegram-web-app.js', false);
     }
 
-    public function test_removed_generic_mini_app_route_returns_not_found(): void
+    public function test_legacy_mini_app_route_redirects_to_standard_reader(): void
     {
-        $this->get('/mini-app')->assertNotFound();
+        $this->get('/mini-app')->assertRedirect('/');
     }
 }

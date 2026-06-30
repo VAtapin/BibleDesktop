@@ -53,6 +53,8 @@ Route::get('/webview', function () {
     ]);
 })->middleware(AllowReaderEmbedding::class)->name('webview');
 
+Route::redirect('/mini-app', '/', 301)->name('legacy-mini-app');
+
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');
 
 Route::middleware('guest')->group(function (): void {
