@@ -30,6 +30,14 @@ Route::get('/embed', function () {
     ]);
 })->name('embed');
 
+Route::get('/mini-app', function () {
+    return view('app', [
+        'embed' => true,
+        'embedSource' => request()->query('source', 'mini-app'),
+        'footerPages' => FooterPages::links(),
+    ]);
+})->name('mini-app');
+
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');
 
 Route::middleware('guest')->group(function (): void {

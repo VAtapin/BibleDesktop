@@ -546,8 +546,8 @@ const activeStudyTab = ref<'strong' | 'references' | 'notes' | 'feed'>('strong')
 const isStudyPanelOpen = ref(false);
 const isReaderMenuOpen = ref(false);
 const isMobileToolRailOpen = ref(false);
-const isMobileLeftPanelCollapsed = ref(false);
-const isMobileLeftPanelPulsing = ref(false);
+const isMobileStudyActionsCollapsed = ref(false);
+const isMobileStudyActionsPulsing = ref(false);
 const socialPosts = ref<SocialPostDto[]>([]);
 const socialPostBody = ref('');
 const isSocialFeedLoading = ref(false);
@@ -612,88 +612,86 @@ function isCompactReaderViewport(): boolean {
     return window.matchMedia('(max-width: 760px), (max-width: 980px) and (max-height: 520px)').matches;
 }
 
-let mobileLeftPanelAutoTimer: number | undefined;
-let mobileLeftPanelPulseTimer: number | undefined;
-let mobileLeftPanelTouchStartX = 0;
-let mobileLeftPanelTouchStartY = 0;
+let mobileStudyActionsAutoTimer: number | undefined;
+let mobileStudyActionsPulseTimer: number | undefined;
+let mobileStudyActionsTouchStartX = 0;
+let mobileStudyActionsTouchStartY = 0;
 let chapterSwipeStartX = 0;
 let chapterSwipeStartY = 0;
 let chapterSwipeStartTime = 0;
 
-function clearMobileLeftPanelHint(): void {
-    if (mobileLeftPanelAutoTimer !== undefined) {
-        window.clearTimeout(mobileLeftPanelAutoTimer);
-        mobileLeftPanelAutoTimer = undefined;
+function clearMobileStudyActionsHint(): void {
+    if (mobileStudyActionsAutoTimer !== undefined) {
+        window.clearTimeout(mobileStudyActionsAutoTimer);
+        mobileStudyActionsAutoTimer = undefined;
     }
 
-    if (mobileLeftPanelPulseTimer !== undefined) {
-        window.clearTimeout(mobileLeftPanelPulseTimer);
-        mobileLeftPanelPulseTimer = undefined;
+    if (mobileStudyActionsPulseTimer !== undefined) {
+        window.clearTimeout(mobileStudyActionsPulseTimer);
+        mobileStudyActionsPulseTimer = undefined;
     }
 
-    isMobileLeftPanelPulsing.value = false;
+    isMobileStudyActionsPulsing.value = false;
 }
 
-function scheduleMobileLeftPanelHint(): void {
-    clearMobileLeftPanelHint();
+function scheduleMobileStudyActionsHint(): void {
+    clearMobileStudyActionsHint();
 
     if (!isCompactReaderViewport()) {
-        isMobileLeftPanelCollapsed.value = false;
+        isMobileStudyActionsCollapsed.value = false;
         return;
     }
 
-    isMobileLeftPanelCollapsed.value = false;
-    isMobileLeftPanelPulsing.value = true;
+    isMobileStudyActionsCollapsed.value = false;
+    isMobileStudyActionsPulsing.value = true;
 
-    mobileLeftPanelPulseTimer = window.setTimeout(() => {
-        isMobileLeftPanelPulsing.value = false;
+    mobileStudyActionsPulseTimer = window.setTimeout(() => {
+        isMobileStudyActionsPulsing.value = false;
     }, 1200);
 
-    mobileLeftPanelAutoTimer = window.setTimeout(() => {
-        if (activeLeftPanel.value !== null && isCompactReaderViewport()) {
-            isMobileLeftPanelCollapsed.value = true;
+    mobileStudyActionsAutoTimer = window.setTimeout(() => {
+        if (mainContentMode.value === 'chapter' && selectedVerse.value && isCompactReaderViewport()) {
+            isMobileStudyActionsCollapsed.value = true;
         }
     }, 1900);
 }
 
 function closeLeftPanel(): void {
     activeLeftPanel.value = null;
-    isMobileLeftPanelCollapsed.value = false;
-    clearMobileLeftPanelHint();
 }
 
-function toggleMobileLeftPanelCollapsed(): void {
-    clearMobileLeftPanelHint();
-    isMobileLeftPanelCollapsed.value = !isMobileLeftPanelCollapsed.value;
+function toggleMobileStudyActionsCollapsed(): void {
+    clearMobileStudyActionsHint();
+    isMobileStudyActionsCollapsed.value = !isMobileStudyActionsCollapsed.value;
 }
 
-function startMobileLeftPanelSwipe(event: TouchEvent): void {
+function startMobileStudyActionsSwipe(event: TouchEvent): void {
     const touch = event.touches[0];
 
     if (!touch) {
         return;
     }
 
-    mobileLeftPanelTouchStartX = touch.clientX;
-    mobileLeftPanelTouchStartY = touch.clientY;
+    mobileStudyActionsTouchStartX = touch.clientX;
+    mobileStudyActionsTouchStartY = touch.clientY;
 }
 
-function endMobileLeftPanelSwipe(event: TouchEvent): void {
+function endMobileStudyActionsSwipe(event: TouchEvent): void {
     const touch = event.changedTouches[0];
 
     if (!touch || !isCompactReaderViewport()) {
         return;
     }
 
-    const deltaX = touch.clientX - mobileLeftPanelTouchStartX;
-    const deltaY = touch.clientY - mobileLeftPanelTouchStartY;
+    const deltaX = touch.clientX - mobileStudyActionsTouchStartX;
+    const deltaY = touch.clientY - mobileStudyActionsTouchStartY;
 
     if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
         return;
     }
 
-    clearMobileLeftPanelHint();
-    isMobileLeftPanelCollapsed.value = deltaX < 0;
+    clearMobileStudyActionsHint();
+    isMobileStudyActionsCollapsed.value = deltaX < 0;
 }
 
 function defaultReaderTheme(): ReaderTheme {
@@ -1665,7 +1663,6 @@ function toggleLeftPanel(panel: LeftPanelId): void {
     }
 
     activeLeftPanel.value = panel;
-    scheduleMobileLeftPanelHint();
     if (activeLeftPanel.value !== null) {
         isStudyPanelOpen.value = false;
     }
@@ -2432,7 +2429,7 @@ function isInteractiveSwipeTarget(target: EventTarget | null): boolean {
 }
 
 function startChapterSwipe(event: TouchEvent): void {
-    if (mainContentMode.value !== 'chapter' || (activeLeftPanel.value !== null && !isMobileLeftPanelCollapsed.value) || isReaderMenuOpen.value || isInteractiveSwipeTarget(event.target)) {
+    if (mainContentMode.value !== 'chapter' || activeLeftPanel.value !== null || isReaderMenuOpen.value || isInteractiveSwipeTarget(event.target)) {
         chapterSwipeStartX = 0;
         chapterSwipeStartY = 0;
         chapterSwipeStartTime = 0;
@@ -2471,7 +2468,7 @@ function endChapterSwipe(event: TouchEvent): void {
         return;
     }
 
-    goChapter(deltaX > 0 ? 1 : -1);
+    goChapter(deltaX < 0 ? 1 : -1);
 }
 
 function changeChapter(): void {
@@ -3242,6 +3239,7 @@ async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
 
 onMounted(async () => {
     try {
+        scheduleMobileStudyActionsHint();
         readerFontSize.value = readReaderFontSize();
         const savedState = readReaderState();
         const urlState = readUrlState();
@@ -3323,6 +3321,12 @@ watch(readerTheme, () => {
 watch(activeStudyTab, (tab) => {
     if (tab === 'feed') {
         void loadSocialFeed();
+    }
+});
+
+watch(selectedVerse, (verse) => {
+    if (verse && !isStudyPanelOpen.value && !isReaderMenuOpen.value) {
+        scheduleMobileStudyActionsHint();
     }
 });
 
@@ -3495,7 +3499,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </button>
         </nav>
 
-            <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen, 'mobile-left-panel-collapsed': isMobileLeftPanelCollapsed }">
+            <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen }">
             <button
                 type="button"
                 class="mobile-tool-toggle"
@@ -3528,22 +3532,9 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 <aside
                     v-if="activeLeftPanel"
                     class="left-panel"
-                    :class="{ 'is-collapsed': isMobileLeftPanelCollapsed, 'is-pulsing': isMobileLeftPanelPulsing }"
-                    @touchstart.passive="startMobileLeftPanelSwipe"
-                    @touchend.passive="endMobileLeftPanelSwipe"
                 >
                     <header>
                         <h2>{{ leftPanelTitle }}</h2>
-                        <button
-                            type="button"
-                            class="mobile-left-panel-handle"
-                            :aria-label="isMobileLeftPanelCollapsed ? 'Показать панель' : 'Скрыть панель'"
-                            @click="toggleMobileLeftPanelCollapsed"
-                            @touchstart.passive="startMobileLeftPanelSwipe"
-                            @touchend.passive="endMobileLeftPanelSwipe"
-                        >
-                            {{ isMobileLeftPanelCollapsed ? '›' : '‹' }}
-                        </button>
                         <button type="button" aria-label="Закрыть" @click="closeLeftPanel">
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                             <path
@@ -4315,8 +4306,19 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 <nav
                     v-if="mainContentMode === 'chapter' && selectedVerse && !isStudyPanelOpen && !isReaderMenuOpen"
                     class="verse-study-actions"
+                    :class="{ 'is-collapsed': isMobileStudyActionsCollapsed, 'is-pulsing': isMobileStudyActionsPulsing }"
                     aria-label="Инструменты выбранного стиха"
+                    @touchstart.passive="startMobileStudyActionsSwipe"
+                    @touchend.passive="endMobileStudyActionsSwipe"
                 >
+                    <button
+                        type="button"
+                        class="verse-study-actions-handle"
+                        :aria-label="isMobileStudyActionsCollapsed ? 'Показать действия' : 'Скрыть действия'"
+                        @click.stop="toggleMobileStudyActionsCollapsed"
+                    >
+                        {{ isMobileStudyActionsCollapsed ? '›' : '‹' }}
+                    </button>
                     <button
                         v-for="tool in studyTools"
                         :key="`verse-study-${tool.id}`"
