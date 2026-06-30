@@ -14,6 +14,7 @@
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\ContentToolController;
 use App\Http\Controllers\Api\ChapterController;
+use App\Http\Controllers\Api\HomeSummaryController;
 use App\Http\Controllers\Api\PrayerController;
 use App\Http\Controllers\Api\ReferenceDataController;
 use App\Http\Controllers\Api\SearchController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Api\VerseNoteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/languages', [ReferenceDataController::class, 'languages']);
+Route::get('/home', HomeSummaryController::class);
 Route::get('/translations', [ReferenceDataController::class, 'translations']);
 Route::get('/canons/{canon:code}/books', [ReferenceDataController::class, 'canonBooks']);
 Route::get('/translations/{translationCode}/books', [ReferenceDataController::class, 'translationBooks']);

@@ -432,6 +432,26 @@ svg {
     grid-template-columns: 42px minmax(240px, 300px) minmax(0, 1fr) minmax(240px, 320px);
 }
 
+.reader-layout.home-mode {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.reader-layout.home-mode .reader-panel {
+    grid-column: 1;
+}
+
+.reader-layout.home-mode.has-left-panel {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+}
+
+.reader-layout.home-mode.has-left-panel .left-panel {
+    grid-column: 1;
+}
+
+.reader-layout.home-mode.has-left-panel .reader-panel {
+    grid-column: 2;
+}
+
 .tool-rail {
     display: grid;
     align-content: start;
@@ -956,6 +976,126 @@ svg {
     color: #16395f;
     font-size: 24px;
     line-height: 1.2;
+}
+
+.home-dashboard {
+    display: grid;
+    align-content: start;
+    gap: 24px;
+    background:
+        linear-gradient(180deg, rgb(247 250 252 / 94%), rgb(255 255 255 / 100%)),
+        var(--panel-bg);
+}
+
+.home-dashboard .home-dashboard-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 920px;
+    margin: 8px auto 0;
+    width: 100%;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.home-dashboard-header img {
+    width: 72px;
+    height: 72px;
+    flex: 0 0 72px;
+    object-fit: contain;
+}
+
+.home-dashboard-header h2 {
+    font-size: 30px;
+}
+
+.home-dashboard-header p {
+    margin-top: 6px;
+    color: var(--text-muted);
+}
+
+.home-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 920px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.home-card {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 96px;
+    padding: 14px;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    background: var(--panel-bg);
+    color: var(--text-main);
+    text-align: left;
+    box-shadow: 0 4px 14px rgb(27 54 81 / 5%);
+}
+
+.home-card:hover,
+.home-card:focus-visible {
+    border-color: #7d9fc0;
+    background: #f4f8fc;
+}
+
+.home-card img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.home-card-content {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.home-card-content strong {
+    color: #16395f;
+    font-size: 15px;
+}
+
+.home-card-content small {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.home-card-count {
+    align-self: start;
+    min-width: 28px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #e8f1f8;
+    color: #245d8e;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.reader-theme-dark .home-dashboard {
+    background: var(--panel-bg);
+}
+
+.reader-theme-dark .home-dashboard-header h2,
+.reader-theme-dark .home-card-content strong {
+    color: var(--text-main);
+}
+
+.reader-theme-dark .home-card:hover,
+.reader-theme-dark .home-card:focus-visible {
+    background: #22313e;
+}
+
+.reader-theme-dark .home-card-count {
+    background: #263c4f;
+    color: #b9d6ed;
 }
 
 .content-cover {
@@ -2804,6 +2944,65 @@ svg {
         -webkit-overflow-scrolling: touch;
     }
 
+    .reader-layout.home-mode.has-left-panel {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .reader-layout.home-mode.has-left-panel .reader-panel {
+        grid-column: 1;
+    }
+
+    .home-dashboard {
+        min-height: 100%;
+        padding: 18px 14px 86px;
+        overflow-y: auto;
+    }
+
+    .home-dashboard .home-dashboard-header {
+        align-items: flex-start;
+        gap: 12px;
+        margin: 0;
+        padding-bottom: 14px;
+    }
+
+    .home-dashboard-header img {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+    }
+
+    .home-dashboard-header h2 {
+        font-size: 22px;
+    }
+
+    .home-dashboard-header p {
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .home-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+    }
+
+    .home-card {
+        grid-template-columns: 40px minmax(0, 1fr);
+        min-height: 88px;
+        padding: 10px;
+    }
+
+    .home-card img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .home-card-count {
+        grid-column: 1;
+        grid-row: 1;
+        align-self: end;
+        justify-self: end;
+        transform: translate(4px, 5px);
+    }
     .embed-shell .reader-layout,
     .embed-shell .reader-layout.has-left-panel {
         gap: 0;

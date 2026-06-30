@@ -48,6 +48,16 @@ type ApiResponse<T> = {
     data: T;
 };
 
+type HomeSummaryDto = {
+    bibles: number;
+    recipes: number;
+    quizzes: number;
+    tours: number;
+    prayers: number;
+    materials: number;
+    faith_questions: number;
+};
+
 type Verse = {
     id?: number;
     number: number;
@@ -425,7 +435,7 @@ type HistoryItem = {
 type LeftPanelId = 'library' | 'calendar' | 'bookmarks' | 'history' | 'search' | 'prayers' | 'faith' | 'materials' | 'recipes' | 'quizzes' | 'tours';
 type StudyToolId = 'references' | 'notes' | 'feed';
 type ToolId = LeftPanelId | StudyToolId | 'strong' | 'print';
-type MainContentMode = 'chapter' | 'prayer' | 'faith-question' | 'recipe' | 'quiz' | 'tour';
+type MainContentMode = 'home' | 'chapter' | 'prayer' | 'faith-question' | 'recipe' | 'quiz' | 'tour';
 type IconName = 'book-open' | 'bookmark' | 'calendar' | 'clock' | 'close' | 'feed' | 'globe' | 'hash' | 'link' | 'menu' | 'note' | 'plus' | 'prayer' | 'printer' | 'recipe' | 'search' | 'sidebar' | 'test';
 type ReaderTheme = 'light' | 'dark';
 
@@ -478,6 +488,9 @@ const isLoading = ref(true);
 const isBooksLoading = ref(false);
 const isChapterLoading = ref(false);
 const apiError = ref<string | null>(null);
+const homeSummary = ref<HomeSummaryDto | null>(null);
+const isHomeLoading = ref(false);
+const homeError = ref<string | null>(null);
 const selectedTranslationCode = ref('L1_RST');
 const compareTranslationCode = ref('');
 const selectedBookSlug = ref('genesis');
@@ -537,7 +550,7 @@ const selectedVirtualTour = ref<VirtualTourDto | null>(null);
 const isVirtualTourOverlayOpen = ref(false);
 const contentToolsError = ref<string | null>(null);
 const isContentToolsLoading = ref(false);
-const mainContentMode = ref<MainContentMode>('chapter');
+const mainContentMode = ref<MainContentMode>('home');
 const bookmarks = ref<BookmarkItem[]>([]);
 const viewHistory = ref<HistoryItem[]>([]);
 const highlightedVerseNumbers = ref<number[]>([]);
@@ -571,6 +584,7 @@ const isCompareLoading = ref(false);
 const compareError = ref<string | null>(null);
 const chapterCache = new Map<string, ChapterDto>();
 const studyDataCache = new Map<string, StudyDataCacheItem>();
+let readerCatalogPromise: Promise<void> | null = null;
 
 const readerStyle = computed(() => ({
     '--reader-font-size': `${readerFontSize.value}px`,
@@ -597,6 +611,17 @@ const studyTools = [
     { id: 'notes', icon: 'comments', title: 'Толкования и комментарии' },
     { id: 'feed', icon: 'feed', title: 'Лента размышлений' },
 ] satisfies Array<{ id: StudyToolId | 'strong'; icon: string; title: string }>;
+
+const homeCards = computed(() => [
+    { panel: 'library' as const, icon: 'library', title: 'Библии', description: 'Переводы и языки', count: homeSummary.value?.bibles },
+    { panel: 'calendar' as const, icon: 'calendar', title: 'Календарь дня', description: 'Праздники, пост и чтения', count: undefined },
+    { panel: 'prayers' as const, icon: 'prayers', title: 'Молитвослов', description: 'Молитвы на каждый день', count: homeSummary.value?.prayers },
+    { panel: 'recipes' as const, icon: 'recipes', title: 'Рецепты', description: 'Постные блюда', count: homeSummary.value?.recipes },
+    { panel: 'quizzes' as const, icon: 'quizzes', title: 'Тесты', description: 'Проверьте свои знания', count: homeSummary.value?.quizzes },
+    { panel: 'tours' as const, icon: 'tours', title: '360° туры', description: 'Храмы и монастыри', count: homeSummary.value?.tours },
+    { panel: 'faith' as const, icon: 'faith', title: 'Вопросы веры', description: 'Краткие ответы', count: homeSummary.value?.faith_questions },
+    { panel: 'materials' as const, icon: 'materials', title: 'Полезные материалы', description: 'Проекты и приложения', count: homeSummary.value?.materials },
+]);
 
 function defaultReaderFontSize(): number {
     if (typeof window === 'undefined') {
@@ -714,6 +739,72 @@ function toggleReaderTheme(): void {
 
 function toolIconUrl(icon: string): string {
     return `/assets/tool-icons/${icon}.png`;
+}
+
+async function loadHomeSummary(): Promise<void> {
+    if (homeSummary.value || isHomeLoading.value) {
+        return;
+    }
+
+    isHomeLoading.value = true;
+    homeError.value = null;
+
+    try {
+        homeSummary.value = (await loadJson<ApiResponse<HomeSummaryDto>>('/api/home')).data;
+    } catch (error) {
+        homeError.value = error instanceof Error ? error.message : 'Не удалось загрузить данные главной страницы';
+    } finally {
+        isHomeLoading.value = false;
+    }
+}
+
+async function ensureReaderCatalog(): Promise<void> {
+    if (translations.value.length > 0 && languages.value.length > 0) {
+        return;
+    }
+
+    if (readerCatalogPromise) {
+        return readerCatalogPromise;
+    }
+
+    isLoading.value = true;
+    readerCatalogPromise = (async () => {
+        const [languagesResponse, translationsResponse] = await Promise.all([
+            loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
+            loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
+        ]);
+
+        languages.value = languagesResponse.data;
+        translations.value = translationsResponse.data;
+
+        const defaultTranslationCode = translations.value.find((translation) => translation.is_default)?.code
+            ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
+            ?? translations.value[0]?.code
+            ?? 'L1_RST';
+
+        if (!translations.value.some((translation) => translation.code === selectedTranslationCode.value)) {
+            selectedTranslationCode.value = defaultTranslationCode;
+        }
+
+        if (compareTranslationCode.value && !translations.value.some((translation) => translation.code === compareTranslationCode.value)) {
+            compareTranslationCode.value = '';
+        }
+    })()
+        .catch((error) => {
+            apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
+            readerCatalogPromise = null;
+            throw error;
+        })
+        .finally(() => {
+            isLoading.value = false;
+        });
+
+    return readerCatalogPromise;
+}
+
+function openHomeSection(panel: LeftPanelId): void {
+    activeLeftPanel.value = null;
+    toggleLeftPanel(panel);
 }
 
 function closeReaderMenu(): void {
@@ -1259,7 +1350,7 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
     const bookSlug = state.bookSlug ?? selectedBookSlug.value;
     const chapterNumber = Math.max(1, Number(state.chapterNumber ?? selectedChapterNumber.value));
     const contentMode = state.contentMode ?? 'chapter';
-    const contentId = contentMode === 'chapter' ? null : state.contentId ?? null;
+    const contentId = contentMode === 'chapter' || contentMode === 'home' ? null : state.contentId ?? null;
 
     return {
         id: state.id ?? createClientId(),
@@ -1270,6 +1361,15 @@ function createReaderTab(state: Partial<ReaderTab> = {}): ReaderTab {
         contentMode,
         contentId,
     };
+}
+
+function createHomeTab(): ReaderTab {
+    return createReaderTab({
+        id: 'home',
+        title: 'Главная',
+        contentMode: 'home',
+        contentId: null,
+    });
 }
 
 function createClientId(): string {
@@ -1308,7 +1408,7 @@ function normalizeReaderTabs(tabs: unknown): ReaderTab[] {
                 ? candidate.contentId
                 : null;
 
-            if (contentMode !== 'chapter' && contentId === null) {
+            if (contentMode !== 'chapter' && contentMode !== 'home' && contentId === null) {
                 return null;
             }
 
@@ -1327,7 +1427,8 @@ function normalizeReaderTabs(tabs: unknown): ReaderTab[] {
 }
 
 function isMainContentMode(value: unknown): value is MainContentMode {
-    return value === 'chapter'
+    return value === 'home'
+        || value === 'chapter'
         || value === 'prayer'
         || value === 'faith-question'
         || value === 'recipe'
@@ -1361,10 +1462,10 @@ function setActiveTabContent(mode: MainContentMode, title: string | null = null,
 
     tab.contentMode = mode;
     tab.title = title ?? (mode === 'chapter' ? currentTitle.value : tab.title);
-    tab.contentId = mode === 'chapter' ? null : contentId ?? tab.contentId;
+    tab.contentId = mode === 'chapter' || mode === 'home' ? null : contentId ?? tab.contentId;
 }
 
-function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string, contentId: number): void {
+function openContentTab(mode: Exclude<MainContentMode, 'home' | 'chapter'>, title: string, contentId: number): void {
     syncActiveTabFromSelection();
 
     const tab = activeReaderTab();
@@ -1391,6 +1492,15 @@ function openContentTab(mode: Exclude<MainContentMode, 'chapter'>, title: string
 }
 
 async function restoreContentTab(tab: ReaderTab): Promise<void> {
+    if (tab.contentMode === 'home') {
+        mainContentMode.value = 'home';
+        isStudyPanelOpen.value = false;
+        activeLeftPanel.value = null;
+        closeReaderMenu();
+        void loadHomeSummary();
+        return;
+    }
+
     if (tab.contentMode === 'chapter' || tab.contentId === null) {
         return;
     }
@@ -1671,6 +1781,10 @@ function toggleLeftPanel(panel: LeftPanelId): void {
 
     if (activeLeftPanel.value === 'calendar') {
         void loadCalendarDay();
+    }
+
+    if (activeLeftPanel.value === 'library') {
+        void ensureReaderCatalog();
     }
 
     if (activeLeftPanel.value === 'prayers') {
@@ -2399,6 +2513,8 @@ async function loadCompareChapter(): Promise<void> {
 }
 
 async function loadBooksForSelectedTranslation(): Promise<void> {
+    await ensureReaderCatalog();
+
     if (!selectedTranslationCode.value) {
         books.value = [];
 
@@ -2530,6 +2646,7 @@ async function addReaderTab(): Promise<void> {
         return;
     }
 
+    await ensureReaderCatalog();
     syncActiveTabFromSelection();
     const tab = createReaderTab({
         translationCode: selectedTranslationCode.value,
@@ -2697,7 +2814,9 @@ function changeReaderTabFromSelect(event: Event): void {
 }
 
 async function closeReaderTab(tabId: string): Promise<void> {
-    if (readerTabs.value.length <= 1) {
+    const closingTab = readerTabs.value.find((tab) => tab.id === tabId);
+
+    if (readerTabs.value.length <= 1 || closingTab?.contentMode === 'home') {
         return;
     }
 
@@ -3272,68 +3391,60 @@ async function openCrossReference(reference: CrossReferenceDto): Promise<void> {
 }
 
 onMounted(async () => {
-    try {
-        scheduleMobileStudyActionsHint();
-        readerFontSize.value = readReaderFontSize();
-        const savedState = readReaderState();
-        const urlState = readUrlState();
-        bookmarks.value = readBookmarks();
-        viewHistory.value = readHistory();
-        const [languagesResponse, translationsResponse] = await Promise.all([
-            loadJson<ApiResponse<LanguageDto[]>>('/api/languages'),
-            loadJson<ApiResponse<TranslationDto[]>>('/api/translations'),
-        ]);
+    scheduleMobileStudyActionsHint();
+    readerFontSize.value = readReaderFontSize();
+    const savedState = readReaderState();
+    const urlState = readUrlState();
+    bookmarks.value = readBookmarks();
+    viewHistory.value = readHistory();
 
-        languages.value = languagesResponse.data;
-        translations.value = translationsResponse.data;
-        const defaultTranslationCode = translations.value.find((translation) => translation.is_default)?.code
-            ?? translations.value.find((translation) => translation.code === 'L1_RST')?.code
-            ?? translations.value[0]?.code
-            ?? 'L1_RST';
-        selectedTranslationCode.value = urlState.translationCode && translations.value.some((translation) => translation.code === urlState.translationCode)
-            ? urlState.translationCode
-            : savedState && translations.value.some((translation) => translation.code === savedState.translationCode)
-                ? savedState.translationCode
-            : defaultTranslationCode;
-        compareTranslationCode.value = savedState?.compareTranslationCode && translations.value.some((translation) => translation.code === savedState.compareTranslationCode)
-            ? savedState.compareTranslationCode
-            : '';
-        selectedBookSlug.value = urlState.bookSlug ?? savedState?.bookSlug ?? selectedBookSlug.value;
-        selectedChapterNumber.value = urlState.chapterNumber ?? savedState?.chapterNumber ?? selectedChapterNumber.value;
-        highlightedVerseNumbers.value = urlState.verses ?? [];
-        readerTabs.value = savedState?.tabs?.length
-            ? savedState.tabs
-            : [createReaderTab({
+    selectedTranslationCode.value = urlState.translationCode
+        ?? savedState?.translationCode
+        ?? selectedTranslationCode.value;
+    compareTranslationCode.value = savedState?.compareTranslationCode ?? '';
+    selectedBookSlug.value = urlState.bookSlug ?? savedState?.bookSlug ?? selectedBookSlug.value;
+    selectedChapterNumber.value = Math.max(1, Number(urlState.chapterNumber ?? savedState?.chapterNumber ?? selectedChapterNumber.value));
+    highlightedVerseNumbers.value = urlState.verses ?? [];
+
+    const savedTabs = (savedState?.tabs ?? [])
+        .filter((tab) => tab.contentMode !== 'home')
+        .slice(0, maxReaderTabs - 1);
+    const homeTab = createHomeTab();
+    readerTabs.value = [homeTab, ...savedTabs];
+    activeTabId.value = homeTab.id;
+    mainContentMode.value = 'home';
+    isStudyPanelOpen.value = false;
+    void loadHomeSummary();
+
+    try {
+        const hasDirectReaderTarget = Boolean(
+            urlState.bookSlug
+            && Number.isInteger(urlState.chapterNumber)
+            && Number(urlState.chapterNumber) > 0,
+        );
+
+        if (hasDirectReaderTarget) {
+            const directTab = createReaderTab({
                 translationCode: selectedTranslationCode.value,
                 bookSlug: selectedBookSlug.value,
                 chapterNumber: selectedChapterNumber.value,
-            })];
-        activeTabId.value = savedState?.activeTabId && readerTabs.value.some((tab) => tab.id === savedState.activeTabId)
-            ? savedState.activeTabId
-            : readerTabs.value[0]?.id ?? '';
-        const initialTab = activeReaderTab();
-        if (initialTab && translations.value.some((translation) => translation.code === initialTab.translationCode)) {
-            selectedTranslationCode.value = initialTab.translationCode;
-            selectedBookSlug.value = initialTab.bookSlug;
-            selectedChapterNumber.value = initialTab.chapterNumber;
-            mainContentMode.value = initialTab.contentMode;
-        }
-
-        if (initialTab && initialTab.contentMode !== 'chapter') {
-            await restoreContentTab(initialTab);
-        } else {
+            });
+            readerTabs.value.push(directTab);
+            activeTabId.value = directTab.id;
+            mainContentMode.value = 'chapter';
             await loadBooksForSelectedTranslation();
+
             if (!books.value.some((book) => book.slug === selectedBookSlug.value)) {
                 selectedBookSlug.value = books.value.find((book) => book.slug === 'genesis')?.slug ?? books.value[0]?.slug ?? 'genesis';
             }
+
             await loadChapter(highlightedVerseNumbers.value[0] ?? null);
             syncActiveTabFromSelection();
         }
+
         persistReaderState();
     } catch (error) {
         apiError.value = error instanceof Error ? error.message : 'Не удалось загрузить справочник';
-    } finally {
-        isLoading.value = false;
     }
 });
 
@@ -3515,7 +3626,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     {{ tab.title }}
                 </button>
                 <button
-                    v-if="readerTabs.length > 1"
+                    v-if="readerTabs.length > 1 && tab.contentMode !== 'home'"
                     type="button"
                     class="reader-tab-close"
                     aria-label="Закрыть вкладку"
@@ -3547,8 +3658,16 @@ watch([selectedBookSlug, socialFeedScope], () => {
             </button>
         </nav>
 
-            <main class="reader-layout" :class="{ 'has-left-panel': activeLeftPanel !== null, 'mobile-tools-open': isMobileToolRailOpen }">
+            <main
+                class="reader-layout"
+                :class="{
+                    'has-left-panel': activeLeftPanel !== null,
+                    'mobile-tools-open': isMobileToolRailOpen,
+                    'home-mode': mainContentMode === 'home',
+                }"
+            >
             <button
+                v-if="mainContentMode !== 'home'"
                 type="button"
                 class="mobile-tool-toggle"
                 :class="{ open: isMobileToolRailOpen }"
@@ -3560,7 +3679,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 {{ isMobileToolRailOpen ? '↓' : '↑' }}
             </button>
 
-            <aside id="reader-tool-rail" class="tool-rail" aria-label="Инструменты">
+            <aside v-if="mainContentMode !== 'home'" id="reader-tool-rail" class="tool-rail" aria-label="Инструменты">
                 <button
                     v-for="tool in leftTools"
                     :key="tool.id"
@@ -3647,7 +3766,8 @@ watch([selectedBookSlug, socialFeedScope], () => {
                                 <span>{{ moduleCardDescription(translation) }}</span>
                             </span>
                         </button>
-                        <p v-if="translations.length === 0">Библии пока не загружены.</p>
+                        <p v-if="isLoading">Загружаю библиотеку...</p>
+                        <p v-else-if="translations.length === 0">Библии пока не загружены.</p>
                     </div>
                 </section>
 
@@ -3954,7 +4074,7 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </select>
                     <button
                         type="button"
-                        :disabled="readerTabs.length <= 1"
+                        :disabled="readerTabs.length <= 1 || mainContentMode === 'home'"
                         aria-label="Закрыть вкладку"
                         title="Закрыть вкладку"
                         @click="closeReaderTab(activeTabId)"
@@ -4122,7 +4242,38 @@ watch([selectedBookSlug, socialFeedScope], () => {
                     </div>
                 </div>
 
-                <article v-if="mainContentMode === 'prayer' && selectedPrayer" class="content-reader prayer-reader">
+                <article v-if="mainContentMode === 'home'" class="content-reader home-dashboard">
+                    <header class="home-dashboard-header">
+                        <img :src="'/brand/favicon-192.png'" alt="" />
+                        <div>
+                            <span>Bible Desktop</span>
+                            <h2>Слово Божие каждый день</h2>
+                            <p>Выберите раздел. Библиотека и тексты загрузятся только тогда, когда понадобятся.</p>
+                        </div>
+                    </header>
+
+                    <p v-if="homeError" class="reader-status error">{{ homeError }}</p>
+                    <section class="home-card-grid" aria-label="Разделы Bible Desktop">
+                        <button
+                            v-for="card in homeCards"
+                            :key="card.panel"
+                            type="button"
+                            class="home-card"
+                            @click="openHomeSection(card.panel)"
+                        >
+                            <img :src="toolIconUrl(card.icon)" alt="" />
+                            <span class="home-card-content">
+                                <strong>{{ card.title }}</strong>
+                                <small>{{ card.description }}</small>
+                            </span>
+                            <span v-if="card.count !== undefined" class="home-card-count">
+                                {{ isHomeLoading && homeSummary === null ? '…' : card.count }}
+                            </span>
+                        </button>
+                    </section>
+                </article>
+
+                <article v-else-if="mainContentMode === 'prayer' && selectedPrayer" class="content-reader prayer-reader">
                     <header>
                         <span>{{ prayerCategoryLabel(selectedPrayer.category) }}</span>
                         <h2>{{ selectedPrayer.title }}</h2>

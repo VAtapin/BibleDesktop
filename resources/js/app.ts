@@ -24,5 +24,12 @@ async function initializeVkMiniApp(): Promise<void> {
     }
 }
 
-void initializeVkMiniApp();
-createApp(BibleDesktopApp).mount('#app');
+async function startApplication(): Promise<void> {
+    await Promise.race([
+        initializeVkMiniApp(),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 800)),
+    ]);
+    createApp(BibleDesktopApp).mount('#app');
+}
+
+void startApplication();

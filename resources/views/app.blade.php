@@ -43,6 +43,35 @@
         @vite(['resources/js/app.ts'])
     </head>
     <body @class(['embed-page' => $embed ?? false])>
-        <div id="app"></div>
+        <div id="app">
+            <div class="app-bootstrap" role="status" aria-label="Загрузка Bible Desktop">
+                <img src="/brand/favicon-192.png" alt="">
+                <strong>Bible Desktop</strong>
+                <span>Загрузка...</span>
+            </div>
+        </div>
+        <style>
+            .app-bootstrap {
+                min-height: 100dvh;
+                display: grid;
+                place-content: center;
+                justify-items: center;
+                gap: 10px;
+                color: #16395f;
+                font-family: Inter, "Segoe UI", sans-serif;
+                background: #eef2f5;
+            }
+            .app-bootstrap img {
+                width: 64px;
+                height: 64px;
+            }
+            .app-bootstrap strong {
+                font-size: 20px;
+            }
+            .app-bootstrap span {
+                color: #718096;
+                font-size: 13px;
+            }
+        </style>
     </body>
 </html>
