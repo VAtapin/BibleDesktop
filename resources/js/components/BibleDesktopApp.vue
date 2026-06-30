@@ -4028,7 +4028,20 @@ watch([selectedBookSlug, socialFeedScope], () => {
                 }"
             >
                 <div v-if="mainContentMode === 'chapter'" class="mini-reader-bar">
-                    <span>{{ currentTitle }}</span>
+                    <select
+                        :value="activeTabId"
+                        class="mini-tab-select"
+                        aria-label="Открытые вкладки"
+                        @change="changeReaderTabFromSelect"
+                    >
+                        <option
+                            v-for="tab in readerTabs"
+                            :key="`mini-reader-tab-${tab.id}`"
+                            :value="tab.id"
+                        >
+                            {{ tab.title }}
+                        </option>
+                    </select>
                     <select
                         v-model.number="selectedChapterNumber"
                         aria-label="Глава"
