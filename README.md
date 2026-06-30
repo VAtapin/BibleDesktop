@@ -5,6 +5,7 @@
 Проект должен объединять:
 
 * Web Application;
+* WebView for native applications;
 * REST API;
 * Telegram Bot;
 * Telegram Mini App;
@@ -124,6 +125,18 @@ npm install
 npm run typecheck
 npm run build
 ```
+
+Публичные варианты reader:
+
+```text
+/                    стандартная адаптивная версия для браузера, VK и OK
+/telegramm-mini-app  отдельная Telegram Mini App с Telegram WebApp SDK
+/webview             версия для нативных приложений через WebView без Telegram SDK
+/embed               совместимый alias для /webview
+```
+
+Старый маршрут `/mini-app` удалён. Стандартная страница и WebView не загружают
+`telegram.org`; Telegram SDK подключается только на `/telegramm-mini-app`.
 
 Docker services:
 

@@ -15,28 +15,43 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReaderDataController;
+use App\Http\Middleware\AllowReaderEmbedding;
 use App\Support\FooterPages;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('app', ['footerPages' => FooterPages::links()]);
-});
+    return view('app', [
+        'appSurface' => 'standard',
+        'footerPages' => FooterPages::links(),
+    ]);
+})->middleware(AllowReaderEmbedding::class);
 
 Route::get('/embed', function () {
     return view('app', [
         'embed' => true,
-        'embedSource' => request()->query('source'),
+        'appSurface' => 'webview',
+        'embedSource' => 'webview',
         'footerPages' => FooterPages::links(),
     ]);
-})->name('embed');
+})->middleware(AllowReaderEmbedding::class)->name('embed');
 
-Route::get('/mini-app', function () {
+Route::get('/telegramm-mini-app', function () {
     return view('app', [
         'embed' => true,
-        'embedSource' => request()->query('source', 'mini-app'),
+        'appSurface' => 'telegram',
+        'embedSource' => 'telegram',
         'footerPages' => FooterPages::links(),
     ]);
-})->name('mini-app');
+})->middleware(AllowReaderEmbedding::class)->name('telegram-mini-app');
+
+Route::get('/webview', function () {
+    return view('app', [
+        'embed' => true,
+        'appSurface' => 'webview',
+        'embedSource' => 'webview',
+        'footerPages' => FooterPages::links(),
+    ]);
+})->middleware(AllowReaderEmbedding::class)->name('webview');
 
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');
 

@@ -23,3 +23,9 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+<IfModule mod_headers.c>
+    SetEnvIf Request_URI "^/(|embed|telegramm-mini-app|webview)/?$" BIBLE_READER_FRAME=1
+    Header always unset X-Frame-Options env=BIBLE_READER_FRAME
+    Header always set Content-Security-Policy "frame-ancestors 'self' https://vk.com https://*.vk.com https://vk.ru https://*.vk.ru https://ok.ru https://*.ok.ru https://web.telegram.org https://*.telegram.org" env=BIBLE_READER_FRAME
+</IfModule>

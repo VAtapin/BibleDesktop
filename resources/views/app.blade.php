@@ -15,6 +15,7 @@
         'embed' => [
             'enabled' => (bool) ($embed ?? false),
             'source' => $embedSource ?? null,
+            'surface' => $appSurface ?? 'standard',
         ],
         'footer_pages' => $footerPages ?? [],
     ];
@@ -32,6 +33,13 @@
         <script>
             window.BibleDesktop = @json($appConfig);
         </script>
+        @if (($appSurface ?? 'standard') === 'telegram')
+            <script src="https://telegram.org/js/telegram-web-app.js"></script>
+            <script>
+                window.Telegram?.WebApp?.ready();
+                window.Telegram?.WebApp?.expand();
+            </script>
+        @endif
         @vite(['resources/js/app.ts'])
     </head>
     <body @class(['embed-page' => $embed ?? false])>

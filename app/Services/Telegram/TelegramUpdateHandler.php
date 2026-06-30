@@ -365,7 +365,7 @@ class TelegramUpdateHandler
             'inline_keyboard' => [
                 [
                     ['text' => '🗓 Церковный календарь', 'callback_data' => 'start:calendar'],
-                    ['text' => '📖 Библия', 'url' => "{$appUrl}/embed?source=telegram"],
+                    ['text' => '📖 Библия', 'url' => "{$appUrl}/telegramm-mini-app"],
                 ],
                 [
                     ['text' => '🔖 Закладки', 'url' => "{$appUrl}/dashboard"],
@@ -674,7 +674,7 @@ class TelegramUpdateHandler
         $buttons = $quizzes
             ->map(fn ($quiz): array => [[
                 'text' => (string) $quiz->title,
-                'url' => "{$appUrl}/embed?source=telegram&panel=quizzes&quiz={$quiz->id}",
+                'url' => "{$appUrl}/telegramm-mini-app?panel=quizzes&quiz={$quiz->id}",
             ]])
             ->values()
             ->all();

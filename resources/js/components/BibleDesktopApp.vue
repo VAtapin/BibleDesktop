@@ -440,6 +440,7 @@ declare global {
             embed: {
                 enabled: boolean;
                 source: string | null;
+                surface: 'standard' | 'telegram' | 'webview';
             };
             footer_pages: FooterPageLink[];
         };
@@ -462,12 +463,14 @@ const appConfig = window.BibleDesktop ?? {
     embed: {
         enabled: false,
         source: null,
+        surface: 'standard',
     },
     footer_pages: [],
 };
 const currentUser = ref<AppUser | null>(appConfig.user);
 const footerPages = ref<FooterPageLink[]>(appConfig.footer_pages ?? []);
 const isEmbed = computed(() => appConfig.embed?.enabled === true);
+const appSurface = computed(() => appConfig.embed?.surface ?? 'standard');
 const languages = ref<LanguageDto[]>([]);
 const translations = ref<TranslationDto[]>([]);
 const books = ref<ReaderBookDto[]>([]);
@@ -600,7 +603,7 @@ function defaultReaderFontSize(): number {
         return 15;
     }
 
-    return window.matchMedia('(max-width: 760px)').matches ? 16 : 15;
+    return window.matchMedia('(max-width: 1024px)').matches ? 16 : 15;
 }
 
 function isCompactReaderViewport(): boolean {
@@ -608,7 +611,7 @@ function isCompactReaderViewport(): boolean {
         return false;
     }
 
-    return window.matchMedia('(max-width: 760px), (max-width: 980px) and (max-height: 520px)').matches;
+    return window.matchMedia('(max-width: 1024px)').matches;
 }
 
 let mobileStudyActionsAutoTimer: number | undefined;
@@ -3334,8 +3337,15 @@ onMounted(async () => {
     }
 });
 
-watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
+watch(selectedTranslationCode, () => {
     calendarDay.value = null;
+
+    if (activeLeftPanel.value === 'calendar') {
+        void loadCalendarDay();
+    }
+});
+
+watch([selectedTranslationCode, compareTranslationCode, selectedBookSlug, selectedChapterNumber], () => {
     syncActiveTabFromSelection();
     persistReaderState();
 });
@@ -3368,7 +3378,15 @@ watch([selectedBookSlug, socialFeedScope], () => {
 </script>
 
 <template>
-    <div class="app-shell" :class="[{ 'embed-shell': isEmbed }, `reader-theme-${readerTheme}`]" :style="readerStyle">
+    <div
+        class="app-shell"
+        :class="[
+            { 'embed-shell': isEmbed },
+            `app-surface-${appSurface}`,
+            `reader-theme-${readerTheme}`,
+        ]"
+        :style="readerStyle"
+    >
         <header class="topbar">
             <a class="brand" href="/" aria-label="Bible Desktop - на главную">
                 <img class="brand-mark" :src="'/brand/bible-desktop-mark.png'" alt="" />

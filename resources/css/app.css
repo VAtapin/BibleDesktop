@@ -2616,7 +2616,7 @@ svg {
     }
 }
 
-@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
+@media (max-width: 1024px) {
     .app-shell {
         grid-template-rows: minmax(0, 1fr);
         height: 100dvh;
@@ -3043,7 +3043,7 @@ svg {
         bottom: calc(12px + env(safe-area-inset-bottom));
         left: 12px;
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr)) 32px;
         gap: 4px;
         min-height: 40px;
         border: 1px solid #c7d4e3;
@@ -3125,7 +3125,7 @@ svg {
     }
 
     .verse-study-actions.is-collapsed {
-        transform: translateX(calc(-100% + 34px));
+        transform: translateX(calc(-100% + 20px));
     }
 
     .verse-study-actions.is-pulsing {
@@ -3133,22 +3133,21 @@ svg {
     }
 
     .verse-study-actions .verse-study-actions-handle {
-        position: absolute;
-        top: 50%;
-        right: -32px;
+        position: static;
+        order: 5;
         display: grid;
         width: 32px;
-        height: 58px;
+        height: 32px;
         place-items: center;
-        border: 1px solid #c7d4e3;
-        border-left: 0;
-        border-radius: 0 10px 10px 0;
-        background: #ffffff;
+        border: 0;
+        border-left: 1px solid #c7d4e3;
+        border-radius: 0 6px 6px 0;
+        background: transparent;
         color: #315171;
-        box-shadow: 8px 0 18px rgb(36 52 72 / 18%);
-        font-size: 24px;
+        box-shadow: none;
+        padding: 0;
+        font-size: 22px;
         line-height: 1;
-        transform: translateY(-50%);
         touch-action: pan-y;
     }
 
@@ -3539,7 +3538,7 @@ svg {
     display: none;
 }
 
-@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
+@media (max-width: 1024px) {
     .verse-study-actions .verse-study-actions-handle {
         display: grid;
     }
@@ -3698,29 +3697,8 @@ svg {
         font-size: 8pt;
     }
 }
-@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
-    .reader-layout.has-left-panel .left-panel {
-        position: fixed;
-        top: 54px;
-        right: auto;
-        bottom: calc(78px + env(safe-area-inset-bottom));
-        left: 8px;
-        z-index: 45;
-        width: min(334px, calc(100vw - 58px));
-        height: auto;
-        max-height: calc(100dvh - 148px - env(safe-area-inset-bottom));
-        transform: translateX(0);
-        overflow: visible;
-        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-    }
-
-    .reader-layout.has-left-panel .left-panel > :not(header) {
-        overflow: auto;
-        min-height: 0;
-    }
-}
 /* Mobile reader drawer overrides live at the end so they win over the base responsive sheet. */
-@media (max-width: 760px), (max-width: 980px) and (max-height: 520px) {
+@media (max-width: 1024px) {
     .reader-layout.has-left-panel .left-panel {
         position: fixed;
         top: 54px;

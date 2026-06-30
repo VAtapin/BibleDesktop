@@ -51,10 +51,33 @@ class PublicPagesTest extends TestCase
             ->assertOk();
     }
 
-    public function test_embed_route_renders_reader_in_embed_mode(): void
+    public function test_standard_reader_allows_supported_frame_hosts_without_embed_mode(): void
     {
-        $this->get('/embed?source=telegram')
+        $this->get('/')
             ->assertOk()
-            ->assertSee('"embed":{"enabled":true,"source":"telegram"}', false);
+            ->assertHeaderMissing('X-Frame-Options')
+            ->assertHeader('Content-Security-Policy')
+            ->assertSee('"embed":{"enabled":false,"source":null,"surface":"standard"}', false);
+    }
+
+    public function test_telegram_mini_app_has_a_dedicated_surface(): void
+    {
+        $this->get('/telegramm-mini-app')
+            ->assertOk()
+            ->assertSee('"embed":{"enabled":true,"source":"telegram","surface":"telegram"}', false)
+            ->assertSee('https://telegram.org/js/telegram-web-app.js', false);
+    }
+
+    public function test_webview_has_a_dedicated_surface_without_telegram_sdk(): void
+    {
+        $this->get('/webview')
+            ->assertOk()
+            ->assertSee('"embed":{"enabled":true,"source":"webview","surface":"webview"}', false)
+            ->assertDontSee('https://telegram.org/js/telegram-web-app.js', false);
+    }
+
+    public function test_removed_generic_mini_app_route_returns_not_found(): void
+    {
+        $this->get('/mini-app')->assertNotFound();
     }
 }
