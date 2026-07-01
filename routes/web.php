@@ -54,10 +54,21 @@ Route::get('/webview', function () {
     ]);
 })->middleware(AllowReaderEmbedding::class)->name('webview');
 
+Route::get('/vk-mini-app', function () {
+    return view('app', [
+        'appSurface' => 'standard',
+        'embedSource' => 'vk',
+        'footerPages' => FooterPages::links(),
+    ]);
+})->middleware(AllowReaderEmbedding::class)->name('vk-mini-app');
+
 Route::get('/mini-app', function (Request $request) {
     $query = $request->getQueryString();
 
-    return redirect('/'.($query ? '?'.$query : ''), 301);
+    return redirect('/'.($query ? '?'.$query : ''), 302)
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
 })->name('legacy-mini-app');
 
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('pages.show');

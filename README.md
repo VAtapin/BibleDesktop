@@ -132,12 +132,16 @@ npm run build
 
 ```text
 /                    стандартная адаптивная версия для браузера, VK и OK
+/vk-mini-app         alias стандартной версии для обхода старого кэша VK
 /telegramm-mini-app  отдельная Telegram Mini App с Telegram WebApp SDK
 /webview             версия для нативных приложений через WebView без Telegram SDK
 /embed               совместимый alias для /webview
 ```
 
-Старый маршрут `/mini-app` перенаправляет на стандартную страницу `/`.
+Старый маршрут `/mini-app` временно перенаправляет на стандартную страницу `/`
+без постоянного кэширования. HTML reader отдается с `no-store`; Vite assets
+остаются безопасно кэшируемыми благодаря именам с content hash. Для уже
+закэшированного VK iframe используется `/vk-mini-app` с тем же стандартным UI.
 Стандартная страница и WebView не загружают `telegram.org`; Telegram SDK
 подключается только на `/telegramm-mini-app`. При запуске внутри VK официальный
 VK Bridge загружается из локальной Vite-сборки и отправляет `VKWebAppInit`;
